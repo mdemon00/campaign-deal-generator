@@ -1,0 +1,28 @@
+{
+  "name": "campaign-deal-generator",
+  "version": "1.0.0",
+  "description": "HubSpot UI Extension for Campaign Deal Generation",
+  "main": "index.js",
+  "scripts": {
+    "dev": "hs project dev",
+    "build": "hs project build",
+    "deploy": "hs project deploy"
+  },
+  "keywords": [
+    "hubspot",
+    "ui-extension",
+    "campaign",
+    "deals",
+    "crm"
+  ],
+  "author": "Your Company",
+  "license": "MIT",
+  "dependencies": {
+    "@hubspot/api-client": "^12.0.1",
+    "@hubspot/ui-extensions": "^0.8.39",
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "@hubspot/cli": "latest"
+  }
+}

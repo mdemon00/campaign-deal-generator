@@ -1,0 +1,16 @@
+{
+  "type": "crm-card",
+  "data": {
+    "title": "Campaign Deal Generator",
+    "uid": "Campaign_Deal_Generator_Card", 
+    "location": "crm.record.tab",
+    "module": {
+      "file": "CampaignDealGenerator.jsx"
+    },
+    "objectTypes": [
+      { "name": "deals" },
+      { "name": "companies" },
+      { "name": "p_campaign_deals" }
+    ]
+  }
+}

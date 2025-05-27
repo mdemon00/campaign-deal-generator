@@ -1,0 +1,8 @@
+{
+  "appFunctions": {
+    "testCampaignDeal": {
+      "file": "testCampaignDeal.js",
+      "secrets": []
+    }
+  }
+}

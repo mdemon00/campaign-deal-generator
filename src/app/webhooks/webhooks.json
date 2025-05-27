@@ -1,0 +1,21 @@
+{
+  "settings": {
+    "targetUrl": "https://example.com/webhook",
+    "maxConcurrentRequests": 10
+  },
+  "subscriptions": {
+    "crmObjects": [
+      {
+        "subscriptionType": "object.propertyChange",
+        "objectName": "deal",
+        "propertyName": "dealname",
+        "active": false
+      },
+      {
+        "subscriptionType": "object.creation",
+        "objectName": "deal",
+        "active": false
+      }
+    ]
+  }
+}
