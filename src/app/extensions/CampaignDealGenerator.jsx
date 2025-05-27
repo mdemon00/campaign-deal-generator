@@ -118,21 +118,28 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
   };
 
   return (
-    <Box>
-      <Divider />
-      <Heading>Campaign Deal Generator</Heading>
-      <Text variant="microcopy">Create and manage campaign deals - Basic Information & Details</Text>
-      <Divider />
+    <Flex direction="column" gap="large">
+      {/* Header Section */}
+      <Box>
+        <Divider />
+        <Heading>Campaign Deal Generator</Heading>
+        <Text variant="microcopy">Create and manage campaign deals - Basic Information & Details</Text>
+        <Divider />
+      </Box>
 
-      {/* Test Connection */}
-      {/* <TestConnection 
-        context={context}
-        runServerless={runServerless}
-        onResult={handleAlert}
-      /> */}
+      {/* Test Connection - Commented out but with proper spacing when enabled */}
+      {/* 
+      <Box>
+        <TestConnection 
+          context={context}
+          runServerless={runServerless}
+          onResult={handleAlert}
+        />
+      </Box>
+      */}
 
       {/* Basic Information Section */}
-      <Box marginTop="medium">
+      <Box>
         <BasicInformation
           formData={formData}
           onChange={handleFormChange}
@@ -140,16 +147,17 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
       </Box>
 
       {/* Campaign Details Section */}
-      <Box marginTop="medium">
+      <Box>
         <CampaignDetails
           formData={formData}
           onChange={handleFormChange}
         />
       </Box>
 
-      {/* Line Items Section - Commented out for now */}
+      {/* Line Items Section - Commented out with proper spacing for when it's enabled */}
       {/* 
-      <Box marginTop="medium">
+      <Divider />
+      <Box>
         <LineItems 
           lineItems={lineItems}
           onLineItemsChange={setLineItems}
@@ -158,9 +166,10 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
       </Box>
       */}
 
-      {/* Campaign Summary - Commented out for now */}
+      {/* Campaign Summary - Commented out with proper spacing for when it's enabled */}
       {/* 
-      <Box marginTop="medium">
+      <Divider />
+      <Box>
         <CampaignSummary 
           lineItems={lineItems}
           currency={formData.currency}
@@ -168,8 +177,8 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
       </Box>
       */}
 
-      {/* Form Actions */}
-      <Box marginTop="medium">
+      {/* Form Actions Section */}
+      <Box>
         <Flex gap="medium" justify="end">
           <Button
             variant="secondary"
@@ -194,7 +203,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
           {alertMessage.message}
         </Alert>
       )}
-    </Box>
+    </Flex>
   );
 };
 
