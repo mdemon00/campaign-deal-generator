@@ -3,6 +3,14 @@
     "testCampaignDeal": {
       "file": "testCampaignDeal.js",
       "secrets": []
+    },
+    "fetchCommercialAgreements": {
+      "file": "fetchCommercialAgreements.js",
+      "secrets": []
+    },
+    "searchCommercialAgreements": {
+      "file": "searchCommercialAgreements.js",
+      "secrets": []
     }
   }
 }

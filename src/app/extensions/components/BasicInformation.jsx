@@ -1,6 +1,7 @@
 // src/app/extensions/components/BasicInformation.jsx
+// Clean version with single searchable field
 
-import React from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Input,
   Select,
@@ -8,27 +9,149 @@ import {
   Box,
   Tile,
   Heading,
-  Divider
+  Divider,
+  Text,
+  Button
 } from "@hubspot/ui-extensions";
 
 import { 
   COMMERCIAL_AGREEMENTS,
   ADVERTISER_OPTIONS,
-  DEAL_OWNER_OPTIONS,
-  COMMERCIAL_AGREEMENT_MAPPING
+  DEAL_OWNER_OPTIONS
 } from '../utils/constants.js';
 
-const BasicInformation = ({ formData, onChange }) => {
-  
+const BasicInformation = ({ formData, onChange, runServerless }) => {
+  // State
+  const [agreements, setAgreements] = useState(COMMERCIAL_AGREEMENTS);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [useSearchMode, setUseSearchMode] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+
+  // Debounce function
+  const debounce = (func, wait) => {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  };
+
+  // Search function
+  const performSearch = async (term) => {
+    if (!runServerless) return;
+
+    setIsSearching(true);
+    setErrorMessage("");
+
+    try {
+      const response = await runServerless({
+        name: "searchCommercialAgreements",
+        parameters: {
+          searchTerm: term,
+          page: 1,
+          limit: 50
+        }
+      });
+
+      if (response && response.status === "SUCCESS" && response.response && response.response.data) {
+        const data = response.response.data;
+        setAgreements(data.options || COMMERCIAL_AGREEMENTS);
+        setHasMore(data.hasMore || false);
+        console.log(`🔍 Search results: ${data.totalCount} matches for "${term}"`);
+      } else {
+        throw new Error("Invalid search response");
+      }
+    } catch (error) {
+      console.error("Search error:", error);
+      setErrorMessage(`Search failed: ${error.message}`);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Load default agreements
+  const loadDefaultAgreements = async () => {
+    if (!runServerless) return;
+
+    setIsLoading(true);
+    setErrorMessage("");
+
+    try {
+      const response = await runServerless({
+        name: "searchCommercialAgreements",
+        parameters: {
+          loadAll: false,
+          limit: 20
+        }
+      });
+
+      if (response && response.status === "SUCCESS" && response.response && response.response.data) {
+        const data = response.response.data;
+        setAgreements(data.options || COMMERCIAL_AGREEMENTS);
+        setHasMore(data.hasMore || false);
+        console.log(`✅ Loaded ${data.totalCount} default agreements`);
+      } else {
+        throw new Error("Invalid response from server");
+      }
+    } catch (error) {
+      console.error("Error loading agreements:", error);
+      setErrorMessage(`Error: ${error.message}`);
+      setAgreements(COMMERCIAL_AGREEMENTS);
+    } finally {
+      setIsLoading(false);
+      setHasLoaded(true);
+    }
+  };
+
+  // Debounced search
+  const debouncedSearch = useCallback(
+    debounce((term) => {
+      if (term.trim() === "") {
+        loadDefaultAgreements();
+        setUseSearchMode(false);
+      } else {
+        performSearch(term.trim());
+        setUseSearchMode(true);
+      }
+    }, 500),
+    [runServerless]
+  );
+
+  // Initial load
+  useEffect(() => {
+    if (runServerless && !hasLoaded) {
+      loadDefaultAgreements();
+    }
+  }, [runServerless, hasLoaded]);
+
+  // Handle search input change
+  const handleSearchChange = (value) => {
+    setSearchTerm(value);
+    debouncedSearch(value);
+  };
+
+  // Handle agreement selection
   const handleCommercialAgreementChange = (value) => {
-    const mapping = COMMERCIAL_AGREEMENT_MAPPING[value];
+    const selectedAgreement = agreements.find(agreement => agreement.value === value);
     
-    // Update multiple fields when commercial agreement changes
     onChange('commercialAgreement', value);
     
-    if (mapping) {
-      onChange('company', mapping.company);
-      onChange('currency', mapping.currency);
+    if (selectedAgreement && selectedAgreement.value !== "") {
+      // Set search term to show selected agreement name
+      setSearchTerm(selectedAgreement.label);
+      setUseSearchMode(false);
+      
+      // Auto-populate company and currency
+      onChange('company', selectedAgreement.company || '');
+      onChange('currency', selectedAgreement.currency || '');
     } else {
       onChange('company', '');
       onChange('currency', '');
@@ -41,6 +164,44 @@ const BasicInformation = ({ formData, onChange }) => {
     } else {
       onChange(field, value);
     }
+  };
+
+  // Switch to browse mode
+  const switchToBrowseMode = () => {
+    setUseSearchMode(false);
+    setSearchTerm("");
+    loadDefaultAgreements();
+  };
+
+  // Switch to search mode
+  const switchToSearchMode = () => {
+    setUseSearchMode(true);
+    setSearchTerm("");
+  };
+
+  // Clear selection
+  const clearSelection = () => {
+    setSearchTerm("");
+    onChange('commercialAgreement', '');
+    onChange('company', '');
+    onChange('currency', '');
+    setUseSearchMode(false);
+    loadDefaultAgreements();
+  };
+
+  // Get status message
+  const getStatusMessage = () => {
+    if (isSearching) return "Searching agreements...";
+    if (isLoading) return "Loading agreements...";
+    if (useSearchMode && searchTerm) {
+      const count = agreements.length > 1 ? agreements.length - 1 : 0;
+      return `${count} matches for "${searchTerm}"`;
+    }
+    if (agreements.length > 1) {
+      const count = agreements.length - 1;
+      return `${count} agreements available${hasMore ? ' (load more below)' : ''}`;
+    }
+    return "";
   };
 
   return (
@@ -60,15 +221,116 @@ const BasicInformation = ({ formData, onChange }) => {
               required
             />
           </Box>
+          
           <Box flex={1} minWidth="250px">
-            <Select
-              label="Commercial Agreement *"
-              name="commercialAgreement"
-              options={COMMERCIAL_AGREEMENTS}
-              value={formData.commercialAgreement}
-              onChange={(value) => handleFieldChange("commercialAgreement", value)}
-              required
-            />
+            {/* Mode Toggle Buttons */}
+            <Flex gap="small" marginBottom="small">
+              <Button
+                variant={!useSearchMode ? "primary" : "secondary"}
+                size="xs"
+                onClick={switchToBrowseMode}
+                disabled={isLoading}
+              >
+                📋 Browse
+              </Button>
+              <Button
+                variant={useSearchMode ? "primary" : "secondary"}
+                size="xs"
+                onClick={switchToSearchMode}
+                disabled={isLoading}
+              >
+                🔍 Search
+              </Button>
+              {(formData.commercialAgreement || searchTerm) && (
+                <Button
+                  variant="secondary"
+                  size="xs"
+                  onClick={clearSelection}
+                >
+                  ✕ Clear
+                </Button>
+              )}
+            </Flex>
+
+            {/* Search Mode: Input field */}
+            {useSearchMode ? (
+              <Input
+                label="Search Commercial Agreements *"
+                name="searchAgreements"
+                placeholder="Type agreement name to search..."
+                value={searchTerm}
+                onChange={handleSearchChange}
+                disabled={isLoading || isSearching}
+              />
+            ) : (
+              /* Browse Mode: Dropdown */
+              <Select
+                label="Commercial Agreement *"
+                name="commercialAgreement"
+                options={agreements}
+                value={formData.commercialAgreement}
+                onChange={(value) => handleFieldChange("commercialAgreement", value)}
+                required
+                disabled={isLoading}
+              />
+            )}
+
+            {/* Search Results for Search Mode */}
+            {useSearchMode && searchTerm && agreements.length > 1 && (
+              <Box marginTop="small">
+                <Select
+                  label="Select from search results"
+                  name="searchResults"
+                  options={agreements}
+                  value={formData.commercialAgreement}
+                  onChange={(value) => handleFieldChange("commercialAgreement", value)}
+                  disabled={isSearching}
+                />
+              </Box>
+            )}
+
+            {/* Status Message */}
+            {getStatusMessage() && (
+              <Text variant="microcopy" format={{ color: 'medium' }}>
+                {getStatusMessage()}
+              </Text>
+            )}
+
+            {/* Load More for Browse Mode */}
+            {!useSearchMode && hasMore && (
+              <Box marginTop="small">
+                <Button 
+                  variant="secondary"
+                  size="xs"
+                  onClick={() => {
+                    // Load more functionality would go here
+                    console.log("Load more clicked");
+                  }}
+                  disabled={isLoading}
+                >
+                  Load More Agreements
+                </Button>
+              </Box>
+            )}
+            
+            {/* Error Message */}
+            {errorMessage && (
+              <Box marginTop="extra-small">
+                <Text variant="microcopy" format={{ color: 'error' }}>
+                  {errorMessage}
+                </Text>
+                <Box marginTop="extra-small">
+                  <Button 
+                    variant="secondary" 
+                    size="xs"
+                    onClick={loadDefaultAgreements}
+                    disabled={isLoading}
+                  >
+                    Retry
+                  </Button>
+                </Box>
+              </Box>
+            )}
           </Box>
         </Flex>
 

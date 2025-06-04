@@ -143,6 +143,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
         <BasicInformation
           formData={formData}
           onChange={handleFormChange}
+          runServerless={runServerless}  // This passes it to BasicInformation
         />
       </Box>
 
