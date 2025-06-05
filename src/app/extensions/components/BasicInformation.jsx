@@ -1,5 +1,5 @@
 // src/app/extensions/components/BasicInformation.jsx
-// Clean version with single searchable field
+// Updated version with company association handling
 
 import React, { useState, useEffect, useCallback } from "react";
 import {
@@ -30,6 +30,7 @@ const BasicInformation = ({ formData, onChange, runServerless }) => {
   const [errorMessage, setErrorMessage] = useState("");
   const [useSearchMode, setUseSearchMode] = useState(false);
   const [hasMore, setHasMore] = useState(false);
+  const [companyStatus, setCompanyStatus] = useState(""); // Track company association status
 
   // Debounce function
   const debounce = (func, wait) => {
@@ -138,7 +139,7 @@ const BasicInformation = ({ formData, onChange, runServerless }) => {
     debouncedSearch(value);
   };
 
-  // Handle agreement selection
+  // Handle agreement selection with enhanced company handling
   const handleCommercialAgreementChange = (value) => {
     const selectedAgreement = agreements.find(agreement => agreement.value === value);
     
@@ -149,12 +150,26 @@ const BasicInformation = ({ formData, onChange, runServerless }) => {
       setSearchTerm(selectedAgreement.label);
       setUseSearchMode(false);
       
-      // Auto-populate company and currency
-      onChange('company', selectedAgreement.company || '');
-      onChange('currency', selectedAgreement.currency || '');
+      // Handle company association
+      if (selectedAgreement.hasCompany === false) {
+        // No company associated
+        onChange('company', 'No company found');
+        onChange('currency', '');
+      } else if (selectedAgreement.company && selectedAgreement.company !== 'No company found') {
+        // Company found
+        onChange('company', selectedAgreement.company);
+        onChange('currency', selectedAgreement.currency || '');
+      } else {
+        // Unknown status
+        onChange('company', 'Loading company...');
+        setCompanyStatus("🔄 Fetching company information...");
+        onChange('currency', '');
+      }
     } else {
+      // No agreement selected
       onChange('company', '');
       onChange('currency', '');
+      setCompanyStatus("");
     }
   };
 
@@ -185,6 +200,7 @@ const BasicInformation = ({ formData, onChange, runServerless }) => {
     onChange('commercialAgreement', '');
     onChange('company', '');
     onChange('currency', '');
+    setCompanyStatus("");
     setUseSearchMode(false);
     loadDefaultAgreements();
   };
@@ -202,6 +218,16 @@ const BasicInformation = ({ formData, onChange, runServerless }) => {
       return `${count} agreements available${hasMore ? ' (load more below)' : ''}`;
     }
     return "";
+  };
+
+  // Get company display style based on status
+  const getCompanyInputStyle = () => {
+    if (formData.company === 'No company found') {
+      return { color: '#d73a49', fontStyle: 'italic' };
+    } else if (formData.company && formData.company !== 'Loading company...') {
+      return { color: '#28a745', fontWeight: '500' };
+    }
+    return {};
   };
 
   return (
@@ -343,7 +369,23 @@ const BasicInformation = ({ formData, onChange, runServerless }) => {
                 placeholder="Auto-populated from agreement"
                 value={formData.company}
                 readOnly
+                style={getCompanyInputStyle()}
               />
+              
+              {/* Company Status Message */}
+              {companyStatus && (
+                <Box marginTop="extra-small">
+                  <Text 
+                    variant="microcopy" 
+                    format={{ 
+                      color: companyStatus.includes('No company') ? 'error' : 
+                             companyStatus.includes('Company:') ? 'success' : 'medium'
+                    }}
+                  >
+                    {companyStatus}
+                  </Text>
+                </Box>
+              )}
             </Box>
             <Box flex={1} minWidth="250px">
               <Select
@@ -375,6 +417,7 @@ const BasicInformation = ({ formData, onChange, runServerless }) => {
                 label="Currency"
                 name="currency"
                 value={formData.currency}
+                placeholder={formData.company === 'No company found' ? 'No currency available' : 'Auto-populated'}
                 readOnly
               />
             </Box>
