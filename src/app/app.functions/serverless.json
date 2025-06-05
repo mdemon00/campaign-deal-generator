@@ -19,6 +19,18 @@
     "searchDealOwners": {
       "file": "searchDealOwners.js",
       "secrets": []
+    },
+    "saveBasicInformation": {
+      "file": "saveBasicInformation.js",
+      "secrets": []
+    },
+    "loadBasicInformation": {
+      "file": "loadBasicInformation.js",
+      "secrets": []
+    },
+    "checkSaveStatus": {
+      "file": "checkSaveStatus.js",
+      "secrets": []
     }
   }
 }

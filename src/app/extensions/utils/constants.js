@@ -14,13 +14,10 @@ export const ADVERTISER_OPTIONS = [
   { label: "L'Oreal", value: "loreal" },
 ];
 
-// Fallback deal owner options (used when dynamic loading fails)
 export const DEAL_OWNER_OPTIONS = [
   { label: "Select Deal Owner", value: "" },
   { label: "Julio Salvide", value: "julio_salvide" },
-  { label: "Maria Garcia", value: "maria_garcia" },
-  { label: "Carlos Rodriguez", value: "carlos_rodriguez" },
-  { label: "Ana Martinez", value: "ana_martinez" }
+  { label: "Maria Garcia", value: "maria_garcia" }
 ];
 
 export const CAMPAIGN_TYPE_OPTIONS = [
@@ -67,8 +64,8 @@ export const COMMERCIAL_AGREEMENT_MAPPING = {
 // HubSpot Object IDs
 export const HUBSPOT_OBJECT_IDS = {
   COMMERCIAL_AGREEMENTS: "2-39552013",
-  ADVERTISERS: "2-40333244"
-  // Note: Deal Owners use the HubSpot CRM Owners API v3, not a custom object
+  ADVERTISERS: "2-40333244",
+  CAMPAIGN_DEALS: "2-45275187" // ✅ Your Campaign Deal Object ID
 };
 
 // Form field validation rules
@@ -110,10 +107,43 @@ export const SEARCH_DEFAULTS = {
   DEBOUNCE_DELAY: 500
 };
 
-// Deal Owner specific configuration
-export const DEAL_OWNER_CONFIG = {
-  INCLUDE_INACTIVE: false, // Whether to include inactive/archived users by default
-  DISPLAY_EMAIL: true,     // Whether to show email in display name
-  SORT_BY: 'displayName',  // How to sort the results
-  API_ENDPOINT: 'crm.owners.basicApi' // Uses HubSpot CRM Owners API v3
+// === NEW: Save Status Constants ===
+
+// Save status enumeration values (must match HubSpot property exactly)
+export const SAVE_STATUS = {
+  NOT_SAVED: "not_saved",   // ✅ Matches HubSpot
+  SAVED: "Saved",           // ✅ Fixed: Capital S to match HubSpot
+  IN_PROGRESS: "in_progress" // ✅ Matches HubSpot
+};
+
+// Component save states (for UI state management)
+export const COMPONENT_SAVE_STATES = {
+  NOT_SAVED: "not_saved",     // Never saved, show empty form
+  SAVED: "saved",             // Saved, show populated form + "saved" indicator  
+  MODIFIED: "modified",       // Saved but user modified, show "save" button
+  SAVING: "saving",           // Currently saving, show loading
+  LOADING: "loading",         // Loading saved data
+  ERROR: "error"              // Save/load failed, show error message
+};
+
+// Save status display messages
+export const SAVE_STATUS_MESSAGES = {
+  [SAVE_STATUS.NOT_SAVED]: "📝 Ready to fill basic information",
+  [SAVE_STATUS.SAVED]: "✅ Basic information saved",      // ✅ Fixed: Capital S
+  [SAVE_STATUS.IN_PROGRESS]: "🔄 Save in progress...",
+  [COMPONENT_SAVE_STATES.MODIFIED]: "⚠️ You have unsaved changes",
+  [COMPONENT_SAVE_STATES.SAVING]: "💾 Saving...",
+  [COMPONENT_SAVE_STATES.LOADING]: "📖 Loading...",
+  [COMPONENT_SAVE_STATES.ERROR]: "❌ Error occurred"
+};
+
+// Save status colors for UI
+export const SAVE_STATUS_COLORS = {
+  [SAVE_STATUS.NOT_SAVED]: "medium",
+  [SAVE_STATUS.SAVED]: "success",      // ✅ Fixed: Capital S
+  [SAVE_STATUS.IN_PROGRESS]: "warning",
+  [COMPONENT_SAVE_STATES.MODIFIED]: "warning",
+  [COMPONENT_SAVE_STATES.SAVING]: "medium",
+  [COMPONENT_SAVE_STATES.LOADING]: "medium",
+  [COMPONENT_SAVE_STATES.ERROR]: "error"
 };
