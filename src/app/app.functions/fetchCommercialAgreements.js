@@ -5,57 +5,26 @@ exports.main = async (context) => {
   const hubspotClient = new hubspot.Client({ accessToken });
 
   try {
-    console.log('🔍 Fetching Commercial Agreements...');
+    const {
+      searchTerm = "",
+      page = 1,
+      limit = 20,
+      loadAll = false
+    } = context.parameters;
 
-    const COMMERCIAL_AGREEMENTS_OBJECT_ID = "2-39552013";
+    const ADVERTISERS_OBJECT_ID = "2-40333244";
 
-    // Fetch commercial agreements with status field
-    const agreements = await hubspotClient.crm.objects.basicApi.getPage(
-      COMMERCIAL_AGREEMENTS_OBJECT_ID,
-      50, // Limit to 50 for performance
-      undefined,
-      ['status'] // Use status field as agreement name
-    );
-
-    // Transform the data for dropdown options
-    const agreementOptions = agreements.results
-      .map((agreement, index) => {
-        const status = agreement.properties.status;
-        
-        // Use status if available, otherwise use a fallback name
-        const displayName = status && status.trim() !== '' 
-          ? status 
-          : `Agreement ${index + 1}`;
-        
-        return {
-          label: displayName,
-          value: agreement.id,
-          company: '', // Will be populated when proper field names are added
-          currency: '', // Will be populated when proper field names are added
-          country: ''  // Will be populated when proper field names are added
-        };
-      })
-      .sort((a, b) => a.label.localeCompare(b.label));
-
-    // Add the default "Select" option at the beginning
-    const options = [
-      { label: "Select Commercial Agreement", value: "" },
-      ...agreementOptions
-    ];
-
-    console.log(`✅ Successfully processed ${agreementOptions.length} commercial agreements`);
-
-    return {
-      status: "SUCCESS",
-      data: {
-        options: options,
-        totalCount: agreementOptions.length,
-        timestamp: Date.now()
-      }
-    };
+    // Determine search strategy
+    if (searchTerm && searchTerm.trim() !== "") {
+      return await searchAdvertisers(hubspotClient, ADVERTISERS_OBJECT_ID, searchTerm.trim());
+    } else if (loadAll) {
+      return await getPaginatedAdvertisers(hubspotClient, ADVERTISERS_OBJECT_ID, page, limit);
+    } else {
+      return await getDefaultAdvertisers(hubspotClient, ADVERTISERS_OBJECT_ID, limit);
+    }
 
   } catch (error) {
-    console.error("❌ Error fetching commercial agreements:", error);
+    console.error("❌ Error in advertiser search function:", error);
     return {
       status: "ERROR",
       message: error.message,
@@ -64,3 +33,735 @@ exports.main = async (context) => {
     };
   }
 };
+
+/**
+ * Fetch associated company details for an advertiser
+ */
+async function fetchAssociatedCompany(hubspotClient, advertiserId) {
+  try {
+    const associations = await hubspotClient.crm.associations.v4.basicApi.getPage(
+      "2-40333244",
+      advertiserId,
+      "companies"
+    );
+
+    if (associations.results && associations.results.length > 0) {
+      const companyId = associations.results[0].toObjectId;
+
+      const company = await hubspotClient.crm.companies.basicApi.getById(
+        companyId,
+        ['name', 'domain', 'country']
+      );
+
+      return {
+        id: company.id,
+        name: company.properties.name || 'Unnamed Company',
+        domain: company.properties.domain || '',
+        country: company.properties.country || ''
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.warn(`Could not fetch company for advertiser ${advertiserId}:`, error.message);
+    return null;
+  }
+}
+
+/**
+ * Process advertiser data with company information
+ */
+async function processAdvertiserWithCompany(hubspotClient, advertiser, index) {
+  // Try common field names for advertiser name with priority order
+  const name = advertiser.properties.advertiser ||
+    advertiser.properties.name ||
+    advertiser.properties.advertiser_name ||
+    advertiser.properties.title ||
+    advertiser.properties.label ||
+    advertiser.properties.display_name ||
+    advertiser.properties.company_name ||
+    advertiser.properties.brand_name ||
+    advertiser.properties.client_name ||
+    advertiser.properties.account_name ||
+    advertiser.properties.business_name ||
+    advertiser.properties.organization_name ||
+    `Advertiser ${advertiser.id}`;
+
+  const displayName = name && name.trim() !== '' ? name : `Advertiser ${advertiser.id}`;
+
+  // Fetch associated company (optional for advertisers)
+  const associatedCompany = await fetchAssociatedCompany(hubspotClient, advertiser.id);
+
+  return {
+    label: displayName,
+    value: advertiser.id,
+    name: displayName,
+    company: associatedCompany?.name || '',
+    companyId: associatedCompany?.id || null,
+    hasCompany: !!associatedCompany,
+    domain: advertiser.properties.domain || '',
+    industry: advertiser.properties.industry || '',
+    category: advertiser.properties.category || ''
+  };
+}
+
+/**
+ * Get custom properties for the advertiser object
+ */
+async function getCustomProperties(hubspotClient, objectId) {
+  try {
+    const schema = await hubspotClient.crm.schemas.coreApi.getById(objectId);
+    return schema.properties
+      .filter(prop => !prop.name.startsWith('hs_'))
+      .map(prop => prop.name);
+  } catch (error) {
+    // Fallback to common property names
+    return [
+      'advertiser', 'name', 'title', 'label', 'advertiser_name',
+      'brand_name', 'company_name', 'client_name', 'display_name'
+    ];
+  }
+}
+
+/**
+ * Search advertisers by term
+ */
+async function searchAdvertisers(hubspotClient, objectId, searchTerm) {
+  try {
+    const availableProperties = await getCustomProperties(hubspotClient, objectId);
+
+    const advertisers = await hubspotClient.crm.objects.basicApi.getPage(
+      objectId,
+      100,
+      undefined,
+      availableProperties.length > 0 ? availableProperties : undefined
+    );
+
+    if (!advertisers.results || advertisers.results.length === 0) {
+      return {
+        status: "SUCCESS",
+        data: {
+          options: [{ label: "Select Advertiser", value: "" }],
+          totalCount: 0,
+          searchTerm: searchTerm,
+          isSearchResult: true,
+          hasMore: false,
+          timestamp: Date.now()
+        }
+      };
+    }
+
+    const filteredAdvertisers = advertisers.results.filter((advertiser) => {
+      const searchableFields = [
+        advertiser.properties.advertiser,
+        advertiser.properties.name,
+        advertiser.properties.advertiser_name,
+        advertiser.properties.title,
+        advertiser.properties.label,
+        advertiser.properties.display_name,
+        advertiser.properties.company_name,
+        advertiser.properties.brand_name,
+        advertiser.properties.client_name,
+        advertiser.properties.account_name,
+        advertiser.properties.business_name,
+        advertiser.properties.organization_name,
+        advertiser.properties.domain
+      ];
+
+      return searchableFields.some(field =>
+        field && field.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    });
+
+    const processedAdvertisers = await Promise.all(
+      filteredAdvertisers.map((advertiser, index) =>
+        processAdvertiserWithCompany(hubspotClient, advertiser, index)
+      )
+    );
+
+    processedAdvertisers.sort((a, b) => a.label.localeCompare(b.label));
+
+    const options = [
+      { label: "Select Advertiser", value: "" },
+      ...processedAdvertisers
+    ];
+
+    return {
+      status: "SUCCESS",
+      data: {
+        options: options,
+        totalCount: processedAdvertisers.length,
+        searchTerm: searchTerm,
+        isSearchResult: true,
+        hasMore: false,
+        timestamp: Date.now()
+      }
+    };
+
+  } catch (error) {
+    console.error("Error in searchAdvertisers:", error);
+    throw error;
+  }
+}
+
+/**
+ * Get paginated advertisers for browsing
+ */
+async function getPaginatedAdvertisers(hubspotClient, objectId, page, limit) {
+  try {
+    const offset = (page - 1) * limit;
+    const availableProperties = await getCustomProperties(hubspotClient, objectId);
+
+    const advertisers = await hubspotClient.crm.objects.basicApi.getPage(
+      objectId,
+      Math.min(offset + limit, 100),
+      undefined,
+      availableProperties.length > 0 ? availableProperties : undefined
+    );
+
+    const paginatedResults = advertisers.results.slice(offset, offset + limit);
+
+    const processedAdvertisers = await Promise.all(
+      paginatedResults.map((advertiser, index) =>
+        processAdvertiserWithCompany(hubspotClient, advertiser, index)
+      )
+    );
+
+    processedAdvertisers.sort((a, b) => a.label.localeCompare(b.label));
+
+    const options = [
+      { label: "Select Advertiser", value: "" },
+      ...processedAdvertisers,
+    ];
+
+    const hasMore = advertisers.results.length > (offset + limit);
+
+    return {
+      status: "SUCCESS",
+      data: {
+        options: options,
+        totalCount: processedAdvertisers.length,
+        page: page,
+        hasMore: hasMore,
+        isPaginated: true,
+        timestamp: Date.now()
+      }
+    };
+
+  } catch (error) {
+    console.error("Error in getPaginatedAdvertisers:", error);
+    throw error;
+  }
+}
+
+/**
+ * Get default advertisers
+ */
+async function getDefaultAdvertisers(hubspotClient, objectId, limit) {
+  try {
+    const availableProperties = await getCustomProperties(hubspotClient, objectId);
+
+    const advertisers = await hubspotClient.crm.objects.basicApi.getPage(
+      objectId,
+      limit,
+      undefined,
+      availableProperties.length > 0 ? availableProperties : undefined
+    );
+
+    if (!advertisers.results || advertisers.results.length === 0) {
+      return {
+        status: "SUCCESS",
+        data: {
+          options: [{ label: "Select Advertiser", value: "" }],
+          totalCount: 0,
+          totalAvailable: 0,
+          hasMore: false,
+          isDefault: true,
+          timestamp: Date.now()
+        }
+      };
+    }
+
+    const processedAdvertisers = await Promise.all(
+      advertisers.results.map((advertiser, index) =>
+        processAdvertiserWithCompany(hubspotClient, advertiser, index)
+      )
+    );
+
+    processedAdvertisers.sort((a, b) => a.label.localeCompare(b.label));
+
+    const options = [
+      { label: "Select Advertiser", value: "" },
+      ...processedAdvertisers,
+    ];
+
+    const totalAvailable = advertisers.total || advertisers.results.length;
+    const hasMore = totalAvailable > limit;
+
+    return {
+      status: "SUCCESS",
+      data: {
+        options: options,
+        totalCount: processedAdvertisers.length,
+        totalAvailable: totalAvailable,
+        hasMore: hasMore,
+        isDefault: true,
+        timestamp: Date.now()
+      }
+    };
+
+  } catch (error) {
+    console.error("Error in getDefaultAdvertisers:", error);
+    throw error;
+  }
+}
+
+/**
+ * Fetch associated companies for an advertiser (if any)
+ */
+async function fetchAssociatedCompany(hubspotClient, advertiserId) {
+  try {
+    // Get associations to companies
+    const associations = await hubspotClient.crm.associations.v4.basicApi.getPage(
+      "2-40333244", // Advertisers object type
+      advertiserId,
+      "companies"
+    );
+
+    if (associations.results && associations.results.length > 0) {
+      // Get the first associated company
+      const companyId = associations.results[0].toObjectId;
+
+      // Fetch company details
+      const company = await hubspotClient.crm.companies.basicApi.getById(
+        companyId,
+        ['name', 'domain', 'country']
+      );
+
+      return {
+        id: company.id,
+        name: company.properties.name || 'Unnamed Company',
+        domain: company.properties.domain || '',
+        country: company.properties.country || ''
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.warn(`⚠️ Could not fetch company for advertiser ${advertiserId}:`, error.message);
+    return null;
+  }
+}
+
+/**
+ * Process advertiser data with company information
+ */
+async function processAdvertiserWithCompany(hubspotClient, advertiser, index) {
+  // 🐛 DEBUG: Log the raw advertiser data structure
+  console.log(`🔍 [DEBUG] Raw advertiser ${index + 1} data:`, {
+    id: advertiser.id,
+    properties: advertiser.properties,
+    allPropertyKeys: Object.keys(advertiser.properties || {}),
+    createdAt: advertiser.createdAt,
+    updatedAt: advertiser.updatedAt
+  });
+
+  // 🐛 DEBUG: Try to identify all possible name fields
+  const possibleNameFields = {
+    advertiser: advertiser.properties.advertiser,           // 🎯 PRIMARY: Based on HubSpot UI column name
+    name: advertiser.properties.name,
+    advertiser_name: advertiser.properties.advertiser_name,
+    title: advertiser.properties.title,
+    label: advertiser.properties.label,
+    display_name: advertiser.properties.display_name,
+    company_name: advertiser.properties.company_name,
+    brand_name: advertiser.properties.brand_name,
+    client_name: advertiser.properties.client_name,
+    account_name: advertiser.properties.account_name,
+    business_name: advertiser.properties.business_name,
+    organization_name: advertiser.properties.organization_name
+  };
+
+  console.log(`🔍 [DEBUG] Advertiser ${advertiser.id} possible name fields:`, possibleNameFields);
+
+  // Filter out empty/null values and log non-empty ones
+  const nonEmptyFields = Object.entries(possibleNameFields)
+    .filter(([key, value]) => value && value.trim() !== '')
+    .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
+
+  console.log(`🔍 [DEBUG] Advertiser ${advertiser.id} non-empty name fields:`, nonEmptyFields);
+
+  // Try common field names for advertiser name with priority order
+  // 🎯 PRIORITY: "advertiser" field first (matches HubSpot UI column name)
+  const name = advertiser.properties.advertiser ||           // 🎯 PRIMARY: HubSpot UI column name
+    advertiser.properties.name ||
+    advertiser.properties.advertiser_name ||
+    advertiser.properties.title ||
+    advertiser.properties.label ||
+    advertiser.properties.display_name ||
+    advertiser.properties.company_name ||
+    advertiser.properties.brand_name ||
+    advertiser.properties.client_name ||
+    advertiser.properties.account_name ||
+    advertiser.properties.business_name ||
+    advertiser.properties.organization_name ||
+    `Advertiser ${advertiser.id}`;
+
+  const displayName = name && name.trim() !== '' ? name : `Advertiser ${advertiser.id}`;
+
+  console.log(`✅ [DEBUG] Advertiser ${advertiser.id} final display name: "${displayName}" (from field: ${Object.entries(possibleNameFields).find(([key, value]) => value === name)?.[0] || 'fallback'
+    })`);
+
+  // Fetch associated company (optional for advertisers)
+  const associatedCompany = await fetchAssociatedCompany(hubspotClient, advertiser.id);
+
+  const result = {
+    label: displayName,
+    value: advertiser.id,
+    name: displayName,
+    company: associatedCompany?.name || '',
+    companyId: associatedCompany?.id || null,
+    hasCompany: !!associatedCompany,
+    // Include additional advertiser properties that might be useful
+    domain: advertiser.properties.domain || '',
+    industry: advertiser.properties.industry || '',
+    category: advertiser.properties.category || '',
+    // 🐛 DEBUG: Include all properties for troubleshooting
+    debugProperties: advertiser.properties
+  };
+
+  console.log(`🎯 [DEBUG] Advertiser ${advertiser.id} final processed result:`, result);
+
+  return result;
+}
+
+/**
+ * Search advertisers by term (searches ALL advertisers)
+ */
+async function searchAdvertisers(hubspotClient, objectId, searchTerm) {
+  console.log(`🔍 [SEARCH] Starting advertiser search for: "${searchTerm}"`);
+
+  try {
+    // 🔧 FIX: First, get the schema to discover available properties
+    let availableProperties = [];
+    try {
+      console.log(`🔍 [SCHEMA] Fetching object schema for ${objectId}...`);
+      const schema = await hubspotClient.crm.schemas.coreApi.getById(objectId);
+      availableProperties = schema.properties
+        .filter(prop => !prop.name.startsWith('hs_')) // Filter out system properties
+        .map(prop => prop.name);
+      console.log(`✅ [SCHEMA] Found custom properties:`, availableProperties);
+    } catch (schemaError) {
+      console.warn(`⚠️ [SCHEMA] Could not fetch schema:`, schemaError.message);
+      // Fallback to common property names
+      availableProperties = [
+        'advertiser', 'name', 'title', 'label', 'advertiser_name',
+        'brand_name', 'company_name', 'client_name', 'display_name'
+      ];
+      console.log(`🔄 [SCHEMA] Using fallback properties:`, availableProperties);
+    }
+
+    // Now fetch more records for the actual search with discovered properties
+    console.log(`🔍 [DEBUG] Fetching full advertiser dataset for search...`);
+
+    const advertisers = await hubspotClient.crm.objects.basicApi.getPage(
+      objectId,
+      100, // Fetch more records for search
+      undefined,
+      availableProperties.length > 0 ? availableProperties : undefined // Use discovered properties
+    );
+
+    console.log(`🔍 [SEARCH] Retrieved ${advertisers.results?.length || 0} advertisers for search`);
+
+    if (!advertisers.results || advertisers.results.length === 0) {
+      console.warn(`⚠️ [SEARCH] No advertisers found in object ${objectId}`);
+      return {
+        status: "SUCCESS",
+        data: {
+          options: [{ label: "Select Advertiser", value: "" }],
+          totalCount: 0,
+          searchTerm: searchTerm,
+          isSearchResult: true,
+          hasMore: false,
+          timestamp: Date.now()
+        }
+      };
+    }
+
+    // 🐛 DEBUG: Analyze what properties are available across all records
+    const allPropertyKeys = new Set();
+    advertisers.results.forEach(advertiser => {
+      if (advertiser.properties) {
+        Object.keys(advertiser.properties).forEach(key => allPropertyKeys.add(key));
+      }
+    });
+    console.log(`🔍 [DEBUG] All unique property keys found across advertisers:`, Array.from(allPropertyKeys).sort());
+
+    // Filter advertisers by search term (case-insensitive)
+    console.log(`🔍 [SEARCH] Starting to filter ${advertisers.results.length} advertisers by term "${searchTerm}"`);
+
+    const filteredAdvertisers = advertisers.results.filter((advertiser, index) => {
+      const searchableFields = [
+        advertiser.properties.advertiser,                    // 🎯 PRIMARY: HubSpot UI column name
+        advertiser.properties.name,
+        advertiser.properties.advertiser_name,
+        advertiser.properties.title,
+        advertiser.properties.label,
+        advertiser.properties.display_name,
+        advertiser.properties.company_name,
+        advertiser.properties.brand_name,
+        advertiser.properties.client_name,
+        advertiser.properties.account_name,
+        advertiser.properties.business_name,
+        advertiser.properties.organization_name,
+        advertiser.properties.domain
+      ];
+
+      console.log(`🔍 [DEBUG] Advertiser ${index + 1} (${advertiser.id}) searchable fields:`, {
+        id: advertiser.id,
+        searchableFields: searchableFields.filter(field => field && field.trim() !== ''),
+        allProperties: Object.keys(advertiser.properties || {})
+      });
+
+      const matches = searchableFields.some(field =>
+        field && field.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+
+      if (matches) {
+        console.log(`✅ [SEARCH] Advertiser ${advertiser.id} MATCHES search term "${searchTerm}"`);
+      }
+
+      return matches;
+    });
+
+    console.log(`🔍 [SEARCH] Filtered to ${filteredAdvertisers.length} matching advertisers`);
+
+    // Process each advertiser with company information
+    console.log(`🔍 [SEARCH] Starting to process ${filteredAdvertisers.length} matching advertisers...`);
+
+    const processedAdvertisers = await Promise.all(
+      filteredAdvertisers.map((advertiser, index) => {
+        console.log(`🔄 [PROCESS] Processing advertiser ${index + 1}/${filteredAdvertisers.length}: ${advertiser.id}`);
+        return processAdvertiserWithCompany(hubspotClient, advertiser, index);
+      })
+    );
+
+    console.log(`✅ [SEARCH] Finished processing advertisers. Results:`, processedAdvertisers.map(a => ({ id: a.value, label: a.label })));
+
+    // Sort by name
+    processedAdvertisers.sort((a, b) => a.label.localeCompare(b.label));
+
+    const options = [
+      { label: "Select Advertiser", value: "" },
+      ...processedAdvertisers,
+    ];
+
+    console.log(`✅ [SEARCH] Final search results for "${searchTerm}":`, {
+      totalMatches: processedAdvertisers.length,
+      options: options.map(opt => ({ label: opt.label, value: opt.value }))
+    });
+
+    return {
+      status: "SUCCESS",
+      data: {
+        options: options,
+        totalCount: processedAdvertisers.length,
+        searchTerm: searchTerm,
+        isSearchResult: true,
+        hasMore: false,
+        timestamp: Date.now()
+      }
+    };
+
+  } catch (error) {
+    console.error(`❌ [SEARCH] Error in searchAdvertisers:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Get paginated advertisers for browsing
+ */
+async function getPaginatedAdvertisers(hubspotClient, objectId, page, limit) {
+  console.log(`📄 [PAGINATE] Getting advertiser page ${page} with limit ${limit}`);
+
+  try {
+    // Calculate offset for pagination
+    const offset = (page - 1) * limit;
+
+    // 🔧 FIX: Get the schema to discover available properties
+    let availableProperties = [];
+    try {
+      console.log(`🔍 [SCHEMA] Fetching object schema for ${objectId}...`);
+      const schema = await hubspotClient.crm.schemas.coreApi.getById(objectId);
+      availableProperties = schema.properties
+        .filter(prop => !prop.name.startsWith('hs_')) // Filter out system properties
+        .map(prop => prop.name);
+      console.log(`✅ [SCHEMA] Found custom properties:`, availableProperties);
+    } catch (schemaError) {
+      console.warn(`⚠️ [SCHEMA] Could not fetch schema:`, schemaError.message);
+      // Fallback to common property names
+      availableProperties = [
+        'advertiser', 'name', 'title', 'label', 'advertiser_name',
+        'brand_name', 'company_name', 'client_name', 'display_name'
+      ];
+      console.log(`🔄 [SCHEMA] Using fallback properties:`, availableProperties);
+    }
+
+    console.log(`🔍 [DEBUG] Fetching advertisers with offset ${offset}, limit ${Math.min(offset + limit, 100)}`);
+
+    const advertisers = await hubspotClient.crm.objects.basicApi.getPage(
+      objectId,
+      Math.min(offset + limit, 100),
+      undefined,
+      availableProperties.length > 0 ? availableProperties : undefined // Use discovered properties
+    );
+
+    console.log(`📄 [PAGINATE] Retrieved ${advertisers.results?.length || 0} advertisers from API`);
+
+    if (advertisers.results && advertisers.results.length > 0) {
+      console.log(`🔍 [DEBUG] Sample advertiser properties:`, Object.keys(advertisers.results[0].properties || {}));
+    }
+
+    // Slice the results for the requested page
+    const paginatedResults = advertisers.results.slice(offset, offset + limit);
+    console.log(`📄 [PAGINATE] Sliced to ${paginatedResults.length} results for page ${page}`);
+
+    // Process each advertiser with company information
+    const processedAdvertisers = await Promise.all(
+      paginatedResults.map((advertiser, index) => {
+        console.log(`🔄 [PROCESS] Processing paginated advertiser ${index + 1}/${paginatedResults.length}: ${advertiser.id}`);
+        return processAdvertiserWithCompany(hubspotClient, advertiser, index);
+      })
+    );
+
+    processedAdvertisers.sort((a, b) => a.label.localeCompare(b.label));
+
+    const options = [
+      { label: "Select Advertiser", value: "" },
+      ...processedAdvertisers,
+    ];
+
+    const hasMore = advertisers.results.length > (offset + limit);
+
+    console.log(`✅ [PAGINATE] Returned page ${page}: ${processedAdvertisers.length} advertisers, hasMore: ${hasMore}`);
+    console.log(`🎯 [PAGINATE] Final options:`, options.map(opt => ({ label: opt.label, value: opt.value })));
+
+    return {
+      status: "SUCCESS",
+      data: {
+        options: options,
+        totalCount: processedAdvertisers.length,
+        page: page,
+        hasMore: hasMore,
+        isPaginated: true,
+        timestamp: Date.now()
+      }
+    };
+
+  } catch (error) {
+    console.error(`❌ [PAGINATE] Error in getPaginatedAdvertisers:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Get default advertisers (most recent/popular)
+ */
+async function getDefaultAdvertisers(hubspotClient, objectId, limit) {
+  console.log(`🏠 [DEFAULT] Getting default advertisers (limit: ${limit})`);
+
+  try {
+    console.log(`🔍 [DEBUG] Fetching default advertisers from object ${objectId}`);
+
+    // 🔧 FIX: First, get the schema to discover available properties
+    let availableProperties = [];
+    try {
+      console.log(`🔍 [SCHEMA] Fetching object schema for ${objectId}...`);
+      const schema = await hubspotClient.crm.schemas.coreApi.getById(objectId);
+      availableProperties = schema.properties
+        .filter(prop => !prop.name.startsWith('hs_')) // Filter out system properties
+        .map(prop => prop.name);
+      console.log(`✅ [SCHEMA] Found custom properties:`, availableProperties);
+    } catch (schemaError) {
+      console.warn(`⚠️ [SCHEMA] Could not fetch schema:`, schemaError.message);
+      // Fallback to common property names
+      availableProperties = [
+        'advertiser', 'name', 'title', 'label', 'advertiser_name',
+        'brand_name', 'company_name', 'client_name', 'display_name'
+      ];
+      console.log(`🔄 [SCHEMA] Using fallback properties:`, availableProperties);
+    }
+
+    // 🔧 FIX: Request specific properties instead of empty array
+    const advertisers = await hubspotClient.crm.objects.basicApi.getPage(
+      objectId,
+      limit,
+      undefined,
+      availableProperties.length > 0 ? availableProperties : undefined // Use discovered properties
+    );
+
+    console.log(`🏠 [DEFAULT] Retrieved ${advertisers.results?.length || 0} default advertisers`);
+
+    if (!advertisers.results || advertisers.results.length === 0) {
+      console.warn(`⚠️ [DEFAULT] No advertisers found in object ${objectId}`);
+      return {
+        status: "SUCCESS",
+        data: {
+          options: [{ label: "Select Advertiser", value: "" }],
+          totalCount: 0,
+          totalAvailable: 0,
+          hasMore: false,
+          isDefault: true,
+          timestamp: Date.now()
+        }
+      };
+    }
+
+    // 🐛 DEBUG: Show schema information for default load
+    console.log(`🔍 [DEBUG] Default advertisers schema:`, {
+      sampleProperties: advertisers.results[0]?.properties ? Object.keys(advertisers.results[0].properties) : 'No properties',
+      totalResults: advertisers.results.length,
+      requestedProperties: availableProperties
+    });
+
+    // Process each advertiser with company information
+    console.log(`🔄 [DEFAULT] Processing ${advertisers.results.length} default advertisers...`);
+
+    const processedAdvertisers = await Promise.all(
+      advertisers.results.map((advertiser, index) => {
+        console.log(`🔄 [PROCESS] Processing default advertiser ${index + 1}/${advertisers.results.length}: ${advertiser.id}`);
+        return processAdvertiserWithCompany(hubspotClient, advertiser, index);
+      })
+    );
+
+    processedAdvertisers.sort((a, b) => a.label.localeCompare(b.label));
+
+    const options = [
+      { label: "Select Advertiser", value: "" },
+      ...processedAdvertisers,
+    ];
+
+    const totalAvailable = advertisers.total || advertisers.results.length;
+    const hasMore = totalAvailable > limit;
+
+    console.log(`✅ [DEFAULT] Loaded ${processedAdvertisers.length} default advertisers, hasMore: ${hasMore}`);
+    console.log(`🎯 [DEFAULT] Final processed advertisers:`, processedAdvertisers.map(a => ({ id: a.value, label: a.label })));
+
+    return {
+      status: "SUCCESS",
+      data: {
+        options: options,
+        totalCount: processedAdvertisers.length,
+        totalAvailable: totalAvailable,
+        hasMore: hasMore,
+        isDefault: true,
+        timestamp: Date.now()
+      }
+    };
+
+  } catch (error) {
+    console.error(`❌ [DEFAULT] Error in getDefaultAdvertisers:`, error);
+    throw error;
+  }
+}

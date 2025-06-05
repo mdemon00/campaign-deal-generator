@@ -11,6 +11,10 @@
     "searchCommercialAgreements": {
       "file": "searchCommercialAgreements.js",
       "secrets": []
+    },
+    "searchAdvertisers": {
+      "file": "searchAdvertisers.js",
+      "secrets": []
     }
   }
 }

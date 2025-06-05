@@ -7,11 +7,11 @@ export const COMMERCIAL_AGREEMENTS = [
   { label: "Havas CO 2025", value: "havas_co_2025" }
 ];
 
+// Fallback advertiser options (used when dynamic loading fails)
 export const ADVERTISER_OPTIONS = [
-  { label: "Select or Create New", value: "" },
+  { label: "Select Advertiser", value: "" },
   { label: "Lancome", value: "lancome" },
   { label: "L'Oreal", value: "loreal" },
-  { label: "+ Create New Advertiser", value: "new" }
 ];
 
 export const DEAL_OWNER_OPTIONS = [
@@ -45,7 +45,7 @@ export const LINE_ITEM_TYPE_OPTIONS = [
   { label: "Rebooking", value: "rebooking" }
 ];
 
-// Commercial Agreement Mappings
+// Commercial Agreement Mappings (fallback for static agreements)
 export const COMMERCIAL_AGREEMENT_MAPPING = {
   publicis_mx_2025: {
     company: "Publicis Mexico",
@@ -59,6 +59,12 @@ export const COMMERCIAL_AGREEMENT_MAPPING = {
     company: "Havas Colombia",
     currency: "COP"
   }
+};
+
+// HubSpot Object IDs
+export const HUBSPOT_OBJECT_IDS = {
+  COMMERCIAL_AGREEMENTS: "2-39552013",
+  ADVERTISERS: "2-40333244"
 };
 
 // Form field validation rules
@@ -91,4 +97,11 @@ export const INITIAL_LINE_ITEM_STATE = {
   price: 0,
   billable: 0,
   bonus: 0
+};
+
+// Search and pagination defaults
+export const SEARCH_DEFAULTS = {
+  DEFAULT_LIMIT: 20,
+  SEARCH_LIMIT: 50,
+  DEBOUNCE_DELAY: 500
 };

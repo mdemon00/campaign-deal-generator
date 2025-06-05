@@ -1,5 +1,5 @@
 // src/app/extensions/components/BasicInformation.jsx
-// Updated version with company association handling
+// Updated version with both commercial agreement AND advertiser search handling
 
 import React, { useState, useEffect, useCallback } from "react";
 import {
@@ -16,21 +16,30 @@ import {
 
 import { 
   COMMERCIAL_AGREEMENTS,
-  ADVERTISER_OPTIONS,
   DEAL_OWNER_OPTIONS
 } from '../utils/constants.js';
 
 const BasicInformation = ({ formData, onChange, runServerless }) => {
-  // State
+  // Commercial Agreements State
   const [agreements, setAgreements] = useState(COMMERCIAL_AGREEMENTS);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
-  const [hasLoaded, setHasLoaded] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [useSearchMode, setUseSearchMode] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
-  const [companyStatus, setCompanyStatus] = useState(""); // Track company association status
+  const [agreementSearchTerm, setAgreementSearchTerm] = useState("");
+  const [isAgreementLoading, setIsAgreementLoading] = useState(false);
+  const [isAgreementSearching, setIsAgreementSearching] = useState(false);
+  const [hasAgreementLoaded, setHasAgreementLoaded] = useState(false);
+  const [agreementErrorMessage, setAgreementErrorMessage] = useState("");
+  const [useAgreementSearchMode, setUseAgreementSearchMode] = useState(false);
+  const [agreementHasMore, setAgreementHasMore] = useState(false);
+  const [companyStatus, setCompanyStatus] = useState("");
+
+  // Advertisers State
+  const [advertisers, setAdvertisers] = useState([{ label: "Select Advertiser", value: "" }]);
+  const [advertiserSearchTerm, setAdvertiserSearchTerm] = useState("");
+  const [isAdvertiserLoading, setIsAdvertiserLoading] = useState(false);
+  const [isAdvertiserSearching, setIsAdvertiserSearching] = useState(false);
+  const [hasAdvertiserLoaded, setHasAdvertiserLoaded] = useState(false);
+  const [advertiserErrorMessage, setAdvertiserErrorMessage] = useState("");
+  const [useAdvertiserSearchMode, setUseAdvertiserSearchMode] = useState(false);
+  const [advertiserHasMore, setAdvertiserHasMore] = useState(false);
 
   // Debounce function
   const debounce = (func, wait) => {
@@ -45,12 +54,14 @@ const BasicInformation = ({ formData, onChange, runServerless }) => {
     };
   };
 
-  // Search function
-  const performSearch = async (term) => {
+  // === COMMERCIAL AGREEMENTS FUNCTIONS ===
+
+  // Search commercial agreements
+  const performAgreementSearch = async (term) => {
     if (!runServerless) return;
 
-    setIsSearching(true);
-    setErrorMessage("");
+    setIsAgreementSearching(true);
+    setAgreementErrorMessage("");
 
     try {
       const response = await runServerless({
@@ -65,25 +76,25 @@ const BasicInformation = ({ formData, onChange, runServerless }) => {
       if (response && response.status === "SUCCESS" && response.response && response.response.data) {
         const data = response.response.data;
         setAgreements(data.options || COMMERCIAL_AGREEMENTS);
-        setHasMore(data.hasMore || false);
-        console.log(`🔍 Search results: ${data.totalCount} matches for "${term}"`);
+        setAgreementHasMore(data.hasMore || false);
+        console.log(`🔍 Agreement search results: ${data.totalCount} matches for "${term}"`);
       } else {
         throw new Error("Invalid search response");
       }
     } catch (error) {
-      console.error("Search error:", error);
-      setErrorMessage(`Search failed: ${error.message}`);
+      console.error("Agreement search error:", error);
+      setAgreementErrorMessage(`Search failed: ${error.message}`);
     } finally {
-      setIsSearching(false);
+      setIsAgreementSearching(false);
     }
   };
 
-  // Load default agreements
+  // Load default commercial agreements
   const loadDefaultAgreements = async () => {
     if (!runServerless) return;
 
-    setIsLoading(true);
-    setErrorMessage("");
+    setIsAgreementLoading(true);
+    setAgreementErrorMessage("");
 
     try {
       const response = await runServerless({
@@ -97,130 +108,270 @@ const BasicInformation = ({ formData, onChange, runServerless }) => {
       if (response && response.status === "SUCCESS" && response.response && response.response.data) {
         const data = response.response.data;
         setAgreements(data.options || COMMERCIAL_AGREEMENTS);
-        setHasMore(data.hasMore || false);
+        setAgreementHasMore(data.hasMore || false);
         console.log(`✅ Loaded ${data.totalCount} default agreements`);
       } else {
         throw new Error("Invalid response from server");
       }
     } catch (error) {
       console.error("Error loading agreements:", error);
-      setErrorMessage(`Error: ${error.message}`);
+      setAgreementErrorMessage(`Error: ${error.message}`);
       setAgreements(COMMERCIAL_AGREEMENTS);
     } finally {
-      setIsLoading(false);
-      setHasLoaded(true);
+      setIsAgreementLoading(false);
+      setHasAgreementLoaded(true);
     }
   };
 
-  // Debounced search
-  const debouncedSearch = useCallback(
+  // === ADVERTISER FUNCTIONS ===
+
+  // Search advertisers
+  const performAdvertiserSearch = async (term) => {
+    if (!runServerless) return;
+
+    setIsAdvertiserSearching(true);
+    setAdvertiserErrorMessage("");
+
+    try {
+      const response = await runServerless({
+        name: "searchAdvertisers",
+        parameters: {
+          searchTerm: term,
+          page: 1,
+          limit: 50
+        }
+      });
+
+      if (response && response.status === "SUCCESS" && response.response && response.response.data) {
+        const data = response.response.data;
+        setAdvertisers(data.options || [{ label: "Select Advertiser", value: "" }]);
+        setAdvertiserHasMore(data.hasMore || false);
+        console.log(`🔍 Advertiser search results: ${data.totalCount} matches for "${term}"`);
+      } else {
+        throw new Error("Invalid advertiser search response");
+      }
+    } catch (error) {
+      console.error("Advertiser search error:", error);
+      setAdvertiserErrorMessage(`Search failed: ${error.message}`);
+    } finally {
+      setIsAdvertiserSearching(false);
+    }
+  };
+
+  // Load default advertisers
+  const loadDefaultAdvertisers = async () => {
+    if (!runServerless) return;
+
+    setIsAdvertiserLoading(true);
+    setAdvertiserErrorMessage("");
+
+    try {
+      const response = await runServerless({
+        name: "searchAdvertisers",
+        parameters: {
+          loadAll: false,
+          limit: 20
+        }
+      });
+
+      if (response && response.status === "SUCCESS" && response.response && response.response.data) {
+        const data = response.response.data;
+        setAdvertisers(data.options || [{ label: "Select Advertiser", value: "" }]);
+        setAdvertiserHasMore(data.hasMore || false);
+        console.log(`✅ Loaded ${data.totalCount} default advertisers`);
+      } else {
+        throw new Error("Invalid response from advertiser server");
+      }
+    } catch (error) {
+      console.error("Error loading advertisers:", error);
+      setAdvertiserErrorMessage(`Error: ${error.message}`);
+      setAdvertisers([
+        { label: "Select Advertiser", value: "" },
+        { label: "Lancome", value: "lancome" },
+        { label: "L'Oreal", value: "loreal" },
+      ]);
+    } finally {
+      setIsAdvertiserLoading(false);
+      setHasAdvertiserLoaded(true);
+    }
+  };
+
+  // === DEBOUNCED SEARCH FUNCTIONS ===
+
+  // Debounced agreement search
+  const debouncedAgreementSearch = useCallback(
     debounce((term) => {
       if (term.trim() === "") {
         loadDefaultAgreements();
-        setUseSearchMode(false);
+        setUseAgreementSearchMode(false);
       } else {
-        performSearch(term.trim());
-        setUseSearchMode(true);
+        performAgreementSearch(term.trim());
+        setUseAgreementSearchMode(true);
       }
     }, 500),
     [runServerless]
   );
 
-  // Initial load
+  // Debounced advertiser search
+  const debouncedAdvertiserSearch = useCallback(
+    debounce((term) => {
+      if (term.trim() === "") {
+        loadDefaultAdvertisers();
+        setUseAdvertiserSearchMode(false);
+      } else {
+        performAdvertiserSearch(term.trim());
+        setUseAdvertiserSearchMode(true);
+      }
+    }, 500),
+    [runServerless]
+  );
+
+  // === INITIAL LOAD ===
   useEffect(() => {
-    if (runServerless && !hasLoaded) {
+    if (runServerless && !hasAgreementLoaded) {
       loadDefaultAgreements();
     }
-  }, [runServerless, hasLoaded]);
+    if (runServerless && !hasAdvertiserLoaded) {
+      loadDefaultAdvertisers();
+    }
+  }, [runServerless, hasAgreementLoaded, hasAdvertiserLoaded]);
 
-  // Handle search input change
-  const handleSearchChange = (value) => {
-    setSearchTerm(value);
-    debouncedSearch(value);
+  // === EVENT HANDLERS ===
+
+  // Handle agreement search input change
+  const handleAgreementSearchChange = (value) => {
+    setAgreementSearchTerm(value);
+    debouncedAgreementSearch(value);
   };
 
-  // Handle agreement selection with enhanced company handling
+  // Handle advertiser search input change
+  const handleAdvertiserSearchChange = (value) => {
+    setAdvertiserSearchTerm(value);
+    debouncedAdvertiserSearch(value);
+  };
+
+  // Handle agreement selection
   const handleCommercialAgreementChange = (value) => {
     const selectedAgreement = agreements.find(agreement => agreement.value === value);
     
     onChange('commercialAgreement', value);
     
     if (selectedAgreement && selectedAgreement.value !== "") {
-      // Set search term to show selected agreement name
-      setSearchTerm(selectedAgreement.label);
-      setUseSearchMode(false);
+      setAgreementSearchTerm(selectedAgreement.label);
+      setUseAgreementSearchMode(false);
       
-      // Handle company association
       if (selectedAgreement.hasCompany === false) {
-        // No company associated
         onChange('company', 'No company found');
         onChange('currency', '');
       } else if (selectedAgreement.company && selectedAgreement.company !== 'No company found') {
-        // Company found
         onChange('company', selectedAgreement.company);
         onChange('currency', selectedAgreement.currency || '');
       } else {
-        // Unknown status
         onChange('company', 'Loading company...');
         setCompanyStatus("🔄 Fetching company information...");
         onChange('currency', '');
       }
     } else {
-      // No agreement selected
       onChange('company', '');
       onChange('currency', '');
       setCompanyStatus("");
     }
   };
 
+  // Handle advertiser selection
+  const handleAdvertiserChange = (value) => {
+    const selectedAdvertiser = advertisers.find(advertiser => advertiser.value === value);
+    
+    onChange('advertiser', value);
+    
+    if (selectedAdvertiser && selectedAdvertiser.value !== "" && selectedAdvertiser.value !== "new") {
+      setAdvertiserSearchTerm(selectedAdvertiser.label);
+      setUseAdvertiserSearchMode(false);
+    }
+  };
+
   const handleFieldChange = (field, value) => {
     if (field === 'commercialAgreement') {
       handleCommercialAgreementChange(value);
+    } else if (field === 'advertiser') {
+      handleAdvertiserChange(value);
     } else {
       onChange(field, value);
     }
   };
 
-  // Switch to browse mode
-  const switchToBrowseMode = () => {
-    setUseSearchMode(false);
-    setSearchTerm("");
+  // === UI HELPER FUNCTIONS ===
+
+  // Agreement mode controls
+  const switchAgreementToBrowseMode = () => {
+    setUseAgreementSearchMode(false);
+    setAgreementSearchTerm("");
     loadDefaultAgreements();
   };
 
-  // Switch to search mode
-  const switchToSearchMode = () => {
-    setUseSearchMode(true);
-    setSearchTerm("");
+  const switchAgreementToSearchMode = () => {
+    setUseAgreementSearchMode(true);
+    setAgreementSearchTerm("");
   };
 
-  // Clear selection
-  const clearSelection = () => {
-    setSearchTerm("");
+  const clearAgreementSelection = () => {
+    setAgreementSearchTerm("");
     onChange('commercialAgreement', '');
     onChange('company', '');
     onChange('currency', '');
     setCompanyStatus("");
-    setUseSearchMode(false);
+    setUseAgreementSearchMode(false);
     loadDefaultAgreements();
   };
 
-  // Get status message
-  const getStatusMessage = () => {
-    if (isSearching) return "Searching agreements...";
-    if (isLoading) return "Loading agreements...";
-    if (useSearchMode && searchTerm) {
+  // Advertiser mode controls
+  const switchAdvertiserToBrowseMode = () => {
+    setUseAdvertiserSearchMode(false);
+    setAdvertiserSearchTerm("");
+    loadDefaultAdvertisers();
+  };
+
+  const switchAdvertiserToSearchMode = () => {
+    setUseAdvertiserSearchMode(true);
+    setAdvertiserSearchTerm("");
+  };
+
+  const clearAdvertiserSelection = () => {
+    setAdvertiserSearchTerm("");
+    onChange('advertiser', '');
+    setUseAdvertiserSearchMode(false);
+    loadDefaultAdvertisers();
+  };
+
+  // Status messages
+  const getAgreementStatusMessage = () => {
+    if (isAgreementSearching) return "Searching agreements...";
+    if (isAgreementLoading) return "Loading agreements...";
+    if (useAgreementSearchMode && agreementSearchTerm) {
       const count = agreements.length > 1 ? agreements.length - 1 : 0;
-      return `${count} matches for "${searchTerm}"`;
+      return `${count} matches for "${agreementSearchTerm}"`;
     }
     if (agreements.length > 1) {
       const count = agreements.length - 1;
-      return `${count} agreements available${hasMore ? ' (load more below)' : ''}`;
+      return `${count} agreements available${agreementHasMore ? ' (load more below)' : ''}`;
     }
     return "";
   };
 
-  // Get company display style based on status
+  const getAdvertiserStatusMessage = () => {
+    if (isAdvertiserSearching) return "Searching advertisers...";
+    if (isAdvertiserLoading) return "Loading advertisers...";
+    if (useAdvertiserSearchMode && advertiserSearchTerm) {
+      const count = advertisers.length > 1 ? advertisers.length - 1 : 0;
+      return `${count} matches for "${advertiserSearchTerm}"`;
+    }
+    if (advertisers.length > 1) {
+      const count = advertisers.length - 1;
+      return `${count} advertisers available${advertiserHasMore ? ' (load more below)' : ''}`;
+    }
+    return "";
+  };
+
   const getCompanyInputStyle = () => {
     if (formData.company === 'No company found') {
       return { color: '#d73a49', fontStyle: 'italic' };
@@ -248,48 +399,49 @@ const BasicInformation = ({ formData, onChange, runServerless }) => {
             />
           </Box>
           
+          {/* COMMERCIAL AGREEMENTS SECTION */}
           <Box flex={1} minWidth="250px">
-            {/* Mode Toggle Buttons */}
+            {/* Agreement Mode Toggle Buttons */}
             <Flex gap="small" marginBottom="small">
               <Button
-                variant={!useSearchMode ? "primary" : "secondary"}
+                variant={!useAgreementSearchMode ? "primary" : "secondary"}
                 size="xs"
-                onClick={switchToBrowseMode}
-                disabled={isLoading}
+                onClick={switchAgreementToBrowseMode}
+                disabled={isAgreementLoading}
               >
                 📋 Browse
               </Button>
               <Button
-                variant={useSearchMode ? "primary" : "secondary"}
+                variant={useAgreementSearchMode ? "primary" : "secondary"}
                 size="xs"
-                onClick={switchToSearchMode}
-                disabled={isLoading}
+                onClick={switchAgreementToSearchMode}
+                disabled={isAgreementLoading}
               >
                 🔍 Search
               </Button>
-              {(formData.commercialAgreement || searchTerm) && (
+              {(formData.commercialAgreement || agreementSearchTerm) && (
                 <Button
                   variant="secondary"
                   size="xs"
-                  onClick={clearSelection}
+                  onClick={clearAgreementSelection}
                 >
                   ✕ Clear
                 </Button>
               )}
             </Flex>
 
-            {/* Search Mode: Input field */}
-            {useSearchMode ? (
+            {/* Agreement Search Mode: Input field */}
+            {useAgreementSearchMode ? (
               <Input
                 label="Search Commercial Agreements *"
                 name="searchAgreements"
                 placeholder="Type agreement name to search..."
-                value={searchTerm}
-                onChange={handleSearchChange}
-                disabled={isLoading || isSearching}
+                value={agreementSearchTerm}
+                onChange={handleAgreementSearchChange}
+                disabled={isAgreementLoading || isAgreementSearching}
               />
             ) : (
-              /* Browse Mode: Dropdown */
+              /* Agreement Browse Mode: Dropdown */
               <Select
                 label="Commercial Agreement *"
                 name="commercialAgreement"
@@ -297,12 +449,12 @@ const BasicInformation = ({ formData, onChange, runServerless }) => {
                 value={formData.commercialAgreement}
                 onChange={(value) => handleFieldChange("commercialAgreement", value)}
                 required
-                disabled={isLoading}
+                disabled={isAgreementLoading}
               />
             )}
 
-            {/* Search Results for Search Mode */}
-            {useSearchMode && searchTerm && agreements.length > 1 && (
+            {/* Agreement Search Results for Search Mode */}
+            {useAgreementSearchMode && agreementSearchTerm && agreements.length > 1 && (
               <Box marginTop="small">
                 <Select
                   label="Select from search results"
@@ -310,47 +462,30 @@ const BasicInformation = ({ formData, onChange, runServerless }) => {
                   options={agreements}
                   value={formData.commercialAgreement}
                   onChange={(value) => handleFieldChange("commercialAgreement", value)}
-                  disabled={isSearching}
+                  disabled={isAgreementSearching}
                 />
               </Box>
             )}
 
-            {/* Status Message */}
-            {getStatusMessage() && (
+            {/* Agreement Status Message */}
+            {getAgreementStatusMessage() && (
               <Text variant="microcopy" format={{ color: 'medium' }}>
-                {getStatusMessage()}
+                {getAgreementStatusMessage()}
               </Text>
             )}
-
-            {/* Load More for Browse Mode */}
-            {!useSearchMode && hasMore && (
-              <Box marginTop="small">
-                <Button 
-                  variant="secondary"
-                  size="xs"
-                  onClick={() => {
-                    // Load more functionality would go here
-                    console.log("Load more clicked");
-                  }}
-                  disabled={isLoading}
-                >
-                  Load More Agreements
-                </Button>
-              </Box>
-            )}
             
-            {/* Error Message */}
-            {errorMessage && (
+            {/* Agreement Error Message */}
+            {agreementErrorMessage && (
               <Box marginTop="extra-small">
                 <Text variant="microcopy" format={{ color: 'error' }}>
-                  {errorMessage}
+                  {agreementErrorMessage}
                 </Text>
                 <Box marginTop="extra-small">
                   <Button 
                     variant="secondary" 
                     size="xs"
                     onClick={loadDefaultAgreements}
-                    disabled={isLoading}
+                    disabled={isAgreementLoading}
                   >
                     Retry
                   </Button>
@@ -387,15 +522,100 @@ const BasicInformation = ({ formData, onChange, runServerless }) => {
                 </Box>
               )}
             </Box>
+            
+            {/* ADVERTISERS SECTION */}
             <Box flex={1} minWidth="250px">
-              <Select
-                label="Advertiser *"
-                name="advertiser"
-                options={ADVERTISER_OPTIONS}
-                value={formData.advertiser}
-                onChange={(value) => handleFieldChange("advertiser", value)}
-                required
-              />
+              {/* Advertiser Mode Toggle Buttons */}
+              <Flex gap="small" marginBottom="small">
+                <Button
+                  variant={!useAdvertiserSearchMode ? "primary" : "secondary"}
+                  size="xs"
+                  onClick={switchAdvertiserToBrowseMode}
+                  disabled={isAdvertiserLoading}
+                >
+                  📋 Browse
+                </Button>
+                <Button
+                  variant={useAdvertiserSearchMode ? "primary" : "secondary"}
+                  size="xs"
+                  onClick={switchAdvertiserToSearchMode}
+                  disabled={isAdvertiserLoading}
+                >
+                  🔍 Search
+                </Button>
+                {(formData.advertiser || advertiserSearchTerm) && (
+                  <Button
+                    variant="secondary"
+                    size="xs"
+                    onClick={clearAdvertiserSelection}
+                  >
+                    ✕ Clear
+                  </Button>
+                )}
+              </Flex>
+
+              {/* Advertiser Search Mode: Input field */}
+              {useAdvertiserSearchMode ? (
+                <Input
+                  label="Search Advertisers *"
+                  name="searchAdvertisers"
+                  placeholder="Type advertiser name to search..."
+                  value={advertiserSearchTerm}
+                  onChange={handleAdvertiserSearchChange}
+                  disabled={isAdvertiserLoading || isAdvertiserSearching}
+                />
+              ) : (
+                /* Advertiser Browse Mode: Dropdown */
+                <Select
+                  label="Advertiser *"
+                  name="advertiser"
+                  options={advertisers}
+                  value={formData.advertiser}
+                  onChange={(value) => handleFieldChange("advertiser", value)}
+                  required
+                  disabled={isAdvertiserLoading}
+                />
+              )}
+
+              {/* Advertiser Search Results for Search Mode */}
+              {useAdvertiserSearchMode && advertiserSearchTerm && advertisers.length > 1 && (
+                <Box marginTop="small">
+                  <Select
+                    label="Select from search results"
+                    name="advertiserSearchResults"
+                    options={advertisers}
+                    value={formData.advertiser}
+                    onChange={(value) => handleFieldChange("advertiser", value)}
+                    disabled={isAdvertiserSearching}
+                  />
+                </Box>
+              )}
+
+              {/* Advertiser Status Message */}
+              {getAdvertiserStatusMessage() && (
+                <Text variant="microcopy" format={{ color: 'medium' }}>
+                  {getAdvertiserStatusMessage()}
+                </Text>
+              )}
+              
+              {/* Advertiser Error Message */}
+              {advertiserErrorMessage && (
+                <Box marginTop="extra-small">
+                  <Text variant="microcopy" format={{ color: 'error' }}>
+                    {advertiserErrorMessage}
+                  </Text>
+                  <Box marginTop="extra-small">
+                    <Button 
+                      variant="secondary" 
+                      size="xs"
+                      onClick={loadDefaultAdvertisers}
+                      disabled={isAdvertiserLoading}
+                    >
+                      Retry
+                    </Button>
+                  </Box>
+                </Box>
+              )}
             </Box>
           </Flex>
         </Box>
