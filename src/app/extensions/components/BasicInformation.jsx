@@ -1,5 +1,5 @@
 // src/app/extensions/components/BasicInformation.jsx
-// Updated version with both commercial agreement AND advertiser search handling
+// Updated version with commercial agreement, advertiser, AND deal owner search handling
 
 import React, { useState, useEffect, useCallback } from "react";
 import {
@@ -40,6 +40,16 @@ const BasicInformation = ({ formData, onChange, runServerless }) => {
   const [advertiserErrorMessage, setAdvertiserErrorMessage] = useState("");
   const [useAdvertiserSearchMode, setUseAdvertiserSearchMode] = useState(false);
   const [advertiserHasMore, setAdvertiserHasMore] = useState(false);
+
+  // Deal Owners State
+  const [dealOwners, setDealOwners] = useState(DEAL_OWNER_OPTIONS);
+  const [dealOwnerSearchTerm, setDealOwnerSearchTerm] = useState("");
+  const [isDealOwnerLoading, setIsDealOwnerLoading] = useState(false);
+  const [isDealOwnerSearching, setIsDealOwnerSearching] = useState(false);
+  const [hasDealOwnerLoaded, setHasDealOwnerLoaded] = useState(false);
+  const [dealOwnerErrorMessage, setDealOwnerErrorMessage] = useState("");
+  const [useDealOwnerSearchMode, setUseDealOwnerSearchMode] = useState(false);
+  const [dealOwnerHasMore, setDealOwnerHasMore] = useState(false);
 
   // Debounce function
   const debounce = (func, wait) => {
@@ -196,6 +206,77 @@ const BasicInformation = ({ formData, onChange, runServerless }) => {
     }
   };
 
+  // === DEAL OWNER FUNCTIONS ===
+
+  // Search deal owners
+  const performDealOwnerSearch = async (term) => {
+    if (!runServerless) return;
+
+    setIsDealOwnerSearching(true);
+    setDealOwnerErrorMessage("");
+
+    try {
+      const response = await runServerless({
+        name: "searchDealOwners",
+        parameters: {
+          searchTerm: term,
+          page: 1,
+          limit: 50,
+          includeInactive: false
+        }
+      });
+
+      if (response && response.status === "SUCCESS" && response.response && response.response.data) {
+        const data = response.response.data;
+        setDealOwners(data.options || DEAL_OWNER_OPTIONS);
+        setDealOwnerHasMore(data.hasMore || false);
+        console.log(`🔍 Deal owner search results: ${data.totalCount} matches for "${term}"`);
+      } else {
+        throw new Error("Invalid deal owner search response");
+      }
+    } catch (error) {
+      console.error("Deal owner search error:", error);
+      setDealOwnerErrorMessage(`Search failed: ${error.message}`);
+    } finally {
+      setIsDealOwnerSearching(false);
+    }
+  };
+
+  // Load default deal owners
+  const loadDefaultDealOwners = async () => {
+    if (!runServerless) return;
+
+    setIsDealOwnerLoading(true);
+    setDealOwnerErrorMessage("");
+
+    try {
+      const response = await runServerless({
+        name: "searchDealOwners",
+        parameters: {
+          loadAll: false,
+          limit: 20,
+          includeInactive: false
+        }
+      });
+
+      if (response && response.status === "SUCCESS" && response.response && response.response.data) {
+        const data = response.response.data;
+        setDealOwners(data.options || DEAL_OWNER_OPTIONS);
+        setDealOwnerHasMore(data.hasMore || false);
+        console.log(`✅ Loaded ${data.totalCount} default deal owners`);
+      } else {
+        throw new Error("Invalid response from deal owner server");
+      }
+    } catch (error) {
+      console.error("Error loading deal owners:", error);
+      setDealOwnerErrorMessage(`Error: ${error.message}`);
+      setDealOwners(DEAL_OWNER_OPTIONS);
+    } finally {
+      setIsDealOwnerLoading(false);
+      setHasDealOwnerLoaded(true);
+    }
+  };
+
   // === DEBOUNCED SEARCH FUNCTIONS ===
 
   // Debounced agreement search
@@ -226,6 +307,20 @@ const BasicInformation = ({ formData, onChange, runServerless }) => {
     [runServerless]
   );
 
+  // Debounced deal owner search
+  const debouncedDealOwnerSearch = useCallback(
+    debounce((term) => {
+      if (term.trim() === "") {
+        loadDefaultDealOwners();
+        setUseDealOwnerSearchMode(false);
+      } else {
+        performDealOwnerSearch(term.trim());
+        setUseDealOwnerSearchMode(true);
+      }
+    }, 500),
+    [runServerless]
+  );
+
   // === INITIAL LOAD ===
   useEffect(() => {
     if (runServerless && !hasAgreementLoaded) {
@@ -234,7 +329,10 @@ const BasicInformation = ({ formData, onChange, runServerless }) => {
     if (runServerless && !hasAdvertiserLoaded) {
       loadDefaultAdvertisers();
     }
-  }, [runServerless, hasAgreementLoaded, hasAdvertiserLoaded]);
+    if (runServerless && !hasDealOwnerLoaded) {
+      loadDefaultDealOwners();
+    }
+  }, [runServerless, hasAgreementLoaded, hasAdvertiserLoaded, hasDealOwnerLoaded]);
 
   // === EVENT HANDLERS ===
 
@@ -248,6 +346,12 @@ const BasicInformation = ({ formData, onChange, runServerless }) => {
   const handleAdvertiserSearchChange = (value) => {
     setAdvertiserSearchTerm(value);
     debouncedAdvertiserSearch(value);
+  };
+
+  // Handle deal owner search input change
+  const handleDealOwnerSearchChange = (value) => {
+    setDealOwnerSearchTerm(value);
+    debouncedDealOwnerSearch(value);
   };
 
   // Handle agreement selection
@@ -290,11 +394,25 @@ const BasicInformation = ({ formData, onChange, runServerless }) => {
     }
   };
 
+  // Handle deal owner selection
+  const handleDealOwnerChange = (value) => {
+    const selectedDealOwner = dealOwners.find(owner => owner.value === value);
+    
+    onChange('dealOwner', value);
+    
+    if (selectedDealOwner && selectedDealOwner.value !== "") {
+      setDealOwnerSearchTerm(selectedDealOwner.label);
+      setUseDealOwnerSearchMode(false);
+    }
+  };
+
   const handleFieldChange = (field, value) => {
     if (field === 'commercialAgreement') {
       handleCommercialAgreementChange(value);
     } else if (field === 'advertiser') {
       handleAdvertiserChange(value);
+    } else if (field === 'dealOwner') {
+      handleDealOwnerChange(value);
     } else {
       onChange(field, value);
     }
@@ -343,6 +461,25 @@ const BasicInformation = ({ formData, onChange, runServerless }) => {
     loadDefaultAdvertisers();
   };
 
+  // Deal owner mode controls
+  const switchDealOwnerToBrowseMode = () => {
+    setUseDealOwnerSearchMode(false);
+    setDealOwnerSearchTerm("");
+    loadDefaultDealOwners();
+  };
+
+  const switchDealOwnerToSearchMode = () => {
+    setUseDealOwnerSearchMode(true);
+    setDealOwnerSearchTerm("");
+  };
+
+  const clearDealOwnerSelection = () => {
+    setDealOwnerSearchTerm("");
+    onChange('dealOwner', '');
+    setUseDealOwnerSearchMode(false);
+    loadDefaultDealOwners();
+  };
+
   // Status messages
   const getAgreementStatusMessage = () => {
     if (isAgreementSearching) return "Searching agreements...";
@@ -368,6 +505,20 @@ const BasicInformation = ({ formData, onChange, runServerless }) => {
     if (advertisers.length > 1) {
       const count = advertisers.length - 1;
       return `${count} advertisers available${advertiserHasMore ? ' (load more below)' : ''}`;
+    }
+    return "";
+  };
+
+  const getDealOwnerStatusMessage = () => {
+    if (isDealOwnerSearching) return "Searching deal owners...";
+    if (isDealOwnerLoading) return "Loading deal owners...";
+    if (useDealOwnerSearchMode && dealOwnerSearchTerm) {
+      const count = dealOwners.length > 1 ? dealOwners.length - 1 : 0;
+      return `${count} matches for "${dealOwnerSearchTerm}"`;
+    }
+    if (dealOwners.length > 1) {
+      const count = dealOwners.length - 1;
+      return `${count} deal owners available${dealOwnerHasMore ? ' (load more below)' : ''}`;
     }
     return "";
   };
@@ -622,16 +773,101 @@ const BasicInformation = ({ formData, onChange, runServerless }) => {
 
         <Box marginTop="medium">
           <Flex direction="row" gap="medium" wrap="wrap">
+            {/* DEAL OWNERS SECTION */}
             <Box flex={1} minWidth="250px">
-              <Select
-                label="Deal Owner *"
-                name="dealOwner"
-                options={DEAL_OWNER_OPTIONS}
-                value={formData.dealOwner}
-                onChange={(value) => handleFieldChange("dealOwner", value)}
-                required
-              />
+              {/* Deal Owner Mode Toggle Buttons */}
+              <Flex gap="small" marginBottom="small">
+                <Button
+                  variant={!useDealOwnerSearchMode ? "primary" : "secondary"}
+                  size="xs"
+                  onClick={switchDealOwnerToBrowseMode}
+                  disabled={isDealOwnerLoading}
+                >
+                  📋 Browse
+                </Button>
+                <Button
+                  variant={useDealOwnerSearchMode ? "primary" : "secondary"}
+                  size="xs"
+                  onClick={switchDealOwnerToSearchMode}
+                  disabled={isDealOwnerLoading}
+                >
+                  🔍 Search
+                </Button>
+                {(formData.dealOwner || dealOwnerSearchTerm) && (
+                  <Button
+                    variant="secondary"
+                    size="xs"
+                    onClick={clearDealOwnerSelection}
+                  >
+                    ✕ Clear
+                  </Button>
+                )}
+              </Flex>
+
+              {/* Deal Owner Search Mode: Input field */}
+              {useDealOwnerSearchMode ? (
+                <Input
+                  label="Search Deal Owners *"
+                  name="searchDealOwners"
+                  placeholder="Type owner name to search..."
+                  value={dealOwnerSearchTerm}
+                  onChange={handleDealOwnerSearchChange}
+                  disabled={isDealOwnerLoading || isDealOwnerSearching}
+                />
+              ) : (
+                /* Deal Owner Browse Mode: Dropdown */
+                <Select
+                  label="Deal Owner *"
+                  name="dealOwner"
+                  options={dealOwners}
+                  value={formData.dealOwner}
+                  onChange={(value) => handleFieldChange("dealOwner", value)}
+                  required
+                  disabled={isDealOwnerLoading}
+                />
+              )}
+
+              {/* Deal Owner Search Results for Search Mode */}
+              {useDealOwnerSearchMode && dealOwnerSearchTerm && dealOwners.length > 1 && (
+                <Box marginTop="small">
+                  <Select
+                    label="Select from search results"
+                    name="dealOwnerSearchResults"
+                    options={dealOwners}
+                    value={formData.dealOwner}
+                    onChange={(value) => handleFieldChange("dealOwner", value)}
+                    disabled={isDealOwnerSearching}
+                  />
+                </Box>
+              )}
+
+              {/* Deal Owner Status Message */}
+              {getDealOwnerStatusMessage() && (
+                <Text variant="microcopy" format={{ color: 'medium' }}>
+                  {getDealOwnerStatusMessage()}
+                </Text>
+              )}
+              
+              {/* Deal Owner Error Message */}
+              {dealOwnerErrorMessage && (
+                <Box marginTop="extra-small">
+                  <Text variant="microcopy" format={{ color: 'error' }}>
+                    {dealOwnerErrorMessage}
+                  </Text>
+                  <Box marginTop="extra-small">
+                    <Button 
+                      variant="secondary" 
+                      size="xs"
+                      onClick={loadDefaultDealOwners}
+                      disabled={isDealOwnerLoading}
+                    >
+                      Retry
+                    </Button>
+                  </Box>
+                </Box>
+              )}
             </Box>
+
             <Box flex={1} minWidth="250px">
               <Input
                 label="Currency"

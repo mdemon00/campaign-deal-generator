@@ -14,10 +14,13 @@ export const ADVERTISER_OPTIONS = [
   { label: "L'Oreal", value: "loreal" },
 ];
 
+// Fallback deal owner options (used when dynamic loading fails)
 export const DEAL_OWNER_OPTIONS = [
   { label: "Select Deal Owner", value: "" },
   { label: "Julio Salvide", value: "julio_salvide" },
-  { label: "Maria Garcia", value: "maria_garcia" }
+  { label: "Maria Garcia", value: "maria_garcia" },
+  { label: "Carlos Rodriguez", value: "carlos_rodriguez" },
+  { label: "Ana Martinez", value: "ana_martinez" }
 ];
 
 export const CAMPAIGN_TYPE_OPTIONS = [
@@ -65,6 +68,7 @@ export const COMMERCIAL_AGREEMENT_MAPPING = {
 export const HUBSPOT_OBJECT_IDS = {
   COMMERCIAL_AGREEMENTS: "2-39552013",
   ADVERTISERS: "2-40333244"
+  // Note: Deal Owners use the HubSpot CRM Owners API v3, not a custom object
 };
 
 // Form field validation rules
@@ -104,4 +108,12 @@ export const SEARCH_DEFAULTS = {
   DEFAULT_LIMIT: 20,
   SEARCH_LIMIT: 50,
   DEBOUNCE_DELAY: 500
+};
+
+// Deal Owner specific configuration
+export const DEAL_OWNER_CONFIG = {
+  INCLUDE_INACTIVE: false, // Whether to include inactive/archived users by default
+  DISPLAY_EMAIL: true,     // Whether to show email in display name
+  SORT_BY: 'displayName',  // How to sort the results
+  API_ENDPOINT: 'crm.owners.basicApi' // Uses HubSpot CRM Owners API v3
 };
