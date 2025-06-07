@@ -5,14 +5,15 @@ exports.main = async (context) => {
   const hubspotClient = new hubspot.Client({ accessToken });
 
   try {
-    const { 
-      searchTerm = "", 
-      page = 1, 
-      limit = 20, 
-      loadAll = false 
+    const {
+      searchTerm = "",
+      page = 1,
+      limit = 20,
+      loadAll = false,
+      selectedAgreementId = "" // Add this parameter
     } = context.parameters;
 
-    console.log('🔍 Search Parameters:', { searchTerm, page, limit, loadAll });
+    console.log('🔍 Search Parameters:', { searchTerm, page, limit, loadAll, selectedAgreementId });
 
     const COMMERCIAL_AGREEMENTS_OBJECT_ID = "2-39552013";
 
@@ -20,9 +21,9 @@ exports.main = async (context) => {
     if (searchTerm && searchTerm.trim() !== "") {
       return await searchAgreements(hubspotClient, COMMERCIAL_AGREEMENTS_OBJECT_ID, searchTerm.trim());
     } else if (loadAll) {
-      return await getPaginatedAgreements(hubspotClient, COMMERCIAL_AGREEMENTS_OBJECT_ID, page, limit);
+      return await getPaginatedAgreements(hubspotClient, COMMERCIAL_AGREEMENTS_OBJECT_ID, page, limit, selectedAgreementId);
     } else {
-      return await getDefaultAgreements(hubspotClient, COMMERCIAL_AGREEMENTS_OBJECT_ID, limit);
+      return await getDefaultAgreements(hubspotClient, COMMERCIAL_AGREEMENTS_OBJECT_ID, limit, selectedAgreementId);
     }
 
   } catch (error) {
@@ -51,7 +52,7 @@ async function fetchAssociatedCompany(hubspotClient, agreementId) {
     if (associations.results && associations.results.length > 0) {
       // Get the first associated company
       const companyId = associations.results[0].toObjectId;
-      
+
       // Fetch company details
       const company = await hubspotClient.crm.companies.basicApi.getById(
         companyId,
@@ -79,15 +80,15 @@ async function fetchAssociatedCompany(hubspotClient, agreementId) {
  */
 async function processAgreementWithCompany(hubspotClient, agreement, index) {
   const status = agreement.properties.status;
-  const displayName = status && status.trim() !== '' 
-    ? status 
+  const displayName = status && status.trim() !== ''
+    ? status
     : `Agreement ${agreement.id}`;
 
   // Fetch associated company
   const associatedCompany = await fetchAssociatedCompany(hubspotClient, agreement.id);
 
   let companyName, currency, country;
-  
+
   if (associatedCompany) {
     companyName = associatedCompany.name;
     currency = associatedCompany.currency;
@@ -131,7 +132,7 @@ async function searchAgreements(hubspotClient, objectId, searchTerm) {
 
   // Process each agreement with company information
   const processedAgreements = await Promise.all(
-    filteredAgreements.map((agreement, index) => 
+    filteredAgreements.map((agreement, index) =>
       processAgreementWithCompany(hubspotClient, agreement, index)
     )
   );
@@ -160,27 +161,55 @@ async function searchAgreements(hubspotClient, objectId, searchTerm) {
 }
 
 /**
- * Get paginated agreements for browsing
+ * Get paginated agreements for Browse
+ * Includes logic to ensure selectedAgreementId is in the list if not already present.
  */
-async function getPaginatedAgreements(hubspotClient, objectId, page, limit) {
-  console.log(`📄 Getting page ${page} with limit ${limit}`);
+async function getPaginatedAgreements(hubspotClient, objectId, page, limit, selectedAgreementId = "") {
+  console.log(`📄 Getting page ${page} with limit ${limit}, selected: ${selectedAgreementId}`);
 
   // Calculate offset for pagination
   const offset = (page - 1) * limit;
 
+  // Fetch slightly more records than the limit to check for 'hasMore' and potential inclusion of selectedAgreement
   const agreements = await hubspotClient.crm.objects.basicApi.getPage(
     objectId,
-    Math.min(offset + limit, 100),
+    Math.min(offset + limit + 1, 101), // Fetch one more than limit to check hasMore accurately, max 100+1
     undefined,
     ['status']
   );
 
-  // Slice the results for the requested page
-  const paginatedResults = agreements.results.slice(offset, offset + limit);
+  let paginatedResults = agreements.results.slice(offset, offset + limit);
+  let hasMore = agreements.results.length > (offset + limit);
+  let totalAvailable = agreements.total || agreements.results.length;
+
+  // If a selectedAgreementId is provided and it's not already in the paginated results
+  if (selectedAgreementId && selectedAgreementId.trim() !== "" && !paginatedResults.some(a => a.id === selectedAgreementId)) {
+    try {
+      const selectedAgreement = await hubspotClient.crm.objects.basicApi.getById(
+        objectId,
+        selectedAgreementId,
+        ['status']
+      );
+      // Add the selected agreement to the beginning of the list
+      // This ensures it's always available as an option
+      paginatedResults.unshift(selectedAgreement);
+      // Ensure we don't exceed the limit if we added an item
+      if (paginatedResults.length > limit) {
+          paginatedResults = paginatedResults.slice(0, limit);
+      }
+      // If we added it, it might impact hasMore or totalCount, but for a single selection, it's usually fine
+      // and we prioritize showing the selected one.
+      totalAvailable++; // Increment total if it wasn't already in the initial fetch
+    } catch (error) {
+      console.warn(`⚠️ Could not fetch selected agreement ${selectedAgreementId} for pagination:`, error.message);
+      // Continue without the selected item if it's not found
+    }
+  }
+
 
   // Process each agreement with company information
   const processedAgreements = await Promise.all(
-    paginatedResults.map((agreement, index) => 
+    paginatedResults.map((agreement, index) =>
       processAgreementWithCompany(hubspotClient, agreement, index)
     )
   );
@@ -192,7 +221,6 @@ async function getPaginatedAgreements(hubspotClient, objectId, page, limit) {
     ...processedAgreements
   ];
 
-  const hasMore = agreements.results.length > (offset + limit);
 
   console.log(`✅ Returned page ${page}: ${processedAgreements.length} agreements, hasMore: ${hasMore}`);
 
@@ -201,6 +229,7 @@ async function getPaginatedAgreements(hubspotClient, objectId, page, limit) {
     data: {
       options: options,
       totalCount: processedAgreements.length,
+      totalAvailable: totalAvailable, // Reflect total available after considering selected
       page: page,
       hasMore: hasMore,
       isPaginated: true,
@@ -211,9 +240,10 @@ async function getPaginatedAgreements(hubspotClient, objectId, page, limit) {
 
 /**
  * Get default agreements (most recent/popular)
+ * Includes logic to ensure selectedAgreementId is in the list if not already present.
  */
-async function getDefaultAgreements(hubspotClient, objectId, limit) {
-  console.log(`🏠 Getting default agreements (limit: ${limit})`);
+async function getDefaultAgreements(hubspotClient, objectId, limit, selectedAgreementId = "") {
+  console.log(`🏠 Getting default agreements (limit: ${limit}), selected: ${selectedAgreementId}`);
 
   const agreements = await hubspotClient.crm.objects.basicApi.getPage(
     objectId,
@@ -222,9 +252,35 @@ async function getDefaultAgreements(hubspotClient, objectId, limit) {
     ['status']
   );
 
+  let results = agreements.results;
+  let totalAvailable = agreements.total || agreements.results.length;
+
+  // If a selectedAgreementId is provided and it's not already in the default results
+  if (selectedAgreementId && selectedAgreementId.trim() !== "" && !results.some(a => a.id === selectedAgreementId)) {
+    try {
+      const selectedAgreement = await hubspotClient.crm.objects.basicApi.getById(
+        objectId,
+        selectedAgreementId,
+        ['status']
+      );
+      // Add the selected agreement to the beginning of the list
+      // This ensures it's always available as an option
+      results.unshift(selectedAgreement);
+      // Ensure we don't exceed the limit if we added an item
+      if (results.length > limit) {
+          results = results.slice(0, limit);
+      }
+      totalAvailable++; // Increment total if it wasn't already in the initial fetch
+    } catch (error) {
+      console.warn(`⚠️ Could not fetch selected agreement ${selectedAgreementId} for default list:`, error.message);
+      // Continue without the selected item if it's not found
+    }
+  }
+
+
   // Process each agreement with company information
   const processedAgreements = await Promise.all(
-    agreements.results.map((agreement, index) => 
+    results.map((agreement, index) =>
       processAgreementWithCompany(hubspotClient, agreement, index)
     )
   );
@@ -236,8 +292,7 @@ async function getDefaultAgreements(hubspotClient, objectId, limit) {
     ...processedAgreements
   ];
 
-  const totalAvailable = agreements.total || agreements.results.length;
-  const hasMore = totalAvailable > limit;
+  const hasMore = totalAvailable > limit; // Re-evaluate hasMore based on potentially increased total
 
   console.log(`✅ Loaded ${processedAgreements.length} default agreements, hasMore: ${hasMore}`);
 

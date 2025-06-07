@@ -16,7 +16,7 @@ import {
   LoadingSpinner
 } from "@hubspot/ui-extensions";
 
-import { 
+import {
   COMMERCIAL_AGREEMENTS,
   DEAL_OWNER_OPTIONS,
   COMPONENT_SAVE_STATES,
@@ -25,14 +25,14 @@ import {
   SAVE_STATUS_COLORS
 } from '../utils/constants.js';
 
-const BasicInformation = ({ 
-  formData, 
-  onChange, 
+const BasicInformation = ({
+  formData, // formData now holds the selected agreement ID
+  onChange,
   runServerless,
   context,
-  onSaveStatusChange 
+  onSaveStatusChange
 }) => {
-  
+
   // === SAVE/LOAD STATE ===
   const [saveState, setSaveState] = useState(COMPONENT_SAVE_STATES.NOT_SAVED);
   const [lastSaved, setLastSaved] = useState(null);
@@ -45,7 +45,7 @@ const BasicInformation = ({
   const [agreementSearchTerm, setAgreementSearchTerm] = useState("");
   const [isAgreementLoading, setIsAgreementLoading] = useState(false);
   const [isAgreementSearching, setIsAgreementSearching] = useState(false);
-  const [hasAgreementLoaded, setHasAgreementLoaded] = useState(false);
+  // REMOVED: const [hasAgreementLoaded, setHasAgreementLoaded] = useState(false);
   const [agreementErrorMessage, setAgreementErrorMessage] = useState("");
   const [useAgreementSearchMode, setUseAgreementSearchMode] = useState(false);
   const [agreementHasMore, setAgreementHasMore] = useState(false);
@@ -72,7 +72,7 @@ const BasicInformation = ({
   const [dealOwnerHasMore, setDealOwnerHasMore] = useState(false);
 
   // === COMPONENT INITIALIZATION ===
-  
+
   // Load saved data on component mount
   useEffect(() => {
     if (context?.crm?.objectId && runServerless) {
@@ -80,10 +80,13 @@ const BasicInformation = ({
     }
   }, [context?.crm?.objectId, runServerless]);
 
-  // Load default data for all search components
+  // Load default data for all search components (simplified for agreements)
   useEffect(() => {
-    if (runServerless && !hasAgreementLoaded) {
-      loadDefaultAgreements();
+    if (runServerless) {
+      // This will now re-run when formData.commercialAgreement changes
+      // and on initial mount. The selectedAgreementId parameter in
+      // loadDefaultAgreements will handle inclusion of the pre-selected item.
+      loadDefaultAgreements(formData.commercialAgreement);
     }
     if (runServerless && !hasAdvertiserLoaded) {
       loadDefaultAdvertisers();
@@ -91,15 +94,16 @@ const BasicInformation = ({
     if (runServerless && !hasDealOwnerLoaded) {
       loadDefaultDealOwners();
     }
-  }, [runServerless, hasAgreementLoaded, hasAdvertiserLoaded, hasDealOwnerLoaded]);
+  }, [runServerless, formData.commercialAgreement, hasAdvertiserLoaded, hasDealOwnerLoaded]); // Removed hasAgreementLoaded from dependency array
+
 
   // Track form changes to detect unsaved modifications
   useEffect(() => {
     if (initialFormData && saveState === COMPONENT_SAVE_STATES.SAVED) {
-      const hasChanges = Object.keys(initialFormData).some(key => 
+      const hasChanges = Object.keys(initialFormData).some(key =>
         formData[key] !== initialFormData[key]
       );
-      
+
       if (hasChanges && !hasUnsavedChanges) {
         setHasUnsavedChanges(true);
         setSaveState(COMPONENT_SAVE_STATES.MODIFIED);
@@ -128,7 +132,7 @@ const BasicInformation = ({
 
       if (response?.status === "SUCCESS" && response?.response?.data) {
         const data = response.response.data;
-        
+
         // Populate form with loaded data
         Object.keys(data.formData).forEach(key => {
           if (data.formData[key] !== formData[key]) {
@@ -150,7 +154,6 @@ const BasicInformation = ({
         // Store initial form data for change tracking
         setInitialFormData(data.formData);
         setLastSaved(data.metadata?.lastSaved);
-        // ✅ Fixed: Check for 'Saved' with capital S
         setSaveState(data.saveStatus === 'Saved' ? COMPONENT_SAVE_STATES.SAVED : COMPONENT_SAVE_STATES.NOT_SAVED);
         setHasUnsavedChanges(false);
 
@@ -195,7 +198,7 @@ const BasicInformation = ({
 
       if (response?.status === "SUCCESS" && response?.response?.data) {
         const data = response.response.data;
-        
+
         // Update company/currency from response
         if (data.companyInfo) {
           onChange('company', data.companyInfo.companyName);
@@ -211,7 +214,7 @@ const BasicInformation = ({
         // Notify parent component
         if (onSaveStatusChange) {
           onSaveStatusChange({
-            status: 'Saved', // ✅ Fixed: Use 'Saved' with capital S 
+            status: 'Saved',
             lastSaved: data.savedAt,
             hasData: true
           });
@@ -242,7 +245,7 @@ const BasicInformation = ({
   };
 
   // === COMMERCIAL AGREEMENTS FUNCTIONS ===
-  
+
   const performAgreementSearch = async (term) => {
     if (!runServerless) return;
 
@@ -274,7 +277,7 @@ const BasicInformation = ({
     }
   };
 
-  const loadDefaultAgreements = async () => {
+  const loadDefaultAgreements = async (initialSelectedAgreementId = "") => {
     if (!runServerless) return;
 
     setIsAgreementLoading(true);
@@ -285,7 +288,8 @@ const BasicInformation = ({
         name: "searchCommercialAgreements",
         parameters: {
           loadAll: false,
-          limit: 20
+          limit: 20,
+          selectedAgreementId: initialSelectedAgreementId // ADDED PARAMETER
         }
       });
 
@@ -302,12 +306,12 @@ const BasicInformation = ({
       setAgreements(COMMERCIAL_AGREEMENTS);
     } finally {
       setIsAgreementLoading(false);
-      setHasAgreementLoaded(true);
+      // REMOVED: setHasAgreementLoaded(true);
     }
   };
 
   // === ADVERTISERS FUNCTIONS ===
-  
+
   const performAdvertiserSearch = async (term) => {
     if (!runServerless) return;
 
@@ -445,18 +449,18 @@ const BasicInformation = ({
   };
 
   // === DEBOUNCED SEARCH FUNCTIONS ===
-  
+
   const debouncedAgreementSearch = useCallback(
     debounce((term) => {
       if (term.trim() === "") {
-        loadDefaultAgreements();
+        loadDefaultAgreements(formData.commercialAgreement); // Pass selected ID here too
         setUseAgreementSearchMode(false);
       } else {
         performAgreementSearch(term.trim());
         setUseAgreementSearchMode(true);
       }
     }, 500),
-    [runServerless]
+    [runServerless, formData.commercialAgreement]
   );
 
   const debouncedAdvertiserSearch = useCallback(
@@ -504,13 +508,13 @@ const BasicInformation = ({
 
   const handleCommercialAgreementChange = (value) => {
     const selectedAgreement = agreements.find(agreement => agreement.value === value);
-    
+
     onChange('commercialAgreement', value);
-    
+
     if (selectedAgreement && selectedAgreement.value !== "") {
       setAgreementSearchTerm(selectedAgreement.label);
       setUseAgreementSearchMode(false);
-      
+
       if (selectedAgreement.hasCompany === false) {
         onChange('company', 'No company found');
         onChange('currency', '');
@@ -531,9 +535,9 @@ const BasicInformation = ({
 
   const handleAdvertiserChange = (value) => {
     const selectedAdvertiser = advertisers.find(advertiser => advertiser.value === value);
-    
+
     onChange('advertiser', value);
-    
+
     if (selectedAdvertiser && selectedAdvertiser.value !== "" && selectedAdvertiser.value !== "new") {
       setAdvertiserSearchTerm(selectedAdvertiser.label);
       setUseAdvertiserSearchMode(false);
@@ -542,9 +546,9 @@ const BasicInformation = ({
 
   const handleDealOwnerChange = (value) => {
     const selectedDealOwner = dealOwners.find(owner => owner.value === value);
-    
+
     onChange('dealOwner', value);
-    
+
     if (selectedDealOwner && selectedDealOwner.value !== "") {
       setDealOwnerSearchTerm(selectedDealOwner.label);
       setUseDealOwnerSearchMode(false);
@@ -568,7 +572,7 @@ const BasicInformation = ({
   const getSaveStatusDisplay = () => {
     const message = SAVE_STATUS_MESSAGES[saveState] || SAVE_STATUS_MESSAGES[COMPONENT_SAVE_STATES.NOT_SAVED];
     const color = SAVE_STATUS_COLORS[saveState] || SAVE_STATUS_COLORS[COMPONENT_SAVE_STATES.NOT_SAVED];
-    
+
     let statusText = message;
     if (saveState === COMPONENT_SAVE_STATES.SAVED && lastSaved) {
       statusText = `${message} on ${lastSaved}`;
@@ -578,7 +582,7 @@ const BasicInformation = ({
   };
 
   const shouldShowSaveButton = () => {
-    return saveState === COMPONENT_SAVE_STATES.NOT_SAVED || 
+    return saveState === COMPONENT_SAVE_STATES.NOT_SAVED ||
            saveState === COMPONENT_SAVE_STATES.MODIFIED ||
            saveState === COMPONENT_SAVE_STATES.ERROR;
   };
@@ -598,7 +602,7 @@ const BasicInformation = ({
   const switchAgreementToBrowseMode = () => {
     setUseAgreementSearchMode(false);
     setAgreementSearchTerm("");
-    loadDefaultAgreements();
+    loadDefaultAgreements(formData.commercialAgreement); // Pass selected ID here too
   };
 
   const switchAgreementToSearchMode = () => {
@@ -613,7 +617,7 @@ const BasicInformation = ({
     onChange('currency', '');
     setCompanyStatus("");
     setUseAgreementSearchMode(false);
-    loadDefaultAgreements();
+    loadDefaultAgreements(""); // Clear selection, so pass empty string
   };
 
   // Advertiser mode controls
@@ -713,11 +717,11 @@ const BasicInformation = ({
     <Tile>
       <Flex justify="space-between" align="center">
         <Heading>Basic Information</Heading>
-        
+
         {/* Save Status Display */}
         <Flex align="center" gap="small">
-          <Text 
-            variant="microcopy" 
+          <Text
+            variant="microcopy"
             format={{ color: statusDisplay.color }}
           >
             {statusDisplay.message}
@@ -726,7 +730,7 @@ const BasicInformation = ({
           {saveState === COMPONENT_SAVE_STATES.LOADING && <LoadingSpinner size="xs" />}
         </Flex>
       </Flex>
-      
+
       <Divider />
 
       {/* Save Error Alert */}
@@ -737,7 +741,7 @@ const BasicInformation = ({
           </Alert>
         </Box>
       )}
-      
+
       <Box marginTop="medium">
         <Flex direction="row" gap="medium" wrap="wrap">
           <Box flex={1} minWidth="250px">
@@ -750,7 +754,7 @@ const BasicInformation = ({
               required
             />
           </Box>
-          
+
           {/* COMMERCIAL AGREEMENTS SECTION */}
           <Box flex={1} minWidth="250px">
             <Flex gap="small" marginBottom="small">
@@ -820,17 +824,17 @@ const BasicInformation = ({
                 {getAgreementStatusMessage()}
               </Text>
             )}
-            
+
             {agreementErrorMessage && (
               <Box marginTop="extra-small">
                 <Text variant="microcopy" format={{ color: 'error' }}>
                   {agreementErrorMessage}
                 </Text>
                 <Box marginTop="extra-small">
-                  <Button 
-                    variant="secondary" 
+                  <Button
+                    variant="secondary"
                     size="xs"
-                    onClick={loadDefaultAgreements}
+                    onClick={() => loadDefaultAgreements(formData.commercialAgreement)}
                     disabled={isAgreementLoading}
                   >
                     Retry
@@ -852,13 +856,13 @@ const BasicInformation = ({
                 readOnly
                 style={getCompanyInputStyle()}
               />
-              
+
               {companyStatus && (
                 <Box marginTop="extra-small">
-                  <Text 
-                    variant="microcopy" 
-                    format={{ 
-                      color: companyStatus.includes('No company') ? 'error' : 
+                  <Text
+                    variant="microcopy"
+                    format={{
+                      color: companyStatus.includes('No company') ? 'error' :
                              companyStatus.includes('Company:') ? 'success' : 'medium'
                     }}
                   >
@@ -867,7 +871,7 @@ const BasicInformation = ({
                 </Box>
               )}
             </Box>
-            
+
             {/* ADVERTISERS SECTION */}
             <Box flex={1} minWidth="250px">
               <Flex gap="small" marginBottom="small">
@@ -937,15 +941,15 @@ const BasicInformation = ({
                   {getAdvertiserStatusMessage()}
                 </Text>
               )}
-              
+
               {advertiserErrorMessage && (
                 <Box marginTop="extra-small">
                   <Text variant="microcopy" format={{ color: 'error' }}>
                     {advertiserErrorMessage}
                   </Text>
                   <Box marginTop="extra-small">
-                    <Button 
-                      variant="secondary" 
+                    <Button
+                      variant="secondary"
                       size="xs"
                       onClick={loadDefaultAdvertisers}
                       disabled={isAdvertiserLoading}
@@ -1030,15 +1034,15 @@ const BasicInformation = ({
                   {getDealOwnerStatusMessage()}
                 </Text>
               )}
-              
+
               {dealOwnerErrorMessage && (
                 <Box marginTop="extra-small">
                   <Text variant="microcopy" format={{ color: 'error' }}>
                     {dealOwnerErrorMessage}
                   </Text>
                   <Box marginTop="extra-small">
-                    <Button 
-                      variant="secondary" 
+                    <Button
+                      variant="secondary"
                       size="xs"
                       onClick={loadDefaultDealOwners}
                       disabled={isDealOwnerLoading}
