@@ -1,7 +1,7 @@
 // src/app/extensions/CampaignDealGenerator.jsx
-// Enhanced version with save/load functionality
+// Fixed version with proper state declarations
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Divider,
   Button,
@@ -16,9 +16,9 @@ import {
 // Import components
 import TestConnection from './components/TestConnection.jsx';
 import BasicInformation from './components/BasicInformation.jsx';
-import CampaignDetails from './components/CampaignDetails.jsx'; // ✅ Now enhanced with save/load
-// import LineItems from './components/LineItems.jsx';
-// import CampaignSummary from './components/CampaignSummary.jsx';
+import CampaignDetails from './components/CampaignDetails.jsx';
+import LineItems from './components/LineItems.jsx';
+import CampaignSummary from './components/CampaignSummary.jsx';
 
 // Import utilities
 import { 
@@ -38,16 +38,23 @@ hubspot.extend(({ context, runServerlessFunction, actions }) => (
 ));
 
 const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
+  // === LOADING AND ALERT STATE ===
   const [loading, setLoading] = useState(false);
   const [alertMessage, setAlertMessage] = useState("");
+
+  // === VIEW/EDIT MODE STATE ===
+  const [isEditMode, setIsEditMode] = useState(false); // Start in VIEW mode
+  const [hasLoadedData, setHasLoadedData] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   // Get current object information
   const objectId = context.crm.objectId;
   const objectType = context.crm.objectType;
   const userName = `${context.user.firstName} ${context.user.lastName}`;
 
-  // Form state
+  // === FORM STATE ===
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
+  const [lineItems, setLineItems] = useState([]);
 
   // === SAVE STATUS TRACKING ===
   const [basicInfoSaveStatus, setBasicInfoSaveStatus] = useState({
@@ -56,27 +63,153 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
     hasData: false
   });
 
-  // ✅ NEW: Campaign Details Save Status
   const [campaignDetailsSaveStatus, setCampaignDetailsSaveStatus] = useState({
     status: 'not_saved',
     lastSaved: null,
     hasData: false
   });
 
-  // Line items state (for future use)
-  // const [lineItems, setLineItems] = useState([]);
+  const [lineItemsSaveStatus, setLineItemsSaveStatus] = useState({
+    status: 'not_saved',
+    lastSaved: null,
+    hasData: false
+  });
 
-  // === FORM HANDLERS ===
+  // === INITIAL DATA LOADING ===
+  useEffect(() => {
+    if (context?.crm?.objectId && runServerless && isInitialLoad) {
+      loadAllDataForViewMode();
+      setIsInitialLoad(false);
+    }
+  }, [context?.crm?.objectId, runServerless, isInitialLoad]);
 
-  // Handle form field changes
-  const handleFormChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  const loadAllDataForViewMode = async () => {
+    setLoading(true);
+    try {
+      await Promise.all([
+        loadBasicInfoQuietly(),
+        loadCampaignDetailsQuietly(),
+        loadLineItemsQuietly()
+      ]);
+      setHasLoadedData(true);
+    } catch (error) {
+      console.error("Error loading data for view mode:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Handle alert messages
+  const loadBasicInfoQuietly = async () => {
+    try {
+      const response = await runServerless({
+        name: "loadBasicInformation",
+        parameters: { campaignDealId: context.crm.objectId }
+      });
+
+      if (response?.status === "SUCCESS" && response?.response?.data) {
+        const data = response.response.data;
+        
+        Object.keys(data.formData).forEach(key => {
+          if (data.formData[key] !== formData[key]) {
+            setFormData(prev => ({ ...prev, [key]: data.formData[key] }));
+          }
+        });
+
+        setBasicInfoSaveStatus({
+          status: data.saveStatus || 'not_saved',
+          lastSaved: data.metadata?.lastSaved,
+          hasData: !!(data.formData.campaignName || data.formData.commercialAgreement)
+        });
+      }
+    } catch (error) {
+      console.warn("Could not load basic information:", error);
+    }
+  };
+
+  const loadCampaignDetailsQuietly = async () => {
+    try {
+      const response = await runServerless({
+        name: "loadCampaignDetails",
+        parameters: { campaignDealId: context.crm.objectId }
+      });
+
+      if (response?.status === "SUCCESS" && response?.response?.data) {
+        const data = response.response.data;
+        
+        const campaignDetailsFields = ['campaignType', 'taxId', 'businessName', 'dealCS'];
+        campaignDetailsFields.forEach(key => {
+          if (data.formData[key] !== formData[key]) {
+            setFormData(prev => ({ ...prev, [key]: data.formData[key] }));
+          }
+        });
+
+        setCampaignDetailsSaveStatus({
+          status: data.saveStatus || 'not_saved',
+          lastSaved: data.metadata?.lastSaved,
+          hasData: !!(data.formData.campaignType || data.formData.taxId || data.formData.businessName || data.formData.dealCS)
+        });
+      }
+    } catch (error) {
+      console.warn("Could not load campaign details:", error);
+    }
+  };
+
+  const loadLineItemsQuietly = async () => {
+    try {
+      const response = await runServerless({
+        name: "loadLineItems",
+        parameters: { campaignDealId: context.crm.objectId }
+      });
+
+      if (response?.status === "SUCCESS" && response?.response?.data) {
+        const data = response.response.data;
+        
+        setLineItems(data.lineItems || []);
+
+        setLineItemsSaveStatus({
+          status: data.saveStatus || 'not_saved',
+          lastSaved: data.metadata?.lastSaved,
+          hasData: data.lineItems && data.lineItems.length > 0
+        });
+      }
+    } catch (error) {
+      console.warn("Could not load line items:", error);
+    }
+  };
+
+  // === MODE TOGGLE HANDLERS ===
+  const handleSwitchToEditMode = () => {
+    setIsEditMode(true);
+    sendAlert({
+      message: "✏️ Switched to Edit Mode - You can now modify fields",
+      variant: "info"
+    });
+  };
+
+  const handleSwitchToViewMode = () => {
+    setIsEditMode(false);
+    sendAlert({
+      message: "👁️ Switched to View Mode - Fields are now read-only",
+      variant: "info"
+    });
+  };
+
+  // === FORM HANDLERS ===
+  const handleFormChange = (field, value) => {
+    if (isEditMode) {
+      setFormData(prev => ({
+        ...prev,
+        [field]: value
+      }));
+    }
+  };
+
+  const handleLineItemsChange = (newLineItems) => {
+    if (isEditMode) {
+      setLineItems(newLineItems);
+    }
+  };
+
   const handleAlert = (alertData) => {
     setAlertMessage(alertData);
     setTimeout(() => setAlertMessage(""), 4000);
@@ -86,7 +219,6 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
   const handleBasicInfoSaveStatusChange = (statusData) => {
     setBasicInfoSaveStatus(statusData);
     
-    // Show alerts for significant status changes
     if (statusData.status === 'Saved') {
       sendAlert({
         message: "✅ Basic information saved successfully!",
@@ -95,11 +227,9 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
     }
   };
 
-  // ✅ NEW: Campaign Details Save Status Handler
   const handleCampaignDetailsSaveStatusChange = (statusData) => {
     setCampaignDetailsSaveStatus(statusData);
     
-    // Show alerts for significant status changes
     if (statusData.status === 'Saved') {
       sendAlert({
         message: "✅ Campaign details saved successfully!",
@@ -108,15 +238,40 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
     }
   };
 
-  // Clear form
+  const handleLineItemsSaveStatusChange = (statusData) => {
+    setLineItemsSaveStatus(statusData);
+    
+    if (statusData.status === 'Saved') {
+      sendAlert({
+        message: "✅ Line items saved successfully!",
+        variant: "success"
+      });
+    }
+  };
+
+  // === UTILITY FUNCTIONS ===
   const handleClearForm = () => {
+    if (!isEditMode) {
+      sendAlert({
+        message: "⚠️ Switch to Edit Mode to clear the form",
+        variant: "warning"
+      });
+      return;
+    }
+
     setFormData(INITIAL_FORM_STATE);
+    setLineItems([]);
     setBasicInfoSaveStatus({
       status: 'not_saved',
       lastSaved: null,
       hasData: false
     });
     setCampaignDetailsSaveStatus({
+      status: 'not_saved',
+      lastSaved: null,
+      hasData: false
+    });
+    setLineItemsSaveStatus({
       status: 'not_saved',
       lastSaved: null,
       hasData: false
@@ -128,23 +283,26 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
   };
 
   // === UI STATE CALCULATIONS ===
-
   const getOverallProgress = () => {
     let progress = 0;
-    let total = 2; // Basic Info + Campaign Details (Line Items disabled for now)
+    let total = 3;
 
-    // Basic Information Progress
     if (basicInfoSaveStatus.status === 'Saved') {
       progress += 1;
     } else if (basicInfoSaveStatus.hasData) {
-      progress += 0.5; // Partial credit for filled but unsaved
+      progress += 0.5;
     }
 
-    // ✅ NEW: Campaign Details Progress
     if (campaignDetailsSaveStatus.status === 'Saved') {
       progress += 1;
     } else if (campaignDetailsSaveStatus.hasData) {
-      progress += 0.5; // Partial credit for filled but unsaved
+      progress += 0.5;
+    }
+
+    if (lineItemsSaveStatus.status === 'Saved') {
+      progress += 1;
+    } else if (lineItemsSaveStatus.hasData) {
+      progress += 0.5;
     }
 
     return { progress, total, percentage: Math.round((progress / total) * 100) };
@@ -158,53 +316,88 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
     return "medium";
   };
 
-  const shouldShowCampaignDetailsActions = () => {
-    return basicInfoSaveStatus.status === 'Saved';
+  const getModeDisplayInfo = () => {
+    if (isEditMode) {
+      return {
+        icon: "✏️",
+        text: "Edit Mode - You can modify all fields",
+        color: "warning"
+      };
+    } else {
+      return {
+        icon: "👁️",
+        text: "View Mode - Read-only display",
+        color: "medium"
+      };
+    }
   };
+
+  const modeInfo = getModeDisplayInfo();
 
   return (
     <Flex direction="column" gap="large">
-      {/* Header Section */}
+      {/* ENHANCED HEADER WITH MODE TOGGLE */}
       <Box>
         <Divider />
         <Flex justify="space-between" align="center">
           <Box>
             <Heading>Campaign Deal Generator</Heading>
-            <Text variant="microcopy">Create and manage campaign deals - Basic Information & Details</Text>
+            <Text variant="microcopy" format={{ color: modeInfo.color }}>
+              {modeInfo.icon} {modeInfo.text}
+            </Text>
           </Box>
           
-          {/* Progress Indicator */}
-          <Box>
-            <Text 
-              variant="microcopy" 
-              format={{ 
-                color: getProgressColor(),
-                fontWeight: "bold" 
-              }}
+          <Flex align="center" gap="medium">
+            {/* Progress Indicator */}
+            <Box>
+              <Text 
+                variant="microcopy" 
+                format={{ 
+                  color: getProgressColor(),
+                  fontWeight: "bold" 
+                }}
+              >
+                📊 Progress: {progressInfo.progress}/{progressInfo.total} ({progressInfo.percentage}%)
+              </Text>
+              <Text variant="microcopy" format={{ color: 'medium' }}>
+                {basicInfoSaveStatus.status === 'Saved' ? "✅ Basic Info" : "⏳ Basic Info"} | 
+                {campaignDetailsSaveStatus.status === 'Saved' ? "✅ Details" : "⏳ Details"} | 
+                {lineItemsSaveStatus.status === 'Saved' ? "✅ Line Items" : "⏳ Line Items"}
+              </Text>
+            </Box>
+
+            {/* MODE TOGGLE BUTTON */}
+            <Button
+              variant={isEditMode ? "secondary" : "primary"}
+              onClick={isEditMode ? handleSwitchToViewMode : handleSwitchToEditMode}
+              disabled={loading}
             >
-              📊 Progress: {progressInfo.progress}/{progressInfo.total} ({progressInfo.percentage}%)
-            </Text>
-            <Text variant="microcopy" format={{ color: 'medium' }}>
-              {basicInfoSaveStatus.status === 'Saved' ? "✅ Basic Info" : "⏳ Basic Info"} | 
-              {campaignDetailsSaveStatus.status === 'Saved' ? "✅ Details" : "⏳ Details"}
-            </Text>
-          </Box>
+              {isEditMode ? "👁️ Switch to View" : "✏️ Switch to Edit"}
+            </Button>
+          </Flex>
         </Flex>
         <Divider />
       </Box>
 
-      {/* Test Connection - Commented out but with proper spacing when enabled */}
-      {/* 
-      <Box>
-        <TestConnection 
-          context={context}
-          runServerless={runServerless}
-          onResult={handleAlert}
-        />
-      </Box>
-      */}
+      {/* Loading State */}
+      {loading && isInitialLoad && (
+        <Box>
+          <Alert variant="info">
+            📖 Loading campaign deal data...
+          </Alert>
+        </Box>
+      )}
 
-      {/* Basic Information Section */}
+      {/* MODE INSTRUCTION ALERT */}
+      {!isEditMode && hasLoadedData && (
+        <Box>
+          <Alert variant="info">
+            👁️ Currently in View Mode. All fields are read-only. Click "Switch to Edit" to make changes.
+          </Alert>
+        </Box>
+      )}
+
+      {/* BASIC INFORMATION */}
       <Box>
         <BasicInformation
           formData={formData}
@@ -212,11 +405,12 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
           runServerless={runServerless}
           context={context}
           onSaveStatusChange={handleBasicInfoSaveStatusChange}
+          isEditMode={isEditMode}
         />
       </Box>
 
       {/* Basic Info Status Alert */}
-      {basicInfoSaveStatus.status !== 'Saved' && basicInfoSaveStatus.hasData && (
+      {isEditMode && basicInfoSaveStatus.status !== 'Saved' && basicInfoSaveStatus.hasData && (
         <Box>
           <Alert variant="warning">
             ⚠️ Basic Information has unsaved changes. Please save before proceeding to Campaign Details.
@@ -224,7 +418,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
         </Box>
       )}
 
-      {/* Campaign Details Section */}
+      {/* CAMPAIGN DETAILS */}
       <Box>
         <CampaignDetails
           formData={formData}
@@ -232,11 +426,12 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
           runServerless={runServerless}
           context={context}
           onSaveStatusChange={handleCampaignDetailsSaveStatusChange}
+          isEditMode={isEditMode}
         />
       </Box>
 
       {/* Campaign Details Status Alert */}
-      {campaignDetailsSaveStatus.status !== 'Saved' && campaignDetailsSaveStatus.hasData && (
+      {isEditMode && campaignDetailsSaveStatus.status !== 'Saved' && campaignDetailsSaveStatus.hasData && (
         <Box>
           <Alert variant="warning">
             ⚠️ Campaign Details have unsaved changes. Please save to lock in your progress.
@@ -244,67 +439,66 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
         </Box>
       )}
 
-      {/* Line Items Section - Commented out with proper spacing for when it's enabled */}
-      {/* 
-      {shouldShowCampaignDetailsActions() && (
-        <>
-          <Divider />
-          <Box>
-            <LineItems 
-              lineItems={lineItems}
-              onLineItemsChange={setLineItems}
-              onAlert={handleAlert}
-            />
-          </Box>
-        </>
-      )}
-      */}
+      {/* LINE ITEMS SECTION */}
+      {/* <Box>
+        <LineItems 
+          lineItems={lineItems}
+          onLineItemsChange={handleLineItemsChange}
+          onAlert={handleAlert}
+          runServerless={runServerless}
+          context={context}
+          onSaveStatusChange={handleLineItemsSaveStatusChange}
+          isEditMode={isEditMode}
+        />
+      </Box> */}
 
-      {/* Campaign Summary - Commented out with proper spacing for when it's enabled */}
-      {/* 
-      <Divider />
-      <Box>
+      {/* Line Items Status Alert */}
+      {/* {isEditMode && lineItemsSaveStatus.status !== 'Saved' && lineItemsSaveStatus.hasData && (
+        <Box>
+          <Alert variant="warning">
+            ⚠️ Line Items have unsaved changes. Please save to lock in your progress.
+          </Alert>
+        </Box>
+      )} */}
+
+      {/* CAMPAIGN SUMMARY SECTION */}
+      {/* <Box>
         <CampaignSummary 
           lineItems={lineItems}
           currency={formData.currency}
+          formData={formData}
+          isEditMode={isEditMode}
         />
-      </Box>
-      */}
+      </Box> */}
 
-      {/* Global Form Actions Section */}
+      {/* GLOBAL ACTIONS */}
       <Box>
         <Divider />
         <Flex gap="medium" justify="space-between" align="center">
           <Box>
-            {(basicInfoSaveStatus.lastSaved || campaignDetailsSaveStatus.lastSaved) && (
+            {(basicInfoSaveStatus.lastSaved || campaignDetailsSaveStatus.lastSaved || lineItemsSaveStatus.lastSaved) && (
               <Text variant="microcopy" format={{ color: 'medium' }}>
-                Last saved: 
+                📅 Last saved: 
                 {basicInfoSaveStatus.lastSaved && ` Basic Info (${basicInfoSaveStatus.lastSaved})`}
-                {basicInfoSaveStatus.lastSaved && campaignDetailsSaveStatus.lastSaved && `, `}
-                {campaignDetailsSaveStatus.lastSaved && ` Campaign Details (${campaignDetailsSaveStatus.lastSaved})`}
+                {(basicInfoSaveStatus.lastSaved && (campaignDetailsSaveStatus.lastSaved || lineItemsSaveStatus.lastSaved)) && `, `}
+                {campaignDetailsSaveStatus.lastSaved && ` Details (${campaignDetailsSaveStatus.lastSaved})`}
+                {(campaignDetailsSaveStatus.lastSaved && lineItemsSaveStatus.lastSaved) && `, `}
+                {lineItemsSaveStatus.lastSaved && ` Line Items (${lineItemsSaveStatus.lastSaved})`}
               </Text>
             )}
           </Box>
           
           <Flex gap="medium">
-            <Button
-              variant="secondary"
-              onClick={handleClearForm}
-              disabled={loading}
-            >
-              🗑️ Clear All
-            </Button>
-            
-            {/* Future: Final submission button when all sections are complete */}
-            {/* 
-            <Button
-              variant="primary"
-              onClick={handleFinalSubmit}
-              disabled={loading || progressInfo.percentage < 100}
-            >
-              {loading ? "Creating..." : "🚀 Create Campaign Deal"}
-            </Button>
-            */}
+            {/* Clear button - only show in edit mode */}
+            {isEditMode && (
+              <Button
+                variant="secondary"
+                onClick={handleClearForm}
+                disabled={loading}
+              >
+                🗑️ Clear All
+              </Button>
+            )}
           </Flex>
         </Flex>
       </Box>

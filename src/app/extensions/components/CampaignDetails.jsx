@@ -1,5 +1,5 @@
 // src/app/extensions/components/CampaignDetails.jsx
-// Enhanced version with save/load functionality and Deal CS search
+// Enhanced version with View/Edit Mode functionality
 
 import React, { useState, useEffect, useCallback } from "react";
 import {
@@ -30,7 +30,8 @@ const CampaignDetails = ({
   onChange,
   runServerless,
   context,
-  onSaveStatusChange
+  onSaveStatusChange,
+  isEditMode = false // 🆕 NEW PROP - defaults to false (view mode)
 }) => {
 
   // === SAVE/LOAD STATE ===
@@ -40,7 +41,7 @@ const CampaignDetails = ({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [initialFormData, setInitialFormData] = useState(null);
 
-  // === DEAL CS STATE (Same pattern as Deal Owners) ===
+  // === DEAL CS STATE ===
   const [dealCS, setDealCS] = useState(DEAL_CS_OPTIONS);
   const [dealCSSearchTerm, setDealCSSearchTerm] = useState("");
   const [isDealCSLoading, setIsDealCSLoading] = useState(false);
@@ -50,25 +51,36 @@ const CampaignDetails = ({
   const [useDealCSSearchMode, setUseDealCSSearchMode] = useState(false);
   const [dealCSHasMore, setDealCSHasMore] = useState(false);
 
+  // === 🆕 VIEW MODE DISPLAY LABELS ===
+  const [displayLabels, setDisplayLabels] = useState({
+    campaignType: "",
+    dealCS: ""
+  });
+
   // === COMPONENT INITIALIZATION ===
 
-  // Load saved data on component mount
+  // Load saved data on component mount (only in edit mode)
   useEffect(() => {
-    if (context?.crm?.objectId && runServerless) {
+    if (context?.crm?.objectId && runServerless && isEditMode) {
       loadCampaignDetails();
     }
-  }, [context?.crm?.objectId, runServerless]);
+  }, [context?.crm?.objectId, runServerless, isEditMode]);
 
-  // Load default Deal CS data
+  // Load default Deal CS data (only in edit mode)
   useEffect(() => {
-    if (runServerless && !hasDealCSLoaded) {
+    if (runServerless && isEditMode && !hasDealCSLoaded) {
       loadDefaultDealCS();
     }
-  }, [runServerless, hasDealCSLoaded]);
+  }, [runServerless, isEditMode, hasDealCSLoaded]);
 
-  // Track form changes to detect unsaved modifications
+  // 🆕 UPDATE DISPLAY LABELS when form data changes
   useEffect(() => {
-    if (initialFormData && saveState === COMPONENT_SAVE_STATES.SAVED) {
+    updateDisplayLabels();
+  }, [formData, dealCS]);
+
+  // Track form changes (only in edit mode)
+  useEffect(() => {
+    if (initialFormData && saveState === COMPONENT_SAVE_STATES.SAVED && isEditMode) {
       const campaignDetailsFields = ['campaignType', 'taxId', 'businessName', 'dealCS'];
       const hasChanges = campaignDetailsFields.some(key =>
         formData[key] !== initialFormData[key]
@@ -82,10 +94,37 @@ const CampaignDetails = ({
         setSaveState(COMPONENT_SAVE_STATES.SAVED);
       }
     }
-  }, [formData, initialFormData, saveState, hasUnsavedChanges]);
+  }, [formData, initialFormData, saveState, hasUnsavedChanges, isEditMode]);
+
+  // === 🆕 DISPLAY LABEL FUNCTIONS ===
+  const updateDisplayLabels = () => {
+    const newLabels = { ...displayLabels };
+
+    // Campaign Type
+    const selectedCampaignType = CAMPAIGN_TYPE_OPTIONS.find(t => t.value === formData.campaignType);
+    newLabels.campaignType = selectedCampaignType?.label || formData.campaignType || "";
+
+    // Deal CS
+    const selectedDealCS = dealCS.find(cs => cs.value === formData.dealCS);
+    newLabels.dealCS = selectedDealCS?.label || formData.dealCS || "";
+
+    setDisplayLabels(newLabels);
+  };
+
+  // === 🆕 STYLING FUNCTIONS ===
+  const getFieldStyle = (hasValue = true) => {
+    if (!isEditMode) {
+      return {
+        backgroundColor: hasValue ? '#f8f9fa' : '#ffffff',
+        border: '1px solid #e9ecef',
+        cursor: 'default',
+        color: hasValue ? '#495057' : '#6c757d'
+      };
+    }
+    return {};
+  };
 
   // === SAVE/LOAD FUNCTIONS ===
-
   const loadCampaignDetails = async () => {
     if (!runServerless || !context?.crm?.objectId) return;
 
@@ -208,10 +247,9 @@ const CampaignDetails = ({
     };
   };
 
-  // === DEAL CS FUNCTIONS (Reuse searchDealOwners) ===
-
+  // === DEAL CS FUNCTIONS ===
   const performDealCSSearch = async (term) => {
-    if (!runServerless) return;
+    if (!runServerless || !isEditMode) return;
 
     setIsDealCSSearching(true);
     setDealCSErrorMessage("");
@@ -251,7 +289,7 @@ const CampaignDetails = ({
   };
 
   const loadDefaultDealCS = async () => {
-    if (!runServerless) return;
+    if (!runServerless || !isEditMode) return;
 
     setIsDealCSLoading(true);
     setDealCSErrorMessage("");
@@ -291,10 +329,10 @@ const CampaignDetails = ({
     }
   };
 
-  // === DEBOUNCED SEARCH FUNCTIONS ===
-
+  // === DEBOUNCED SEARCH FUNCTIONS (Only work in edit mode) ===
   const debouncedDealCSSearch = useCallback(
     debounce((term) => {
+      if (!isEditMode) return;
       if (term.trim() === "") {
         loadDefaultDealCS();
         setUseDealCSSearchMode(false);
@@ -303,17 +341,19 @@ const CampaignDetails = ({
         setUseDealCSSearchMode(true);
       }
     }, 500),
-    [runServerless]
+    [runServerless, isEditMode]
   );
 
   // === EVENT HANDLERS ===
-
   const handleDealCSSearchChange = (value) => {
+    if (!isEditMode) return;
     setDealCSSearchTerm(value);
     debouncedDealCSSearch(value);
   };
 
   const handleDealCSChange = (value) => {
+    if (!isEditMode) return;
+
     const selectedDealCS = dealCS.find(cs => cs.value === value);
 
     onChange('dealCS', value);
@@ -325,6 +365,8 @@ const CampaignDetails = ({
   };
 
   const handleFieldChange = (field, value) => {
+    if (!isEditMode) return;
+
     if (field === 'dealCS') {
       handleDealCSChange(value);
     } else {
@@ -333,7 +375,6 @@ const CampaignDetails = ({
   };
 
   // === UI HELPER FUNCTIONS ===
-
   const getSaveStatusDisplay = () => {
     const message = SAVE_STATUS_MESSAGES[saveState] || SAVE_STATUS_MESSAGES[COMPONENT_SAVE_STATES.NOT_SAVED];
     const color = SAVE_STATUS_COLORS[saveState] || SAVE_STATUS_COLORS[COMPONENT_SAVE_STATES.NOT_SAVED];
@@ -347,9 +388,11 @@ const CampaignDetails = ({
   };
 
   const shouldShowSaveButton = () => {
-    return saveState === COMPONENT_SAVE_STATES.NOT_SAVED ||
-           saveState === COMPONENT_SAVE_STATES.MODIFIED ||
-           saveState === COMPONENT_SAVE_STATES.ERROR;
+    return isEditMode && (
+      saveState === COMPONENT_SAVE_STATES.NOT_SAVED ||
+      saveState === COMPONENT_SAVE_STATES.MODIFIED ||
+      saveState === COMPONENT_SAVE_STATES.ERROR
+    );
   };
 
   const isSaveDisabled = () => {
@@ -361,20 +404,22 @@ const CampaignDetails = ({
            !formData.dealCS;
   };
 
-  // === DEAL CS MODE CONTROLS ===
-
+  // === DEAL CS MODE CONTROLS (Only work in edit mode) ===
   const switchDealCSToBrowseMode = () => {
+    if (!isEditMode) return;
     setUseDealCSSearchMode(false);
     setDealCSSearchTerm("");
     loadDefaultDealCS();
   };
 
   const switchDealCSToSearchMode = () => {
+    if (!isEditMode) return;
     setUseDealCSSearchMode(true);
     setDealCSSearchTerm("");
   };
 
   const clearDealCSSelection = () => {
+    if (!isEditMode) return;
     setDealCSSearchTerm("");
     onChange('dealCS', '');
     setUseDealCSSearchMode(false);
@@ -382,8 +427,8 @@ const CampaignDetails = ({
   };
 
   // === STATUS MESSAGES ===
-
   const getDealCSStatusMessage = () => {
+    if (!isEditMode) return "";
     if (isDealCSSearching) return "Searching CS representatives...";
     if (isDealCSLoading) return "Loading CS representatives...";
     if (useDealCSSearchMode && dealCSSearchTerm) {
@@ -404,23 +449,32 @@ const CampaignDetails = ({
       <Flex justify="space-between" align="center">
         <Heading>Campaign Details</Heading>
 
-        {/* Save Status Display */}
-        <Flex align="center" gap="small">
-          <Text
-            variant="microcopy"
-            format={{ color: statusDisplay.color }}
-          >
-            {statusDisplay.message}
+        {/* Save Status Display - Only show in Edit Mode */}
+        {isEditMode && (
+          <Flex align="center" gap="small">
+            <Text
+              variant="microcopy"
+              format={{ color: statusDisplay.color }}
+            >
+              {statusDisplay.message}
+            </Text>
+            {saveState === COMPONENT_SAVE_STATES.SAVING && <LoadingSpinner size="xs" />}
+            {saveState === COMPONENT_SAVE_STATES.LOADING && <LoadingSpinner size="xs" />}
+          </Flex>
+        )}
+
+        {/* 🆕 VIEW MODE INDICATOR */}
+        {!isEditMode && (
+          <Text variant="microcopy" format={{ color: 'medium' }}>
+            👁️ View Mode - Read Only
           </Text>
-          {saveState === COMPONENT_SAVE_STATES.SAVING && <LoadingSpinner size="xs" />}
-          {saveState === COMPONENT_SAVE_STATES.LOADING && <LoadingSpinner size="xs" />}
-        </Flex>
+        )}
       </Flex>
 
       <Divider />
 
-      {/* Save Error Alert */}
-      {saveError && (
+      {/* Save Error Alert - Only show in Edit Mode */}
+      {isEditMode && saveError && (
         <Box marginTop="small" marginBottom="medium">
           <Alert variant="error">
             {saveError}
@@ -430,72 +484,109 @@ const CampaignDetails = ({
 
       <Box marginTop="medium">
         <Flex direction="row" gap="medium" wrap="wrap">
+          {/* 🆕 CAMPAIGN TYPE - VIEW/EDIT MODE */}
           <Box flex={1} minWidth="250px">
-            <Select
-              label="Campaign Type *"
-              name="campaignType"
-              options={CAMPAIGN_TYPE_OPTIONS}
-              value={formData.campaignType}
-              onChange={(value) => handleFieldChange("campaignType", value)}
-              required
-            />
+            {/* View Mode: Simple Input Display */}
+            {!isEditMode ? (
+              <Input
+                label="Campaign Type *"
+                name="campaignType"
+                placeholder="No campaign type selected"
+                value={displayLabels.campaignType}
+                readOnly={true}
+                style={getFieldStyle(!!displayLabels.campaignType)}
+              />
+            ) : (
+              /* Edit Mode: Select */
+              <Select
+                label="Campaign Type *"
+                name="campaignType"
+                options={CAMPAIGN_TYPE_OPTIONS}
+                value={formData.campaignType}
+                onChange={(value) => handleFieldChange("campaignType", value)}
+                required
+              />
+            )}
           </Box>
+
+          {/* 🆕 TAX ID - VIEW/EDIT MODE */}
           <Box flex={1} minWidth="250px">
             <Input
               label="Tax ID *"
               name="taxId"
-              placeholder="Enter or create new Tax ID"
+              placeholder={isEditMode ? "Enter or create new Tax ID" : "No tax ID"}
               value={formData.taxId}
-              onChange={(value) => handleFieldChange("taxId", value)}
-              required
+              onChange={isEditMode ? (value) => handleFieldChange("taxId", value) : undefined}
+              readOnly={!isEditMode}
+              style={getFieldStyle(!!formData.taxId)}
+              required={isEditMode}
             />
           </Box>
         </Flex>
 
         <Box marginTop="medium">
           <Flex direction="row" gap="medium" wrap="wrap">
+            {/* 🆕 BUSINESS NAME - VIEW/EDIT MODE */}
             <Box flex={1} minWidth="250px">
               <Input
                 label="Business Name *"
                 name="businessName"
-                placeholder="Enter business name"
+                placeholder={isEditMode ? "Enter business name" : "No business name"}
                 value={formData.businessName}
-                onChange={(value) => handleFieldChange("businessName", value)}
-                required
+                onChange={isEditMode ? (value) => handleFieldChange("businessName", value) : undefined}
+                readOnly={!isEditMode}
+                style={getFieldStyle(!!formData.businessName)}
+                required={isEditMode}
               />
             </Box>
             
-            {/* DEAL CS SECTION */}
+            {/* 🆕 DEAL CS - VIEW/EDIT MODE */}
             <Box flex={1} minWidth="250px">
-              <Flex gap="small" marginBottom="small">
-                <Button
-                  variant={!useDealCSSearchMode ? "primary" : "secondary"}
-                  size="xs"
-                  onClick={switchDealCSToBrowseMode}
-                  disabled={isDealCSLoading}
-                >
-                  📋 Browse
-                </Button>
-                <Button
-                  variant={useDealCSSearchMode ? "primary" : "secondary"}
-                  size="xs"
-                  onClick={switchDealCSToSearchMode}
-                  disabled={isDealCSLoading}
-                >
-                  🔍 Search
-                </Button>
-                {(formData.dealCS || dealCSSearchTerm) && (
+              {/* Mode Controls - Only show in Edit Mode */}
+              {isEditMode && (
+                <Flex gap="small" marginBottom="small">
                   <Button
-                    variant="secondary"
+                    variant={!useDealCSSearchMode ? "primary" : "secondary"}
                     size="xs"
-                    onClick={clearDealCSSelection}
+                    onClick={switchDealCSToBrowseMode}
+                    disabled={isDealCSLoading}
                   >
-                    ✕ Clear
+                    📋 Browse
                   </Button>
-                )}
-              </Flex>
+                  <Button
+                    variant={useDealCSSearchMode ? "primary" : "secondary"}
+                    size="xs"
+                    onClick={switchDealCSToSearchMode}
+                    disabled={isDealCSLoading}
+                  >
+                    🔍 Search
+                  </Button>
+                  {(formData.dealCS || dealCSSearchTerm) && (
+                    <Button
+                      variant="secondary"
+                      size="xs"
+                      onClick={clearDealCSSelection}
+                    >
+                      ✕ Clear
+                    </Button>
+                  )}
+                </Flex>
+              )}
 
-              {useDealCSSearchMode ? (
+              {/* View Mode: Simple Input Display */}
+              {!isEditMode && (
+                <Input
+                  label="Deal CS *"
+                  name="dealCS"
+                  placeholder="No CS representative selected"
+                  value={displayLabels.dealCS}
+                  readOnly={true}
+                  style={getFieldStyle(!!displayLabels.dealCS)}
+                />
+              )}
+
+              {/* Edit Mode: Search or Select */}
+              {isEditMode && useDealCSSearchMode ? (
                 <Input
                   label="Search CS Representatives *"
                   name="searchDealCS"
@@ -504,7 +595,7 @@ const CampaignDetails = ({
                   onChange={handleDealCSSearchChange}
                   disabled={isDealCSLoading || isDealCSSearching}
                 />
-              ) : (
+              ) : isEditMode ? (
                 <Select
                   label="Deal CS *"
                   name="dealCS"
@@ -514,9 +605,10 @@ const CampaignDetails = ({
                   required
                   disabled={isDealCSLoading}
                 />
-              )}
+              ) : null}
 
-              {useDealCSSearchMode && dealCSSearchTerm && dealCS.length > 1 && (
+              {/* Search Results - Only in Edit Mode */}
+              {isEditMode && useDealCSSearchMode && dealCSSearchTerm && dealCS.length > 1 && (
                 <Box marginTop="small">
                   <Select
                     label="Select from search results"
@@ -529,13 +621,15 @@ const CampaignDetails = ({
                 </Box>
               )}
 
+              {/* Status Messages - Only in Edit Mode */}
               {getDealCSStatusMessage() && (
                 <Text variant="microcopy" format={{ color: 'medium' }}>
                   {getDealCSStatusMessage()}
                 </Text>
               )}
 
-              {dealCSErrorMessage && (
+              {/* Error Messages - Only in Edit Mode */}
+              {isEditMode && dealCSErrorMessage && (
                 <Box marginTop="extra-small">
                   <Text variant="microcopy" format={{ color: 'error' }}>
                     {dealCSErrorMessage}
@@ -556,7 +650,7 @@ const CampaignDetails = ({
           </Flex>
         </Box>
 
-        {/* Save Button */}
+        {/* Save Button - Only show in Edit Mode */}
         {shouldShowSaveButton() && (
           <Box marginTop="medium">
             <Flex justify="end">

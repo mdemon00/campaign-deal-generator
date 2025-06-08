@@ -39,6 +39,14 @@
     "loadCampaignDetails": {
       "file": "loadCampaignDetails.js",
       "secrets": []
+    },
+    "saveLineItems": {
+      "file": "saveLineItems.js",
+      "secrets": []
+    },
+    "loadLineItems": {
+      "file": "loadLineItems.js",
+      "secrets": []
     }
   }
 }
