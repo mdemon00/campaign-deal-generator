@@ -27,10 +27,9 @@ export const CAMPAIGN_TYPE_OPTIONS = [
   { label: "Event", value: "event" }
 ];
 
+// Deal CS Options - Fallback only (use searchDealOwners for dynamic loading)
 export const DEAL_CS_OPTIONS = [
-  { label: "Select CS Representative", value: "" },
-  { label: "Mara Corpus", value: "mara_corpus" },
-  { label: "Juan Perez", value: "juan_perez" }
+  { label: "Select CS Representative", value: "" }
 ];
 
 export const COUNTRY_OPTIONS = [
@@ -72,6 +71,7 @@ export const HUBSPOT_OBJECT_IDS = {
 export const VALIDATION_RULES = {
   REQUIRED_BASIC_FIELDS: ['campaignName', 'commercialAgreement', 'advertiser', 'dealOwner'],
   REQUIRED_LINE_ITEM_FIELDS: ['name', 'startDate', 'endDate'],
+  REQUIRED_CAMPAIGN_DETAILS_FIELDS: ['campaignType', 'taxId', 'businessName', 'dealCS'], // ✅ Added
   MIN_LINE_ITEMS: 1
 };
 
@@ -83,6 +83,14 @@ export const INITIAL_FORM_STATE = {
   advertiser: "",
   dealOwner: "",
   currency: "",
+  campaignType: "",
+  taxId: "",
+  businessName: "",
+  dealCS: ""
+};
+
+// Initial campaign details state
+export const INITIAL_CAMPAIGN_DETAILS_STATE = {
   campaignType: "",
   taxId: "",
   businessName: "",

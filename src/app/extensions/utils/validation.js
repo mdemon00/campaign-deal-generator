@@ -24,6 +24,27 @@ export const validateBasicInformation = (formData) => {
 };
 
 /**
+ * Validates campaign details form fields
+ * @param {Object} formData - The form data to validate
+ * @returns {Object} - { isValid: boolean, errors: string[] }
+ */
+export const validateCampaignDetails = (formData) => {
+  const errors = [];
+  
+  VALIDATION_RULES.REQUIRED_CAMPAIGN_DETAILS_FIELDS.forEach(field => {
+    if (!formData[field] || formData[field].trim() === '') {
+      const fieldLabel = getFieldLabel(field);
+      errors.push(`${fieldLabel} is required`);
+    }
+  });
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+};
+
+/**
  * Validates line item data
  * @param {Object} lineItem - The line item to validate
  * @returns {Object} - { isValid: boolean, errors: string[] }
@@ -79,6 +100,12 @@ export const validateCampaignDeal = (formData, lineItems) => {
   const basicValidation = validateBasicInformation(formData);
   if (!basicValidation.isValid) {
     errors.push(...basicValidation.errors);
+  }
+
+  // Validate campaign details
+  const campaignDetailsValidation = validateCampaignDetails(formData);
+  if (!campaignDetailsValidation.isValid) {
+    errors.push(...campaignDetailsValidation.errors);
   }
 
   // Validate line items

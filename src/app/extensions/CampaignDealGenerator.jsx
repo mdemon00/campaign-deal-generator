@@ -16,7 +16,7 @@ import {
 // Import components
 import TestConnection from './components/TestConnection.jsx';
 import BasicInformation from './components/BasicInformation.jsx';
-import CampaignDetails from './components/CampaignDetails.jsx';
+import CampaignDetails from './components/CampaignDetails.jsx'; // ✅ Now enhanced with save/load
 // import LineItems from './components/LineItems.jsx';
 // import CampaignSummary from './components/CampaignSummary.jsx';
 
@@ -49,9 +49,16 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
   // Form state
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
 
-  // === NEW: Save Status Tracking ===
+  // === SAVE STATUS TRACKING ===
   const [basicInfoSaveStatus, setBasicInfoSaveStatus] = useState({
-    status: 'not_saved', // ✅ Fixed: Use correct enumeration value
+    status: 'not_saved',
+    lastSaved: null,
+    hasData: false
+  });
+
+  // ✅ NEW: Campaign Details Save Status
+  const [campaignDetailsSaveStatus, setCampaignDetailsSaveStatus] = useState({
+    status: 'not_saved',
     lastSaved: null,
     hasData: false
   });
@@ -75,12 +82,12 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
     setTimeout(() => setAlertMessage(""), 4000);
   };
 
-  // === NEW: Save Status Handler ===
+  // === SAVE STATUS HANDLERS ===
   const handleBasicInfoSaveStatusChange = (statusData) => {
     setBasicInfoSaveStatus(statusData);
     
     // Show alerts for significant status changes
-    if (statusData.status === 'Saved') { // ✅ Fixed: Capital S
+    if (statusData.status === 'Saved') {
       sendAlert({
         message: "✅ Basic information saved successfully!",
         variant: "success"
@@ -88,56 +95,16 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
     }
   };
 
-  // === CAMPAIGN DETAILS SUBMISSION ===
-  const handleSubmitCampaignDetails = async () => {
-    setLoading(true);
-
-    try {
-      // Validate basic information first
-      const validation = validateBasicInformation(formData);
-      if (!validation.isValid) {
-        throw new Error(`Please fix the following errors: ${validation.errors.join(', ')}`);
-      }
-
-      // Check if basic info is saved
-      if (basicInfoSaveStatus.status !== 'Saved') { // ✅ Fixed: Capital S
-        throw new Error("Please save Basic Information before proceeding with Campaign Details");
-      }
-
-      const campaignData = {
-        ...formData,
-        objectId,
-        objectType,
-        createdBy: userName,
-        timestamp: new Date().toISOString()
-      };
-
-      // Here you would call your serverless function to save campaign details
-      // const response = await runServerless({
-      //   name: "saveCampaignDetails",
-      //   parameters: campaignData
-      // });
-
-      console.log("Campaign Details Data:", campaignData);
-
-      handleAlert({
-        message: "Campaign Details saved successfully! 🎉",
-        variant: "success"
-      });
-
+  // ✅ NEW: Campaign Details Save Status Handler
+  const handleCampaignDetailsSaveStatusChange = (statusData) => {
+    setCampaignDetailsSaveStatus(statusData);
+    
+    // Show alerts for significant status changes
+    if (statusData.status === 'Saved') {
       sendAlert({
-        message: "Campaign Details saved successfully!",
+        message: "✅ Campaign details saved successfully!",
         variant: "success"
       });
-
-    } catch (error) {
-      console.error("Error saving campaign details:", error);
-      handleAlert({
-        message: `Error: ${error.message}`,
-        variant: "error"
-      });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -145,7 +112,12 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
   const handleClearForm = () => {
     setFormData(INITIAL_FORM_STATE);
     setBasicInfoSaveStatus({
-      status: 'not_saved', // ✅ Fixed: Use correct enumeration value
+      status: 'not_saved',
+      lastSaved: null,
+      hasData: false
+    });
+    setCampaignDetailsSaveStatus({
+      status: 'not_saved',
       lastSaved: null,
       hasData: false
     });
@@ -162,17 +134,17 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
     let total = 2; // Basic Info + Campaign Details (Line Items disabled for now)
 
     // Basic Information Progress
-    if (basicInfoSaveStatus.status === 'Saved') { // ✅ Fixed: Capital S
+    if (basicInfoSaveStatus.status === 'Saved') {
       progress += 1;
     } else if (basicInfoSaveStatus.hasData) {
       progress += 0.5; // Partial credit for filled but unsaved
     }
 
-    // Campaign Details Progress (simplified check)
-    if (formData.campaignType && formData.taxId && formData.businessName && formData.dealCS) {
+    // ✅ NEW: Campaign Details Progress
+    if (campaignDetailsSaveStatus.status === 'Saved') {
       progress += 1;
-    } else if (formData.campaignType || formData.taxId || formData.businessName || formData.dealCS) {
-      progress += 0.5; // Partial credit
+    } else if (campaignDetailsSaveStatus.hasData) {
+      progress += 0.5; // Partial credit for filled but unsaved
     }
 
     return { progress, total, percentage: Math.round((progress / total) * 100) };
@@ -187,7 +159,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
   };
 
   const shouldShowCampaignDetailsActions = () => {
-    return basicInfoSaveStatus.status === 'Saved'; // ✅ Fixed: Capital S
+    return basicInfoSaveStatus.status === 'Saved';
   };
 
   return (
@@ -214,7 +186,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
             </Text>
             <Text variant="microcopy" format={{ color: 'medium' }}>
               {basicInfoSaveStatus.status === 'Saved' ? "✅ Basic Info" : "⏳ Basic Info"} | 
-              {formData.campaignType ? "✅ Details" : "⏳ Details"}
+              {campaignDetailsSaveStatus.status === 'Saved' ? "✅ Details" : "⏳ Details"}
             </Text>
           </Box>
         </Flex>
@@ -244,7 +216,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
       </Box>
 
       {/* Basic Info Status Alert */}
-      {basicInfoSaveStatus.status !== 'Saved' && basicInfoSaveStatus.hasData && ( // ✅ Fixed: Capital S
+      {basicInfoSaveStatus.status !== 'Saved' && basicInfoSaveStatus.hasData && (
         <Box>
           <Alert variant="warning">
             ⚠️ Basic Information has unsaved changes. Please save before proceeding to Campaign Details.
@@ -257,32 +229,20 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
         <CampaignDetails
           formData={formData}
           onChange={handleFormChange}
+          runServerless={runServerless}
+          context={context}
+          onSaveStatusChange={handleCampaignDetailsSaveStatusChange}
         />
-        
-        {/* Campaign Details Actions */}
-        {shouldShowCampaignDetailsActions() && (
-          <Box marginTop="medium">
-            <Flex gap="medium" justify="end">
-              <Button
-                variant="primary"
-                onClick={handleSubmitCampaignDetails}
-                disabled={loading || !formData.campaignType}
-              >
-                {loading ? "Saving..." : "💾 Save Campaign Details"}
-              </Button>
-            </Flex>
-          </Box>
-        )}
-        
-        {/* Locked Message */}
-        {!shouldShowCampaignDetailsActions() && (
-          <Box marginTop="medium">
-            <Alert variant="info">
-              🔒 Complete and save Basic Information to unlock Campaign Details
-            </Alert>
-          </Box>
-        )}
       </Box>
+
+      {/* Campaign Details Status Alert */}
+      {campaignDetailsSaveStatus.status !== 'Saved' && campaignDetailsSaveStatus.hasData && (
+        <Box>
+          <Alert variant="warning">
+            ⚠️ Campaign Details have unsaved changes. Please save to lock in your progress.
+          </Alert>
+        </Box>
+      )}
 
       {/* Line Items Section - Commented out with proper spacing for when it's enabled */}
       {/* 
@@ -316,9 +276,12 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
         <Divider />
         <Flex gap="medium" justify="space-between" align="center">
           <Box>
-            {basicInfoSaveStatus.lastSaved && (
+            {(basicInfoSaveStatus.lastSaved || campaignDetailsSaveStatus.lastSaved) && (
               <Text variant="microcopy" format={{ color: 'medium' }}>
-                Last saved: {basicInfoSaveStatus.lastSaved}
+                Last saved: 
+                {basicInfoSaveStatus.lastSaved && ` Basic Info (${basicInfoSaveStatus.lastSaved})`}
+                {basicInfoSaveStatus.lastSaved && campaignDetailsSaveStatus.lastSaved && `, `}
+                {campaignDetailsSaveStatus.lastSaved && ` Campaign Details (${campaignDetailsSaveStatus.lastSaved})`}
               </Text>
             )}
           </Box>
