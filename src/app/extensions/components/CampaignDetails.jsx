@@ -103,7 +103,7 @@ const CampaignDetails = ({
     }
   }, [formData, initialFormData, saveState, hasUnsavedChanges, isEditMode]);
 
-  // === 🆕 DISPLAY LABEL FUNCTIONS ===
+  // === 🔧 FIXED DISPLAY LABEL FUNCTIONS ===
   const updateDisplayLabels = () => {
     const newLabels = { ...displayLabels };
 
@@ -111,9 +111,18 @@ const CampaignDetails = ({
     const selectedCampaignType = CAMPAIGN_TYPE_OPTIONS.find(t => t.value === formData.campaignType);
     newLabels.campaignType = selectedCampaignType?.label || formData.campaignType || "";
 
-    // Deal CS
+    // 🔧 FIXED: Deal CS - Handle view mode properly
     const selectedDealCS = dealCS.find(cs => cs.value === formData.dealCS);
-    newLabels.dealCS = selectedDealCS?.label || formData.dealCS || "";
+    if (selectedDealCS) {
+      // Found in options array (edit mode scenario)
+      newLabels.dealCS = selectedDealCS.label;
+    } else if (formData.dealCS && !isEditMode) {
+      // View mode: Don't show raw ID, use user-friendly fallback
+      newLabels.dealCS = `CS Rep ${formData.dealCS}`;
+    } else {
+      // Edit mode or no value
+      newLabels.dealCS = formData.dealCS || "";
+    }
 
     setDisplayLabels(newLabels);
   };
@@ -131,7 +140,7 @@ const CampaignDetails = ({
     return {};
   };
 
-  // === 🆕 NEW FUNCTION: Load data for view mode only
+  // === 🔧 ENHANCED: Load data for view mode with Deal CS lookup
   const loadCampaignDetailsForViewMode = async () => {
     if (!runServerless || !context?.crm?.objectId) return;
 
@@ -154,15 +163,48 @@ const CampaignDetails = ({
           }
         });
 
-        // 🔧 FIX: UPDATE DISPLAY LABELS from association data and form data
+        // 🔧 ENHANCED: UPDATE DISPLAY LABELS from association data and form data
         const newDisplayLabels = { ...displayLabels };
         
         // Campaign Type - find from constants
         const selectedCampaignType = CAMPAIGN_TYPE_OPTIONS.find(t => t.value === data.formData.campaignType);
         newDisplayLabels.campaignType = selectedCampaignType?.label || data.formData.campaignType || "";
 
+        // 🔧 ENHANCED: Deal CS - Handle association data OR fallback gracefully
         if (data.associations?.dealCS) {
+          // Best case: we have association data with the label
           newDisplayLabels.dealCS = data.associations.dealCS.label;
+        } else if (data.formData.dealCS) {
+          // Fallback: Try to fetch Deal CS info for this specific ID
+          try {
+            const dealCSLookupResponse = await runServerless({
+              name: "searchDealOwners",
+              parameters: {
+                searchTerm: "",
+                loadAll: false,
+                limit: 100 // Load enough to find the specific ID
+              }
+            });
+            
+            if (dealCSLookupResponse?.status === "SUCCESS" && dealCSLookupResponse?.response?.data) {
+              const dealCSOptions = dealCSLookupResponse.response.data.options || [];
+              const foundDealCS = dealCSOptions.find(cs => cs.value === data.formData.dealCS);
+              
+              if (foundDealCS) {
+                newDisplayLabels.dealCS = foundDealCS.label;
+              } else {
+                // Still not found, use user-friendly fallback
+                newDisplayLabels.dealCS = `CS Representative (ID: ${data.formData.dealCS})`;
+              }
+            } else {
+              // API call failed, use user-friendly fallback
+              newDisplayLabels.dealCS = `CS Representative (ID: ${data.formData.dealCS})`;
+            }
+          } catch (lookupError) {
+            console.warn("Could not lookup Deal CS details for view mode:", lookupError);
+            // Final fallback: user-friendly display
+            newDisplayLabels.dealCS = `CS Representative (ID: ${data.formData.dealCS})`;
+          }
         }
         
         setDisplayLabels(newDisplayLabels);
@@ -599,7 +641,7 @@ const CampaignDetails = ({
               />
             </Box>
             
-            {/* 🆕 DEAL CS - VIEW/EDIT MODE */}
+            {/* 🔧 FIXED: DEAL CS - VIEW/EDIT MODE */}
             <Box flex={1} minWidth="250px">
               {/* Mode Controls - Only show in Edit Mode */}
               {isEditMode && (
@@ -632,7 +674,7 @@ const CampaignDetails = ({
                 </Flex>
               )}
 
-              {/* View Mode: Simple Input Display */}
+              {/* View Mode: Simple Input Display with proper label */}
               {!isEditMode && (
                 <Input
                   label="Deal CS *"
