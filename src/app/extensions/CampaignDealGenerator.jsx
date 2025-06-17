@@ -1,5 +1,5 @@
 // src/app/extensions/CampaignDealGenerator.jsx
-// Fixed version with proper state declarations
+// Fixed version with proper view mode data loading
 
 import React, { useState, useEffect } from "react";
 import {
@@ -83,17 +83,22 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
     }
   }, [context?.crm?.objectId, runServerless, isInitialLoad]);
 
+  // === 🔧 ENHANCED DATA LOADING FOR VIEW MODE ===
   const loadAllDataForViewMode = async () => {
     setLoading(true);
     try {
+      // Load all data in parallel but quietly (no UI state updates for save status)
       await Promise.all([
         loadBasicInfoQuietly(),
         loadCampaignDetailsQuietly(),
         loadLineItemsQuietly()
       ]);
       setHasLoadedData(true);
+      console.log("✅ All data loaded for view mode");
     } catch (error) {
       console.error("Error loading data for view mode:", error);
+      // Still set hasLoadedData to true so UI doesn't stay in loading state
+      setHasLoadedData(true);
     } finally {
       setLoading(false);
     }
@@ -109,20 +114,24 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
       if (response?.status === "SUCCESS" && response?.response?.data) {
         const data = response.response.data;
         
+        // 🔧 UPDATE FORM DATA
         Object.keys(data.formData).forEach(key => {
           if (data.formData[key] !== formData[key]) {
             setFormData(prev => ({ ...prev, [key]: data.formData[key] }));
           }
         });
 
+        // 🔧 UPDATE SAVE STATUS
         setBasicInfoSaveStatus({
           status: data.saveStatus || 'not_saved',
           lastSaved: data.metadata?.lastSaved,
           hasData: !!(data.formData.campaignName || data.formData.commercialAgreement)
         });
+
+        console.log("✅ Basic information loaded quietly for view mode");
       }
     } catch (error) {
-      console.warn("Could not load basic information:", error);
+      console.warn("Could not load basic information for view mode:", error);
     }
   };
 
@@ -136,6 +145,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
       if (response?.status === "SUCCESS" && response?.response?.data) {
         const data = response.response.data;
         
+        // 🔧 UPDATE FORM DATA
         const campaignDetailsFields = ['campaignType', 'taxId', 'businessName', 'dealCS'];
         campaignDetailsFields.forEach(key => {
           if (data.formData[key] !== formData[key]) {
@@ -143,14 +153,17 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
           }
         });
 
+        // 🔧 UPDATE SAVE STATUS
         setCampaignDetailsSaveStatus({
           status: data.saveStatus || 'not_saved',
           lastSaved: data.metadata?.lastSaved,
           hasData: !!(data.formData.campaignType || data.formData.taxId || data.formData.businessName || data.formData.dealCS)
         });
+
+        console.log("✅ Campaign details loaded quietly for view mode");
       }
     } catch (error) {
-      console.warn("Could not load campaign details:", error);
+      console.warn("Could not load campaign details for view mode:", error);
     }
   };
 
@@ -164,16 +177,20 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
       if (response?.status === "SUCCESS" && response?.response?.data) {
         const data = response.response.data;
         
+        // 🔧 UPDATE LINE ITEMS
         setLineItems(data.lineItems || []);
 
+        // 🔧 UPDATE SAVE STATUS
         setLineItemsSaveStatus({
           status: data.saveStatus || 'not_saved',
           lastSaved: data.metadata?.lastSaved,
           hasData: data.lineItems && data.lineItems.length > 0
         });
+
+        console.log("✅ Line items loaded quietly for view mode");
       }
     } catch (error) {
-      console.warn("Could not load line items:", error);
+      console.warn("Could not load line items for view mode:", error);
     }
   };
 
@@ -334,6 +351,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
 
   const modeInfo = getModeDisplayInfo();
 
+  // === 🔧 ENHANCED RENDERING LOGIC ===
   return (
     <Flex direction="column" gap="large">
       {/* ENHANCED HEADER WITH MODE TOGGLE */}
@@ -397,111 +415,116 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
         </Box>
       )}
 
-      {/* BASIC INFORMATION */}
-      <Box>
-        <BasicInformation
-          formData={formData}
-          onChange={handleFormChange}
-          runServerless={runServerless}
-          context={context}
-          onSaveStatusChange={handleBasicInfoSaveStatusChange}
-          isEditMode={isEditMode}
-        />
-      </Box>
-
-      {/* Basic Info Status Alert */}
-      {isEditMode && basicInfoSaveStatus.status !== 'Saved' && basicInfoSaveStatus.hasData && (
-        <Box>
-          <Alert variant="warning">
-            ⚠️ Basic Information has unsaved changes. Please save before proceeding to Campaign Details.
-          </Alert>
-        </Box>
-      )}
-
-      {/* CAMPAIGN DETAILS */}
-      <Box>
-        <CampaignDetails
-          formData={formData}
-          onChange={handleFormChange}
-          runServerless={runServerless}
-          context={context}
-          onSaveStatusChange={handleCampaignDetailsSaveStatusChange}
-          isEditMode={isEditMode}
-        />
-      </Box>
-
-      {/* Campaign Details Status Alert */}
-      {isEditMode && campaignDetailsSaveStatus.status !== 'Saved' && campaignDetailsSaveStatus.hasData && (
-        <Box>
-          <Alert variant="warning">
-            ⚠️ Campaign Details have unsaved changes. Please save to lock in your progress.
-          </Alert>
-        </Box>
-      )}
-
-      {/* LINE ITEMS SECTION */}
-      {/* <Box>
-        <LineItems 
-          lineItems={lineItems}
-          onLineItemsChange={handleLineItemsChange}
-          onAlert={handleAlert}
-          runServerless={runServerless}
-          context={context}
-          onSaveStatusChange={handleLineItemsSaveStatusChange}
-          isEditMode={isEditMode}
-        />
-      </Box> */}
-
-      {/* Line Items Status Alert */}
-      {/* {isEditMode && lineItemsSaveStatus.status !== 'Saved' && lineItemsSaveStatus.hasData && (
-        <Box>
-          <Alert variant="warning">
-            ⚠️ Line Items have unsaved changes. Please save to lock in your progress.
-          </Alert>
-        </Box>
-      )} */}
-
-      {/* CAMPAIGN SUMMARY SECTION */}
-      {/* <Box>
-        <CampaignSummary 
-          lineItems={lineItems}
-          currency={formData.currency}
-          formData={formData}
-          isEditMode={isEditMode}
-        />
-      </Box> */}
-
-      {/* GLOBAL ACTIONS */}
-      <Box>
-        <Divider />
-        <Flex gap="medium" justify="space-between" align="center">
+      {/* 🔧 SHOW CONTENT AFTER LOADING OR IF NO DATA */}
+      {(hasLoadedData || !isInitialLoad) && (
+        <>
+          {/* BASIC INFORMATION */}
           <Box>
-            {(basicInfoSaveStatus.lastSaved || campaignDetailsSaveStatus.lastSaved || lineItemsSaveStatus.lastSaved) && (
-              <Text variant="microcopy" format={{ color: 'medium' }}>
-                📅 Last saved: 
-                {basicInfoSaveStatus.lastSaved && ` Basic Info (${basicInfoSaveStatus.lastSaved})`}
-                {(basicInfoSaveStatus.lastSaved && (campaignDetailsSaveStatus.lastSaved || lineItemsSaveStatus.lastSaved)) && `, `}
-                {campaignDetailsSaveStatus.lastSaved && ` Details (${campaignDetailsSaveStatus.lastSaved})`}
-                {(campaignDetailsSaveStatus.lastSaved && lineItemsSaveStatus.lastSaved) && `, `}
-                {lineItemsSaveStatus.lastSaved && ` Line Items (${lineItemsSaveStatus.lastSaved})`}
-              </Text>
-            )}
+            <BasicInformation
+              formData={formData}
+              onChange={handleFormChange}
+              runServerless={runServerless}
+              context={context}
+              onSaveStatusChange={handleBasicInfoSaveStatusChange}
+              isEditMode={isEditMode}
+            />
           </Box>
-          
-          <Flex gap="medium">
-            {/* Clear button - only show in edit mode */}
-            {isEditMode && (
-              <Button
-                variant="secondary"
-                onClick={handleClearForm}
-                disabled={loading}
-              >
-                🗑️ Clear All
-              </Button>
-            )}
-          </Flex>
-        </Flex>
-      </Box>
+
+          {/* Basic Info Status Alert */}
+          {isEditMode && basicInfoSaveStatus.status !== 'Saved' && basicInfoSaveStatus.hasData && (
+            <Box>
+              <Alert variant="warning">
+                ⚠️ Basic Information has unsaved changes. Please save before proceeding to Campaign Details.
+              </Alert>
+            </Box>
+          )}
+
+          {/* CAMPAIGN DETAILS */}
+          <Box>
+            <CampaignDetails
+              formData={formData}
+              onChange={handleFormChange}
+              runServerless={runServerless}
+              context={context}
+              onSaveStatusChange={handleCampaignDetailsSaveStatusChange}
+              isEditMode={isEditMode}
+            />
+          </Box>
+
+          {/* Campaign Details Status Alert */}
+          {isEditMode && campaignDetailsSaveStatus.status !== 'Saved' && campaignDetailsSaveStatus.hasData && (
+            <Box>
+              <Alert variant="warning">
+                ⚠️ Campaign Details have unsaved changes. Please save to lock in your progress.
+              </Alert>
+            </Box>
+          )}
+
+          {/* LINE ITEMS SECTION */}
+          {/* <Box>
+            <LineItems 
+              lineItems={lineItems}
+              onLineItemsChange={handleLineItemsChange}
+              onAlert={handleAlert}
+              runServerless={runServerless}
+              context={context}
+              onSaveStatusChange={handleLineItemsSaveStatusChange}
+              isEditMode={isEditMode}
+            />
+          </Box> */}
+
+          {/* Line Items Status Alert */}
+          {/* {isEditMode && lineItemsSaveStatus.status !== 'Saved' && lineItemsSaveStatus.hasData && (
+            <Box>
+              <Alert variant="warning">
+                ⚠️ Line Items have unsaved changes. Please save to lock in your progress.
+              </Alert>
+            </Box>
+          )} */}
+
+          {/* CAMPAIGN SUMMARY SECTION */}
+          {/* <Box>
+            <CampaignSummary 
+              lineItems={lineItems}
+              currency={formData.currency}
+              formData={formData}
+              isEditMode={isEditMode}
+            />
+          </Box> */}
+
+          {/* GLOBAL ACTIONS */}
+          <Box>
+            <Divider />
+            <Flex gap="medium" justify="space-between" align="center">
+              <Box>
+                {(basicInfoSaveStatus.lastSaved || campaignDetailsSaveStatus.lastSaved || lineItemsSaveStatus.lastSaved) && (
+                  <Text variant="microcopy" format={{ color: 'medium' }}>
+                    📅 Last saved: 
+                    {basicInfoSaveStatus.lastSaved && ` Basic Info (${basicInfoSaveStatus.lastSaved})`}
+                    {(basicInfoSaveStatus.lastSaved && (campaignDetailsSaveStatus.lastSaved || lineItemsSaveStatus.lastSaved)) && `, `}
+                    {campaignDetailsSaveStatus.lastSaved && ` Details (${campaignDetailsSaveStatus.lastSaved})`}
+                    {(campaignDetailsSaveStatus.lastSaved && lineItemsSaveStatus.lastSaved) && `, `}
+                    {lineItemsSaveStatus.lastSaved && ` Line Items (${lineItemsSaveStatus.lastSaved})`}
+                  </Text>
+                )}
+              </Box>
+              
+              <Flex gap="medium">
+                {/* Clear button - only show in edit mode */}
+                {isEditMode && (
+                  <Button
+                    variant="secondary"
+                    onClick={handleClearForm}
+                    disabled={loading}
+                  >
+                    🗑️ Clear All
+                  </Button>
+                )}
+              </Flex>
+            </Flex>
+          </Box>
+        </>
+      )}
 
       {/* Alert Messages */}
       {alertMessage && (

@@ -1,5 +1,5 @@
 // src/app/extensions/components/CampaignDetails.jsx
-// Enhanced version with View/Edit Mode functionality
+// Enhanced version with View/Edit Mode functionality - FIXED VIEW MODE DISPLAY
 
 import React, { useState, useEffect, useCallback } from "react";
 import {
@@ -66,6 +66,13 @@ const CampaignDetails = ({
     }
   }, [context?.crm?.objectId, runServerless, isEditMode]);
 
+  // 🆕 ALWAYS load data for view mode - but quietly
+  useEffect(() => {
+    if (context?.crm?.objectId && runServerless && !isEditMode) {
+      loadCampaignDetailsForViewMode();
+    }
+  }, [context?.crm?.objectId, runServerless, isEditMode]);
+
   // Load default Deal CS data (only in edit mode)
   useEffect(() => {
     if (runServerless && isEditMode && !hasDealCSLoaded) {
@@ -124,6 +131,49 @@ const CampaignDetails = ({
     return {};
   };
 
+  // === 🆕 NEW FUNCTION: Load data for view mode only
+  const loadCampaignDetailsForViewMode = async () => {
+    if (!runServerless || !context?.crm?.objectId) return;
+
+    try {
+      const response = await runServerless({
+        name: "loadCampaignDetails",
+        parameters: {
+          campaignDealId: context.crm.objectId
+        }
+      });
+
+      if (response?.status === "SUCCESS" && response?.response?.data) {
+        const data = response.response.data;
+
+        // Populate form with loaded data (quietly, no state changes for save tracking)
+        const campaignDetailsFields = ['campaignType', 'taxId', 'businessName', 'dealCS'];
+        campaignDetailsFields.forEach(key => {
+          if (data.formData[key] !== formData[key]) {
+            onChange(key, data.formData[key]);
+          }
+        });
+
+        // 🔧 FIX: UPDATE DISPLAY LABELS from association data and form data
+        const newDisplayLabels = { ...displayLabels };
+        
+        // Campaign Type - find from constants
+        const selectedCampaignType = CAMPAIGN_TYPE_OPTIONS.find(t => t.value === data.formData.campaignType);
+        newDisplayLabels.campaignType = selectedCampaignType?.label || data.formData.campaignType || "";
+
+        if (data.associations?.dealCS) {
+          newDisplayLabels.dealCS = data.associations.dealCS.label;
+        }
+        
+        setDisplayLabels(newDisplayLabels);
+
+        console.log("✅ Campaign details loaded for view mode with display labels:", newDisplayLabels);
+      }
+    } catch (error) {
+      console.warn("Could not load campaign details for view mode:", error);
+    }
+  };
+
   // === SAVE/LOAD FUNCTIONS ===
   const loadCampaignDetails = async () => {
     if (!runServerless || !context?.crm?.objectId) return;
@@ -150,10 +200,19 @@ const CampaignDetails = ({
           }
         });
 
-        // Update search terms to match loaded values
+        // 🔧 FIX: UPDATE DISPLAY LABELS from association data and form data
+        const newDisplayLabels = { ...displayLabels };
+        
+        // Campaign Type - find from constants
+        const selectedCampaignType = CAMPAIGN_TYPE_OPTIONS.find(t => t.value === data.formData.campaignType);
+        newDisplayLabels.campaignType = selectedCampaignType?.label || data.formData.campaignType || "";
+
         if (data.associations?.dealCS) {
+          newDisplayLabels.dealCS = data.associations.dealCS.label;
           setDealCSSearchTerm(data.associations.dealCS.label);
         }
+        
+        setDisplayLabels(newDisplayLabels);
 
         // Store initial form data for change tracking
         setInitialFormData(data.formData);
@@ -170,7 +229,7 @@ const CampaignDetails = ({
           });
         }
 
-        console.log("✅ Campaign details loaded successfully");
+        console.log("✅ Campaign details loaded successfully with display labels:", newDisplayLabels);
       } else {
         throw new Error(response?.response?.message || "Failed to load campaign details");
       }

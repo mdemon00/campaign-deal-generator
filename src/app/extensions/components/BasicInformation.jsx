@@ -1,5 +1,5 @@
 // src/app/extensions/components/BasicInformation.jsx
-// Enhanced version with View/Edit Mode functionality
+// Enhanced version with View/Edit Mode functionality - FIXED VIEW MODE DISPLAY
 
 import React, { useState, useEffect, useCallback } from "react";
 import {
@@ -87,6 +87,13 @@ const BasicInformation = ({
     }
   }, [context?.crm?.objectId, runServerless, isEditMode]);
 
+  // 🆕 ALWAYS load data for view mode - but quietly
+  useEffect(() => {
+    if (context?.crm?.objectId && runServerless && !isEditMode) {
+      loadBasicInformationForViewMode();
+    }
+  }, [context?.crm?.objectId, runServerless, isEditMode]);
+
   // Load default data for all search components (only in edit mode)
   useEffect(() => {
     if (runServerless && isEditMode) {
@@ -152,6 +159,52 @@ const BasicInformation = ({
     return {};
   };
 
+  // === 🆕 NEW FUNCTION: Load data for view mode only
+  const loadBasicInformationForViewMode = async () => {
+    if (!runServerless || !context?.crm?.objectId) return;
+
+    try {
+      const response = await runServerless({
+        name: "loadBasicInformation",
+        parameters: {
+          campaignDealId: context.crm.objectId
+        }
+      });
+
+      if (response?.status === "SUCCESS" && response?.response?.data) {
+        const data = response.response.data;
+
+        // Populate form with loaded data (quietly, no state changes for save tracking)
+        Object.keys(data.formData).forEach(key => {
+          if (data.formData[key] !== formData[key]) {
+            onChange(key, data.formData[key]);
+          }
+        });
+
+        // 🔧 FIX: UPDATE DISPLAY LABELS from association data
+        const newDisplayLabels = { ...displayLabels };
+        
+        if (data.associations?.commercialAgreement) {
+          newDisplayLabels.commercialAgreement = data.associations.commercialAgreement.label;
+        }
+        
+        if (data.associations?.advertiser) {
+          newDisplayLabels.advertiser = data.associations.advertiser.label;
+        }
+        
+        if (data.associations?.dealOwner) {
+          newDisplayLabels.dealOwner = data.associations.dealOwner.label;
+        }
+        
+        setDisplayLabels(newDisplayLabels);
+
+        console.log("✅ Basic information loaded for view mode with display labels:", newDisplayLabels);
+      }
+    } catch (error) {
+      console.warn("Could not load basic information for view mode:", error);
+    }
+  };
+
   // === SAVE/LOAD FUNCTIONS ===
   const loadBasicInformation = async () => {
     if (!runServerless || !context?.crm?.objectId) return;
@@ -177,16 +230,25 @@ const BasicInformation = ({
           }
         });
 
-        // Update search terms to match loaded values
+        // 🔧 FIX: UPDATE DISPLAY LABELS from association data
+        const newDisplayLabels = { ...displayLabels };
+        
         if (data.associations?.commercialAgreement) {
+          newDisplayLabels.commercialAgreement = data.associations.commercialAgreement.label;
           setAgreementSearchTerm(data.associations.commercialAgreement.label);
         }
+        
         if (data.associations?.advertiser) {
+          newDisplayLabels.advertiser = data.associations.advertiser.label;
           setAdvertiserSearchTerm(data.associations.advertiser.label);
         }
+        
         if (data.associations?.dealOwner) {
+          newDisplayLabels.dealOwner = data.associations.dealOwner.label;
           setDealOwnerSearchTerm(data.associations.dealOwner.label);
         }
+        
+        setDisplayLabels(newDisplayLabels);
 
         // Store initial form data for change tracking
         setInitialFormData(data.formData);
@@ -203,7 +265,7 @@ const BasicInformation = ({
           });
         }
 
-        console.log("✅ Basic information loaded successfully");
+        console.log("✅ Basic information loaded successfully with display labels:", newDisplayLabels);
       } else {
         throw new Error(response?.response?.message || "Failed to load data");
       }
