@@ -1,7 +1,7 @@
 // src/app/extensions/components/BasicInformation.jsx
-// Enhanced version with View/Edit Mode functionality - FIXED VIEW MODE DISPLAY
+// Complete Fixed Version - Resolves View Mode ID Display Issues
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Input,
   Select,
@@ -31,7 +31,7 @@ const BasicInformation = ({
   runServerless,
   context,
   onSaveStatusChange,
-  isEditMode = false // 🆕 NEW PROP - defaults to false (view mode)
+  isEditMode = false
 }) => {
 
   // === SAVE/LOAD STATE ===
@@ -49,6 +49,7 @@ const BasicInformation = ({
   const [agreementErrorMessage, setAgreementErrorMessage] = useState("");
   const [useAgreementSearchMode, setUseAgreementSearchMode] = useState(false);
   const [agreementHasMore, setAgreementHasMore] = useState(false);
+  const [lastAgreementSearchTerm, setLastAgreementSearchTerm] = useState("");
   const [companyStatus, setCompanyStatus] = useState("");
 
   // === ADVERTISERS STATE ===
@@ -60,6 +61,7 @@ const BasicInformation = ({
   const [advertiserErrorMessage, setAdvertiserErrorMessage] = useState("");
   const [useAdvertiserSearchMode, setUseAdvertiserSearchMode] = useState(false);
   const [advertiserHasMore, setAdvertiserHasMore] = useState(false);
+  const [lastAdvertiserSearchTerm, setLastAdvertiserSearchTerm] = useState("");
 
   // === DEAL OWNERS STATE ===
   const [dealOwners, setDealOwners] = useState(DEAL_OWNER_OPTIONS);
@@ -70,8 +72,9 @@ const BasicInformation = ({
   const [dealOwnerErrorMessage, setDealOwnerErrorMessage] = useState("");
   const [useDealOwnerSearchMode, setUseDealOwnerSearchMode] = useState(false);
   const [dealOwnerHasMore, setDealOwnerHasMore] = useState(false);
+  const [lastDealOwnerSearchTerm, setLastDealOwnerSearchTerm] = useState("");
 
-  // === 🆕 VIEW MODE DISPLAY LABELS ===
+  // === VIEW MODE DISPLAY LABELS ===
   const [displayLabels, setDisplayLabels] = useState({
     commercialAgreement: "",
     advertiser: "",
@@ -87,7 +90,7 @@ const BasicInformation = ({
     }
   }, [context?.crm?.objectId, runServerless, isEditMode]);
 
-  // 🆕 ALWAYS load data for view mode - but quietly
+  // Load data for view mode - but quietly
   useEffect(() => {
     if (context?.crm?.objectId && runServerless && !isEditMode) {
       loadBasicInformationForViewMode();
@@ -107,10 +110,12 @@ const BasicInformation = ({
     }
   }, [runServerless, isEditMode, formData.commercialAgreement, hasAdvertiserLoaded, hasDealOwnerLoaded]);
 
-  // 🆕 UPDATE DISPLAY LABELS when form data changes
+  // 🔧 FIXED: Only update display labels in edit mode when arrays are populated
   useEffect(() => {
-    updateDisplayLabels();
-  }, [formData, agreements, advertisers, dealOwners]);
+    if (isEditMode) {
+      updateDisplayLabels();
+    }
+  }, [formData, agreements, advertisers, dealOwners, isEditMode]);
 
   // Track form changes (only in edit mode)
   useEffect(() => {
@@ -129,37 +134,41 @@ const BasicInformation = ({
     }
   }, [formData, initialFormData, saveState, hasUnsavedChanges, isEditMode]);
 
-  // === 🆕 DISPLAY LABEL FUNCTIONS ===
+  // === DISPLAY LABEL FUNCTIONS ===
   const updateDisplayLabels = () => {
     const newLabels = { ...displayLabels };
 
+    // 🔧 FIXED: Don't overwrite existing labels in view mode
+    // Only update labels when in edit mode and arrays are populated
+
     // Commercial Agreement
-    const selectedAgreement = agreements.find(a => a.value === formData.commercialAgreement);
-    newLabels.commercialAgreement = selectedAgreement?.label || formData.commercialAgreement || "";
+    if (!displayLabels.commercialAgreement || isEditMode) {
+      const selectedAgreement = agreements.find(a => a.value === formData.commercialAgreement);
+      if (selectedAgreement) {
+        newLabels.commercialAgreement = selectedAgreement.label;
+      }
+    }
 
     // Advertiser
-    const selectedAdvertiser = advertisers.find(a => a.value === formData.advertiser);
-    newLabels.advertiser = selectedAdvertiser?.label || formData.advertiser || "";
+    if (!displayLabels.advertiser || isEditMode) {
+      const selectedAdvertiser = advertisers.find(a => a.value === formData.advertiser);
+      if (selectedAdvertiser) {
+        newLabels.advertiser = selectedAdvertiser.label;
+      }
+    }
 
     // Deal Owner
-    const selectedDealOwner = dealOwners.find(o => o.value === formData.dealOwner);
-    newLabels.dealOwner = selectedDealOwner?.label || formData.dealOwner || "";
+    if (!displayLabels.dealOwner || isEditMode) {
+      const selectedDealOwner = dealOwners.find(o => o.value === formData.dealOwner);
+      if (selectedDealOwner) {
+        newLabels.dealOwner = selectedDealOwner.label;
+      }
+    }
 
     setDisplayLabels(newLabels);
   };
 
-  // === 🆕 STYLING FUNCTIONS (Simplified) ===
-  const getFieldStyle = (hasValue = true) => {
-    // Simplified for HubSpot UI Extensions - no custom styling
-    return {};
-  };
-
-  const getSelectStyle = () => {
-    // Simplified for HubSpot UI Extensions - no custom styling
-    return {};
-  };
-
-  // === 🆕 NEW FUNCTION: Load data for view mode only
+  // === 🔧 FIXED: Enhanced View Mode Loading ===
   const loadBasicInformationForViewMode = async () => {
     if (!runServerless || !context?.crm?.objectId) return;
 
@@ -181,24 +190,113 @@ const BasicInformation = ({
           }
         });
 
-        // 🔧 FIX: UPDATE DISPLAY LABELS from association data
-        const newDisplayLabels = { ...displayLabels };
+        // 🔧 FIXED: Set display labels directly from association data with proper fallbacks
+        const newDisplayLabels = {};
         
+        // Commercial Agreement
         if (data.associations?.commercialAgreement) {
           newDisplayLabels.commercialAgreement = data.associations.commercialAgreement.label;
+        } else if (data.formData.commercialAgreement) {
+          // Try to fetch the specific agreement as fallback
+          try {
+            const agreementResponse = await runServerless({
+              name: "searchCommercialAgreements",
+              parameters: {
+                selectedAgreementId: data.formData.commercialAgreement,
+                limit: 1
+              }
+            });
+            
+            if (agreementResponse?.status === "SUCCESS" && agreementResponse?.response?.data) {
+              const foundAgreement = agreementResponse.response.data.options?.find(
+                opt => opt.value === data.formData.commercialAgreement
+              );
+              if (foundAgreement) {
+                newDisplayLabels.commercialAgreement = foundAgreement.label;
+              } else {
+                newDisplayLabels.commercialAgreement = `Agreement (${data.formData.commercialAgreement})`;
+              }
+            } else {
+              newDisplayLabels.commercialAgreement = `Agreement (${data.formData.commercialAgreement})`;
+            }
+          } catch (error) {
+            console.warn("Could not fetch agreement label:", error);
+            newDisplayLabels.commercialAgreement = `Agreement (${data.formData.commercialAgreement})`;
+          }
+        } else {
+          newDisplayLabels.commercialAgreement = "";
         }
         
+        // Advertiser
         if (data.associations?.advertiser) {
           newDisplayLabels.advertiser = data.associations.advertiser.label;
+        } else if (data.formData.advertiser) {
+          try {
+            const advertiserResponse = await runServerless({
+              name: "searchAdvertisers",
+              parameters: {
+                searchTerm: "",
+                limit: 100 // Load enough to potentially find it
+              }
+            });
+            
+            if (advertiserResponse?.status === "SUCCESS" && advertiserResponse?.response?.data) {
+              const foundAdvertiser = advertiserResponse.response.data.options?.find(
+                opt => opt.value === data.formData.advertiser
+              );
+              if (foundAdvertiser) {
+                newDisplayLabels.advertiser = foundAdvertiser.label;
+              } else {
+                newDisplayLabels.advertiser = `Advertiser (${data.formData.advertiser})`;
+              }
+            } else {
+              newDisplayLabels.advertiser = `Advertiser (${data.formData.advertiser})`;
+            }
+          } catch (error) {
+            console.warn("Could not fetch advertiser label:", error);
+            newDisplayLabels.advertiser = `Advertiser (${data.formData.advertiser})`;
+          }
+        } else {
+          newDisplayLabels.advertiser = "";
         }
         
+        // Deal Owner
         if (data.associations?.dealOwner) {
           newDisplayLabels.dealOwner = data.associations.dealOwner.label;
+        } else if (data.formData.dealOwner) {
+          try {
+            const ownerResponse = await runServerless({
+              name: "searchDealOwners",
+              parameters: {
+                searchTerm: "",
+                limit: 100
+              }
+            });
+            
+            if (ownerResponse?.status === "SUCCESS" && ownerResponse?.response?.data) {
+              const foundOwner = ownerResponse.response.data.options?.find(
+                opt => opt.value === data.formData.dealOwner
+              );
+              if (foundOwner) {
+                newDisplayLabels.dealOwner = foundOwner.label;
+              } else {
+                newDisplayLabels.dealOwner = `Owner (${data.formData.dealOwner})`;
+              }
+            } else {
+              newDisplayLabels.dealOwner = `Owner (${data.formData.dealOwner})`;
+            }
+          } catch (error) {
+            console.warn("Could not fetch deal owner label:", error);
+            newDisplayLabels.dealOwner = `Owner (${data.formData.dealOwner})`;
+          }
+        } else {
+          newDisplayLabels.dealOwner = "";
         }
         
+        // 🔧 CRITICAL: Set display labels directly, bypassing updateDisplayLabels
         setDisplayLabels(newDisplayLabels);
 
-        console.log("✅ Basic information loaded for view mode with display labels:", newDisplayLabels);
+        console.log("✅ Basic information loaded for view mode with enhanced display labels:", newDisplayLabels);
       }
     } catch (error) {
       console.warn("Could not load basic information for view mode:", error);
@@ -230,7 +328,7 @@ const BasicInformation = ({
           }
         });
 
-        // 🔧 FIX: UPDATE DISPLAY LABELS from association data
+        // Update display labels from association data
         const newDisplayLabels = { ...displayLabels };
         
         if (data.associations?.commercialAgreement) {
@@ -330,31 +428,20 @@ const BasicInformation = ({
     }
   };
 
-  // === DEBOUNCE UTILITY ===
-  const debounce = (func, wait) => {
-    let timeout;
-    return function executedFunction(...args) {
-      const later = () => {
-        clearTimeout(timeout);
-        func(...args);
-      };
-      clearTimeout(timeout);
-      timeout = setTimeout(later, wait);
-    };
-  };
-
-  // === COMMERCIAL AGREEMENTS FUNCTIONS ===
-  const performAgreementSearch = async (term) => {
-    if (!runServerless || !isEditMode) return;
+  // === COMMERCIAL AGREEMENTS SEARCH FUNCTIONS ===
+  const performAgreementSearch = async () => {
+    if (!runServerless || !isEditMode || !agreementSearchTerm.trim()) return;
 
     setIsAgreementSearching(true);
     setAgreementErrorMessage("");
 
     try {
+      const searchTerm = agreementSearchTerm.trim();
+      
       const response = await runServerless({
         name: "searchCommercialAgreements",
         parameters: {
-          searchTerm: term,
+          searchTerm: searchTerm,
           page: 1,
           limit: 50
         }
@@ -364,6 +451,10 @@ const BasicInformation = ({
         const data = response.response.data;
         setAgreements(data.options || COMMERCIAL_AGREEMENTS);
         setAgreementHasMore(data.hasMore || false);
+        setUseAgreementSearchMode(true);
+        setLastAgreementSearchTerm(searchTerm);
+        
+        console.log(`✅ Agreement search completed: ${data.totalCount} results for "${searchTerm}"`);
       } else {
         throw new Error("Invalid search response");
       }
@@ -407,18 +498,20 @@ const BasicInformation = ({
     }
   };
 
-  // === ADVERTISERS FUNCTIONS ===
-  const performAdvertiserSearch = async (term) => {
-    if (!runServerless || !isEditMode) return;
+  // === ADVERTISERS SEARCH FUNCTIONS ===
+  const performAdvertiserSearch = async () => {
+    if (!runServerless || !isEditMode || !advertiserSearchTerm.trim()) return;
 
     setIsAdvertiserSearching(true);
     setAdvertiserErrorMessage("");
 
     try {
+      const searchTerm = advertiserSearchTerm.trim();
+      
       const response = await runServerless({
         name: "searchAdvertisers",
         parameters: {
-          searchTerm: term,
+          searchTerm: searchTerm,
           page: 1,
           limit: 50
         }
@@ -428,6 +521,10 @@ const BasicInformation = ({
         const data = response.response.data;
         setAdvertisers(data.options || [{ label: "Select Advertiser", value: "" }]);
         setAdvertiserHasMore(data.hasMore || false);
+        setUseAdvertiserSearchMode(true);
+        setLastAdvertiserSearchTerm(searchTerm);
+        
+        console.log(`✅ Advertiser search completed: ${data.totalCount} results for "${searchTerm}"`);
       } else {
         throw new Error("Invalid advertiser search response");
       }
@@ -475,18 +572,20 @@ const BasicInformation = ({
     }
   };
 
-  // === DEAL OWNERS FUNCTIONS ===
-  const performDealOwnerSearch = async (term) => {
-    if (!runServerless || !isEditMode) return;
+  // === DEAL OWNERS SEARCH FUNCTIONS ===
+  const performDealOwnerSearch = async () => {
+    if (!runServerless || !isEditMode || !dealOwnerSearchTerm.trim()) return;
 
     setIsDealOwnerSearching(true);
     setDealOwnerErrorMessage("");
 
     try {
+      const searchTerm = dealOwnerSearchTerm.trim();
+      
       const response = await runServerless({
         name: "searchDealOwners",
         parameters: {
-          searchTerm: term,
+          searchTerm: searchTerm,
           page: 1,
           limit: 50,
           includeInactive: false
@@ -497,7 +596,10 @@ const BasicInformation = ({
         const data = response.response.data;
         setDealOwners(data.options || DEAL_OWNER_OPTIONS);
         setDealOwnerHasMore(data.hasMore || false);
-        console.log(`🔍 Deal owner search results: ${data.totalCount} matches for "${term}"`);
+        setUseDealOwnerSearchMode(true);
+        setLastDealOwnerSearchTerm(searchTerm);
+        
+        console.log(`✅ Deal owner search completed: ${data.totalCount} results for "${searchTerm}"`);
       } else {
         throw new Error("Invalid deal owner search response");
       }
@@ -543,68 +645,7 @@ const BasicInformation = ({
     }
   };
 
-  // === DEBOUNCED SEARCH FUNCTIONS (Only work in edit mode) ===
-  const debouncedAgreementSearch = useCallback(
-    debounce((term) => {
-      if (!isEditMode) return;
-      if (term.trim() === "") {
-        loadDefaultAgreements(formData.commercialAgreement);
-        setUseAgreementSearchMode(false);
-      } else {
-        performAgreementSearch(term.trim());
-        setUseAgreementSearchMode(true);
-      }
-    }, 500),
-    [runServerless, formData.commercialAgreement, isEditMode]
-  );
-
-  const debouncedAdvertiserSearch = useCallback(
-    debounce((term) => {
-      if (!isEditMode) return;
-      if (term.trim() === "") {
-        loadDefaultAdvertisers();
-        setUseAdvertiserSearchMode(false);
-      } else {
-        performAdvertiserSearch(term.trim());
-        setUseAdvertiserSearchMode(true);
-      }
-    }, 500),
-    [runServerless, isEditMode]
-  );
-
-  const debouncedDealOwnerSearch = useCallback(
-    debounce((term) => {
-      if (!isEditMode) return;
-      if (term.trim() === "") {
-        loadDefaultDealOwners();
-        setUseDealOwnerSearchMode(false);
-      } else {
-        performDealOwnerSearch(term.trim());
-        setUseDealOwnerSearchMode(true);
-      }
-    }, 500),
-    [runServerless, isEditMode]
-  );
-
   // === EVENT HANDLERS ===
-  const handleAgreementSearchChange = (value) => {
-    if (!isEditMode) return;
-    setAgreementSearchTerm(value);
-    debouncedAgreementSearch(value);
-  };
-
-  const handleAdvertiserSearchChange = (value) => {
-    if (!isEditMode) return;
-    setAdvertiserSearchTerm(value);
-    debouncedAdvertiserSearch(value);
-  };
-
-  const handleDealOwnerSearchChange = (value) => {
-    if (!isEditMode) return;
-    setDealOwnerSearchTerm(value);
-    debouncedDealOwnerSearch(value);
-  };
-
   const handleCommercialAgreementChange = (value) => {
     if (!isEditMode) return;
 
@@ -674,6 +715,80 @@ const BasicInformation = ({
     }
   };
 
+  // === CLEAR SEARCH FUNCTIONS ===
+  const clearAgreementSearch = () => {
+    if (!isEditMode) return;
+    setAgreementSearchTerm("");
+    setUseAgreementSearchMode(false);
+    setAgreementErrorMessage("");
+    setLastAgreementSearchTerm("");
+    loadDefaultAgreements(formData.commercialAgreement);
+  };
+
+  const clearAdvertiserSearch = () => {
+    if (!isEditMode) return;
+    setAdvertiserSearchTerm("");
+    setUseAdvertiserSearchMode(false);
+    setAdvertiserErrorMessage("");
+    setLastAdvertiserSearchTerm("");
+    loadDefaultAdvertisers();
+  };
+
+  const clearDealOwnerSearch = () => {
+    if (!isEditMode) return;
+    setDealOwnerSearchTerm("");
+    setUseDealOwnerSearchMode(false);
+    setDealOwnerErrorMessage("");
+    setLastDealOwnerSearchTerm("");
+    loadDefaultDealOwners();
+  };
+
+  // === MODE CONTROL FUNCTIONS ===
+  const switchAgreementToBrowseMode = () => {
+    if (!isEditMode) return;
+    setUseAgreementSearchMode(false);
+    setAgreementSearchTerm("");
+    setLastAgreementSearchTerm("");
+    loadDefaultAgreements(formData.commercialAgreement);
+  };
+
+  const switchAgreementToSearchMode = () => {
+    if (!isEditMode) return;
+    setUseAgreementSearchMode(true);
+    setAgreementSearchTerm("");
+    setLastAgreementSearchTerm("");
+  };
+
+  const switchAdvertiserToBrowseMode = () => {
+    if (!isEditMode) return;
+    setUseAdvertiserSearchMode(false);
+    setAdvertiserSearchTerm("");
+    setLastAdvertiserSearchTerm("");
+    loadDefaultAdvertisers();
+  };
+
+  const switchAdvertiserToSearchMode = () => {
+    if (!isEditMode) return;
+    setUseAdvertiserSearchMode(true);
+    setAdvertiserSearchTerm("");
+    setLastAdvertiserSearchTerm("");
+  };
+
+  const switchDealOwnerToBrowseMode = () => {
+    if (!isEditMode) return;
+    setUseDealOwnerSearchMode(false);
+    setDealOwnerSearchTerm("");
+    setLastDealOwnerSearchTerm("");
+    loadDefaultDealOwners();
+  };
+
+  const switchDealOwnerToSearchMode = () => {
+    if (!isEditMode) return;
+    setUseDealOwnerSearchMode(true);
+    setDealOwnerSearchTerm("");
+    setLastDealOwnerSearchTerm("");
+  };
+
   // === UI HELPER FUNCTIONS ===
   const getSaveStatusDisplay = () => {
     const message = SAVE_STATUS_MESSAGES[saveState] || SAVE_STATUS_MESSAGES[COMPONENT_SAVE_STATES.NOT_SAVED];
@@ -704,81 +819,14 @@ const BasicInformation = ({
            !formData.dealOwner;
   };
 
-  // Mode control functions (only work in edit mode)
-  const switchAgreementToBrowseMode = () => {
-    if (!isEditMode) return;
-    setUseAgreementSearchMode(false);
-    setAgreementSearchTerm("");
-    loadDefaultAgreements(formData.commercialAgreement);
-  };
-
-  const switchAgreementToSearchMode = () => {
-    if (!isEditMode) return;
-    setUseAgreementSearchMode(true);
-    setAgreementSearchTerm("");
-  };
-
-  const clearAgreementSelection = () => {
-    if (!isEditMode) return;
-    setAgreementSearchTerm("");
-    onChange('commercialAgreement', '');
-    onChange('company', '');
-    onChange('currency', '');
-    setCompanyStatus("");
-    setUseAgreementSearchMode(false);
-    loadDefaultAgreements("");
-  };
-
-  const switchAdvertiserToBrowseMode = () => {
-    if (!isEditMode) return;
-    setUseAdvertiserSearchMode(false);
-    setAdvertiserSearchTerm("");
-    loadDefaultAdvertisers();
-  };
-
-  const switchAdvertiserToSearchMode = () => {
-    if (!isEditMode) return;
-    setUseAdvertiserSearchMode(true);
-    setAdvertiserSearchTerm("");
-  };
-
-  const clearAdvertiserSelection = () => {
-    if (!isEditMode) return;
-    setAdvertiserSearchTerm("");
-    onChange('advertiser', '');
-    setUseAdvertiserSearchMode(false);
-    loadDefaultAdvertisers();
-  };
-
-  const switchDealOwnerToBrowseMode = () => {
-    if (!isEditMode) return;
-    setUseDealOwnerSearchMode(false);
-    setDealOwnerSearchTerm("");
-    loadDefaultDealOwners();
-  };
-
-  const switchDealOwnerToSearchMode = () => {
-    if (!isEditMode) return;
-    setUseDealOwnerSearchMode(true);
-    setDealOwnerSearchTerm("");
-  };
-
-  const clearDealOwnerSelection = () => {
-    if (!isEditMode) return;
-    setDealOwnerSearchTerm("");
-    onChange('dealOwner', '');
-    setUseDealOwnerSearchMode(false);
-    loadDefaultDealOwners();
-  };
-
   // === STATUS MESSAGES ===
   const getAgreementStatusMessage = () => {
     if (!isEditMode) return "";
     if (isAgreementSearching) return "Searching agreements...";
     if (isAgreementLoading) return "Loading agreements...";
-    if (useAgreementSearchMode && agreementSearchTerm) {
+    if (useAgreementSearchMode && lastAgreementSearchTerm) {
       const count = agreements.length > 1 ? agreements.length - 1 : 0;
-      return `${count} matches for "${agreementSearchTerm}"`;
+      return `${count} results for "${lastAgreementSearchTerm}"`;
     }
     if (agreements.length > 1) {
       const count = agreements.length - 1;
@@ -791,9 +839,9 @@ const BasicInformation = ({
     if (!isEditMode) return "";
     if (isAdvertiserSearching) return "Searching advertisers...";
     if (isAdvertiserLoading) return "Loading advertisers...";
-    if (useAdvertiserSearchMode && advertiserSearchTerm) {
+    if (useAdvertiserSearchMode && lastAdvertiserSearchTerm) {
       const count = advertisers.length > 1 ? advertisers.length - 1 : 0;
-      return `${count} matches for "${advertiserSearchTerm}"`;
+      return `${count} results for "${lastAdvertiserSearchTerm}"`;
     }
     if (advertisers.length > 1) {
       const count = advertisers.length - 1;
@@ -806,9 +854,9 @@ const BasicInformation = ({
     if (!isEditMode) return "";
     if (isDealOwnerSearching) return "Searching deal owners...";
     if (isDealOwnerLoading) return "Loading deal owners...";
-    if (useDealOwnerSearchMode && dealOwnerSearchTerm) {
+    if (useDealOwnerSearchMode && lastDealOwnerSearchTerm) {
       const count = dealOwners.length > 1 ? dealOwners.length - 1 : 0;
-      return `${count} matches for "${dealOwnerSearchTerm}"`;
+      return `${count} results for "${lastDealOwnerSearchTerm}"`;
     }
     if (dealOwners.length > 1) {
       const count = dealOwners.length - 1;
@@ -838,7 +886,7 @@ const BasicInformation = ({
           </Flex>
         )}
 
-        {/* 🆕 VIEW MODE INDICATOR */}
+        {/* VIEW MODE INDICATOR */}
         {!isEditMode && (
           <Text variant="microcopy" format={{ color: 'medium' }}>
             👁️ View Mode - Read Only
@@ -859,7 +907,7 @@ const BasicInformation = ({
 
       <Box marginTop="medium">
         <Flex direction="row" gap="medium" wrap="wrap">
-          {/* 🆕 CAMPAIGN NAME - VIEW/EDIT MODE */}
+          {/* CAMPAIGN NAME - VIEW/EDIT MODE */}
           <Box flex={1} minWidth="250px">
             <Input
               label="Campaign Name *"
@@ -872,11 +920,11 @@ const BasicInformation = ({
             />
           </Box>
 
-          {/* 🆕 COMMERCIAL AGREEMENTS - VIEW/EDIT MODE */}
+          {/* COMMERCIAL AGREEMENTS - VIEW/EDIT MODE */}
           <Box flex={1} minWidth="250px">
             {/* Mode Controls - Only show in Edit Mode */}
             {isEditMode && (
-              <Flex gap="small" marginBottom="small">
+              <Flex gap="small" marginBottom="small" wrap="wrap">
                 <Button
                   variant={!useAgreementSearchMode ? "primary" : "secondary"}
                   size="xs"
@@ -893,11 +941,11 @@ const BasicInformation = ({
                 >
                   🔍 Search
                 </Button>
-                {(formData.commercialAgreement || agreementSearchTerm) && (
+                {useAgreementSearchMode && (
                   <Button
                     variant="secondary"
                     size="xs"
-                    onClick={clearAgreementSelection}
+                    onClick={clearAgreementSearch}
                   >
                     ✕ Clear
                   </Button>
@@ -911,21 +959,36 @@ const BasicInformation = ({
                 label="Commercial Agreement *"
                 name="commercialAgreement"
                 placeholder="No commercial agreement selected"
-                value={displayLabels.commercialAgreement}
+                value={
+                  displayLabels.commercialAgreement || 
+                  (formData.commercialAgreement ? `Agreement (${formData.commercialAgreement})` : "")
+                }
                 readOnly={true}
               />
             )}
 
             {/* Edit Mode: Search or Select */}
             {isEditMode && useAgreementSearchMode ? (
-              <Input
-                label="Search Commercial Agreements *"
-                name="searchAgreements"
-                placeholder="Type agreement name to search..."
-                value={agreementSearchTerm}
-                onChange={handleAgreementSearchChange}
-                disabled={isAgreementLoading || isAgreementSearching}
-              />
+              <Flex gap="small" direction="row" align="end">
+                <Box flex={1}>
+                  <Input
+                    label="Search Commercial Agreements *"
+                    name="searchAgreements"
+                    placeholder="Enter agreement name..."
+                    value={agreementSearchTerm}
+                    onChange={(value) => setAgreementSearchTerm(value)}
+                    disabled={isAgreementLoading || isAgreementSearching}
+                  />
+                </Box>
+                <Box>
+                  <Button 
+                    onClick={performAgreementSearch}
+                    disabled={!agreementSearchTerm.trim() || isAgreementSearching || isAgreementLoading}
+                  >
+                    {isAgreementSearching ? <LoadingSpinner size="xs" /> : "🔍"}
+                  </Button>
+                </Box>
+              </Flex>
             ) : isEditMode ? (
               <Select
                 label="Commercial Agreement *"
@@ -939,7 +1002,7 @@ const BasicInformation = ({
             ) : null}
 
             {/* Search Results Select - Only in Edit Mode */}
-            {isEditMode && useAgreementSearchMode && agreementSearchTerm && agreements.length > 1 && (
+            {isEditMode && useAgreementSearchMode && lastAgreementSearchTerm && agreements.length > 1 && (
               <Box marginTop="small">
                 <Select
                   label="Select from search results"
@@ -982,7 +1045,7 @@ const BasicInformation = ({
 
         <Box marginTop="medium">
           <Flex direction="row" gap="medium" wrap="wrap">
-            {/* 🆕 COMPANY - VIEW/EDIT MODE */}
+            {/* COMPANY - VIEW/EDIT MODE */}
             <Box flex={1} minWidth="250px">
               <Input
                 label="Company"
@@ -1007,11 +1070,11 @@ const BasicInformation = ({
               )}
             </Box>
 
-            {/* 🆕 ADVERTISERS - VIEW/EDIT MODE */}
+            {/* ADVERTISERS - VIEW/EDIT MODE */}
             <Box flex={1} minWidth="250px">
               {/* Mode Controls - Only show in Edit Mode */}
               {isEditMode && (
-                <Flex gap="small" marginBottom="small">
+                <Flex gap="small" marginBottom="small" wrap="wrap">
                   <Button
                     variant={!useAdvertiserSearchMode ? "primary" : "secondary"}
                     size="xs"
@@ -1028,11 +1091,11 @@ const BasicInformation = ({
                   >
                     🔍 Search
                   </Button>
-                  {(formData.advertiser || advertiserSearchTerm) && (
+                  {useAdvertiserSearchMode && (
                     <Button
                       variant="secondary"
                       size="xs"
-                      onClick={clearAdvertiserSelection}
+                      onClick={clearAdvertiserSearch}
                     >
                       ✕ Clear
                     </Button>
@@ -1046,21 +1109,36 @@ const BasicInformation = ({
                   label="Advertiser *"
                   name="advertiser"
                   placeholder="No advertiser selected"
-                  value={displayLabels.advertiser}
+                  value={
+                    displayLabels.advertiser || 
+                    (formData.advertiser ? `Advertiser (${formData.advertiser})` : "")
+                  }
                   readOnly={true}
                 />
               )}
 
               {/* Edit Mode: Search or Select */}
               {isEditMode && useAdvertiserSearchMode ? (
-                <Input
-                  label="Search Advertisers *"
-                  name="searchAdvertisers"
-                  placeholder="Type advertiser name to search..."
-                  value={advertiserSearchTerm}
-                  onChange={handleAdvertiserSearchChange}
-                  disabled={isAdvertiserLoading || isAdvertiserSearching}
-                />
+                <Flex gap="small" direction="row" align="end">
+                  <Box flex={1}>
+                    <Input
+                      label="Search Advertisers *"
+                      name="searchAdvertisers"
+                      placeholder="Enter advertiser name..."
+                      value={advertiserSearchTerm}
+                      onChange={(value) => setAdvertiserSearchTerm(value)}
+                      disabled={isAdvertiserLoading || isAdvertiserSearching}
+                    />
+                  </Box>
+                  <Box>
+                    <Button 
+                      onClick={performAdvertiserSearch}
+                      disabled={!advertiserSearchTerm.trim() || isAdvertiserSearching || isAdvertiserLoading}
+                    >
+                      {isAdvertiserSearching ? <LoadingSpinner size="xs" /> : "🔍"}
+                    </Button>
+                  </Box>
+                </Flex>
               ) : isEditMode ? (
                 <Select
                   label="Advertiser *"
@@ -1074,7 +1152,7 @@ const BasicInformation = ({
               ) : null}
 
               {/* Search Results - Only in Edit Mode */}
-              {isEditMode && useAdvertiserSearchMode && advertiserSearchTerm && advertisers.length > 1 && (
+              {isEditMode && useAdvertiserSearchMode && lastAdvertiserSearchTerm && advertisers.length > 1 && (
                 <Box marginTop="small">
                   <Select
                     label="Select from search results"
@@ -1118,11 +1196,11 @@ const BasicInformation = ({
 
         <Box marginTop="medium">
           <Flex direction="row" gap="medium" wrap="wrap">
-            {/* 🆕 DEAL OWNERS - VIEW/EDIT MODE */}
+            {/* DEAL OWNERS - VIEW/EDIT MODE */}
             <Box flex={1} minWidth="250px">
               {/* Mode Controls - Only show in Edit Mode */}
               {isEditMode && (
-                <Flex gap="small" marginBottom="small">
+                <Flex gap="small" marginBottom="small" wrap="wrap">
                   <Button
                     variant={!useDealOwnerSearchMode ? "primary" : "secondary"}
                     size="xs"
@@ -1139,11 +1217,11 @@ const BasicInformation = ({
                   >
                     🔍 Search
                   </Button>
-                  {(formData.dealOwner || dealOwnerSearchTerm) && (
+                  {useDealOwnerSearchMode && (
                     <Button
                       variant="secondary"
                       size="xs"
-                      onClick={clearDealOwnerSelection}
+                      onClick={clearDealOwnerSearch}
                     >
                       ✕ Clear
                     </Button>
@@ -1157,21 +1235,36 @@ const BasicInformation = ({
                   label="Deal Owner *"
                   name="dealOwner"
                   placeholder="No deal owner selected"
-                  value={displayLabels.dealOwner}
+                  value={
+                    displayLabels.dealOwner || 
+                    (formData.dealOwner ? `Owner (${formData.dealOwner})` : "")
+                  }
                   readOnly={true}
                 />
               )}
 
               {/* Edit Mode: Search or Select */}
               {isEditMode && useDealOwnerSearchMode ? (
-                <Input
-                  label="Search Deal Owners *"
-                  name="searchDealOwners"
-                  placeholder="Type owner name to search..."
-                  value={dealOwnerSearchTerm}
-                  onChange={handleDealOwnerSearchChange}
-                  disabled={isDealOwnerLoading || isDealOwnerSearching}
-                />
+                <Flex gap="small" direction="row" align="end">
+                  <Box flex={1}>
+                    <Input
+                      label="Search Deal Owners *"
+                      name="searchDealOwners"
+                      placeholder="Enter owner name..."
+                      value={dealOwnerSearchTerm}
+                      onChange={(value) => setDealOwnerSearchTerm(value)}
+                      disabled={isDealOwnerLoading || isDealOwnerSearching}
+                    />
+                  </Box>
+                  <Box>
+                    <Button 
+                      onClick={performDealOwnerSearch}
+                      disabled={!dealOwnerSearchTerm.trim() || isDealOwnerSearching || isDealOwnerLoading}
+                    >
+                      {isDealOwnerSearching ? <LoadingSpinner size="xs" /> : "🔍"}
+                    </Button>
+                  </Box>
+                </Flex>
               ) : isEditMode ? (
                 <Select
                   label="Deal Owner *"
@@ -1185,7 +1278,7 @@ const BasicInformation = ({
               ) : null}
 
               {/* Search Results - Only in Edit Mode */}
-              {isEditMode && useDealOwnerSearchMode && dealOwnerSearchTerm && dealOwners.length > 1 && (
+              {isEditMode && useDealOwnerSearchMode && lastDealOwnerSearchTerm && dealOwners.length > 1 && (
                 <Box marginTop="small">
                   <Select
                     label="Select from search results"
@@ -1225,7 +1318,7 @@ const BasicInformation = ({
               )}
             </Box>
 
-            {/* 🆕 CURRENCY - VIEW/EDIT MODE */}
+            {/* CURRENCY - VIEW/EDIT MODE */}
             <Box flex={1} minWidth="250px">
               <Input
                 label="Currency"

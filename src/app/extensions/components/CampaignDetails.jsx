@@ -1,7 +1,7 @@
 // src/app/extensions/components/CampaignDetails.jsx
-// Enhanced version with View/Edit Mode functionality - FIXED VIEW MODE DISPLAY
+// Complete Fixed Version - Resolves View Mode ID Display Issues
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Input,
   Select,
@@ -31,7 +31,7 @@ const CampaignDetails = ({
   runServerless,
   context,
   onSaveStatusChange,
-  isEditMode = false // 🆕 NEW PROP - defaults to false (view mode)
+  isEditMode = false
 }) => {
 
   // === SAVE/LOAD STATE ===
@@ -50,8 +50,9 @@ const CampaignDetails = ({
   const [dealCSErrorMessage, setDealCSErrorMessage] = useState("");
   const [useDealCSSearchMode, setUseDealCSSearchMode] = useState(false);
   const [dealCSHasMore, setDealCSHasMore] = useState(false);
+  const [lastDealCSSearchTerm, setLastDealCSSearchTerm] = useState("");
 
-  // === 🆕 VIEW MODE DISPLAY LABELS ===
+  // === VIEW MODE DISPLAY LABELS ===
   const [displayLabels, setDisplayLabels] = useState({
     campaignType: "",
     dealCS: ""
@@ -66,7 +67,7 @@ const CampaignDetails = ({
     }
   }, [context?.crm?.objectId, runServerless, isEditMode]);
 
-  // 🆕 ALWAYS load data for view mode - but quietly
+  // Load data for view mode - but quietly
   useEffect(() => {
     if (context?.crm?.objectId && runServerless && !isEditMode) {
       loadCampaignDetailsForViewMode();
@@ -80,10 +81,12 @@ const CampaignDetails = ({
     }
   }, [runServerless, isEditMode, hasDealCSLoaded]);
 
-  // 🆕 UPDATE DISPLAY LABELS when form data changes
+  // 🔧 FIXED: Only update display labels in edit mode when arrays are populated
   useEffect(() => {
-    updateDisplayLabels();
-  }, [formData, dealCS]);
+    if (isEditMode) {
+      updateDisplayLabels();
+    }
+  }, [formData, dealCS, isEditMode]);
 
   // Track form changes (only in edit mode)
   useEffect(() => {
@@ -103,44 +106,33 @@ const CampaignDetails = ({
     }
   }, [formData, initialFormData, saveState, hasUnsavedChanges, isEditMode]);
 
-  // === 🔧 FIXED DISPLAY LABEL FUNCTIONS ===
+  // === DISPLAY LABEL FUNCTIONS ===
   const updateDisplayLabels = () => {
     const newLabels = { ...displayLabels };
 
-    // Campaign Type
-    const selectedCampaignType = CAMPAIGN_TYPE_OPTIONS.find(t => t.value === formData.campaignType);
-    newLabels.campaignType = selectedCampaignType?.label || formData.campaignType || "";
+    // 🔧 FIXED: Don't overwrite existing labels in view mode
+    // Only update labels when in edit mode and arrays are populated
 
-    // 🔧 FIXED: Deal CS - Handle view mode properly
-    const selectedDealCS = dealCS.find(cs => cs.value === formData.dealCS);
-    if (selectedDealCS) {
-      // Found in options array (edit mode scenario)
-      newLabels.dealCS = selectedDealCS.label;
-    } else if (formData.dealCS && !isEditMode) {
-      // View mode: Don't show raw ID, use user-friendly fallback
-      newLabels.dealCS = `CS Rep ${formData.dealCS}`;
-    } else {
-      // Edit mode or no value
-      newLabels.dealCS = formData.dealCS || "";
+    // Campaign Type
+    if (!displayLabels.campaignType || isEditMode) {
+      const selectedCampaignType = CAMPAIGN_TYPE_OPTIONS.find(t => t.value === formData.campaignType);
+      if (selectedCampaignType) {
+        newLabels.campaignType = selectedCampaignType.label;
+      }
+    }
+
+    // Deal CS
+    if (!displayLabels.dealCS || isEditMode) {
+      const selectedDealCS = dealCS.find(cs => cs.value === formData.dealCS);
+      if (selectedDealCS) {
+        newLabels.dealCS = selectedDealCS.label;
+      }
     }
 
     setDisplayLabels(newLabels);
   };
 
-  // === 🆕 STYLING FUNCTIONS ===
-  const getFieldStyle = (hasValue = true) => {
-    if (!isEditMode) {
-      return {
-        backgroundColor: hasValue ? '#f8f9fa' : '#ffffff',
-        border: '1px solid #e9ecef',
-        cursor: 'default',
-        color: hasValue ? '#495057' : '#6c757d'
-      };
-    }
-    return {};
-  };
-
-  // === 🔧 ENHANCED: Load data for view mode with Deal CS lookup
+  // === 🔧 FIXED: Enhanced View Mode Loading ===
   const loadCampaignDetailsForViewMode = async () => {
     if (!runServerless || !context?.crm?.objectId) return;
 
@@ -163,14 +155,14 @@ const CampaignDetails = ({
           }
         });
 
-        // 🔧 ENHANCED: UPDATE DISPLAY LABELS from association data and form data
-        const newDisplayLabels = { ...displayLabels };
+        // 🔧 FIXED: Set display labels directly from association data with proper fallbacks
+        const newDisplayLabels = {};
         
         // Campaign Type - find from constants
         const selectedCampaignType = CAMPAIGN_TYPE_OPTIONS.find(t => t.value === data.formData.campaignType);
         newDisplayLabels.campaignType = selectedCampaignType?.label || data.formData.campaignType || "";
 
-        // 🔧 ENHANCED: Deal CS - Handle association data OR fallback gracefully
+        // Deal CS - Handle association data OR fallback gracefully
         if (data.associations?.dealCS) {
           // Best case: we have association data with the label
           newDisplayLabels.dealCS = data.associations.dealCS.label;
@@ -194,22 +186,25 @@ const CampaignDetails = ({
                 newDisplayLabels.dealCS = foundDealCS.label;
               } else {
                 // Still not found, use user-friendly fallback
-                newDisplayLabels.dealCS = `CS Representative (ID: ${data.formData.dealCS})`;
+                newDisplayLabels.dealCS = `CS Representative (${data.formData.dealCS})`;
               }
             } else {
               // API call failed, use user-friendly fallback
-              newDisplayLabels.dealCS = `CS Representative (ID: ${data.formData.dealCS})`;
+              newDisplayLabels.dealCS = `CS Representative (${data.formData.dealCS})`;
             }
           } catch (lookupError) {
             console.warn("Could not lookup Deal CS details for view mode:", lookupError);
             // Final fallback: user-friendly display
-            newDisplayLabels.dealCS = `CS Representative (ID: ${data.formData.dealCS})`;
+            newDisplayLabels.dealCS = `CS Representative (${data.formData.dealCS})`;
           }
+        } else {
+          newDisplayLabels.dealCS = "";
         }
         
+        // 🔧 CRITICAL: Set display labels directly, bypassing updateDisplayLabels
         setDisplayLabels(newDisplayLabels);
 
-        console.log("✅ Campaign details loaded for view mode with display labels:", newDisplayLabels);
+        console.log("✅ Campaign details loaded for view mode with enhanced display labels:", newDisplayLabels);
       }
     } catch (error) {
       console.warn("Could not load campaign details for view mode:", error);
@@ -242,7 +237,7 @@ const CampaignDetails = ({
           }
         });
 
-        // 🔧 FIX: UPDATE DISPLAY LABELS from association data and form data
+        // Update display labels from association data and form data
         const newDisplayLabels = { ...displayLabels };
         
         // Campaign Type - find from constants
@@ -335,31 +330,20 @@ const CampaignDetails = ({
     }
   };
 
-  // === DEBOUNCE UTILITY ===
-  const debounce = (func, wait) => {
-    let timeout;
-    return function executedFunction(...args) {
-      const later = () => {
-        clearTimeout(timeout);
-        func(...args);
-      };
-      clearTimeout(timeout);
-      timeout = setTimeout(later, wait);
-    };
-  };
-
-  // === DEAL CS FUNCTIONS ===
-  const performDealCSSearch = async (term) => {
-    if (!runServerless || !isEditMode) return;
+  // === DEAL CS SEARCH FUNCTIONS ===
+  const performDealCSSearch = async () => {
+    if (!runServerless || !isEditMode || !dealCSSearchTerm.trim()) return;
 
     setIsDealCSSearching(true);
     setDealCSErrorMessage("");
 
     try {
+      const searchTerm = dealCSSearchTerm.trim();
+      
       const response = await runServerless({
-        name: "searchDealOwners", // ✅ Reuse existing function
+        name: "searchDealOwners", // Reuse existing function
         parameters: {
-          searchTerm: term,
+          searchTerm: searchTerm,
           page: 1,
           limit: 50,
           includeInactive: false
@@ -377,7 +361,10 @@ const CampaignDetails = ({
         
         setDealCS(csOptions);
         setDealCSHasMore(data.hasMore || false);
-        console.log(`🔍 Deal CS search results: ${data.totalCount} matches for "${term}"`);
+        setUseDealCSSearchMode(true);
+        setLastDealCSSearchTerm(searchTerm);
+        
+        console.log(`✅ Deal CS search completed: ${data.totalCount} results for "${searchTerm}"`);
       } else {
         throw new Error("Invalid deal CS search response");
       }
@@ -397,7 +384,7 @@ const CampaignDetails = ({
 
     try {
       const response = await runServerless({
-        name: "searchDealOwners", // ✅ Reuse existing function
+        name: "searchDealOwners", // Reuse existing function
         parameters: {
           loadAll: false,
           limit: 20,
@@ -430,28 +417,7 @@ const CampaignDetails = ({
     }
   };
 
-  // === DEBOUNCED SEARCH FUNCTIONS (Only work in edit mode) ===
-  const debouncedDealCSSearch = useCallback(
-    debounce((term) => {
-      if (!isEditMode) return;
-      if (term.trim() === "") {
-        loadDefaultDealCS();
-        setUseDealCSSearchMode(false);
-      } else {
-        performDealCSSearch(term.trim());
-        setUseDealCSSearchMode(true);
-      }
-    }, 500),
-    [runServerless, isEditMode]
-  );
-
   // === EVENT HANDLERS ===
-  const handleDealCSSearchChange = (value) => {
-    if (!isEditMode) return;
-    setDealCSSearchTerm(value);
-    debouncedDealCSSearch(value);
-  };
-
   const handleDealCSChange = (value) => {
     if (!isEditMode) return;
 
@@ -473,6 +439,32 @@ const CampaignDetails = ({
     } else {
       onChange(field, value);
     }
+  };
+
+  // === CLEAR SEARCH FUNCTIONS ===
+  const clearDealCSSearch = () => {
+    if (!isEditMode) return;
+    setDealCSSearchTerm("");
+    setUseDealCSSearchMode(false);
+    setDealCSErrorMessage("");
+    setLastDealCSSearchTerm("");
+    loadDefaultDealCS();
+  };
+
+  // === MODE CONTROL FUNCTIONS ===
+  const switchDealCSToBrowseMode = () => {
+    if (!isEditMode) return;
+    setUseDealCSSearchMode(false);
+    setDealCSSearchTerm("");
+    setLastDealCSSearchTerm("");
+    loadDefaultDealCS();
+  };
+
+  const switchDealCSToSearchMode = () => {
+    if (!isEditMode) return;
+    setUseDealCSSearchMode(true);
+    setDealCSSearchTerm("");
+    setLastDealCSSearchTerm("");
   };
 
   // === UI HELPER FUNCTIONS ===
@@ -505,36 +497,14 @@ const CampaignDetails = ({
            !formData.dealCS;
   };
 
-  // === DEAL CS MODE CONTROLS (Only work in edit mode) ===
-  const switchDealCSToBrowseMode = () => {
-    if (!isEditMode) return;
-    setUseDealCSSearchMode(false);
-    setDealCSSearchTerm("");
-    loadDefaultDealCS();
-  };
-
-  const switchDealCSToSearchMode = () => {
-    if (!isEditMode) return;
-    setUseDealCSSearchMode(true);
-    setDealCSSearchTerm("");
-  };
-
-  const clearDealCSSelection = () => {
-    if (!isEditMode) return;
-    setDealCSSearchTerm("");
-    onChange('dealCS', '');
-    setUseDealCSSearchMode(false);
-    loadDefaultDealCS();
-  };
-
   // === STATUS MESSAGES ===
   const getDealCSStatusMessage = () => {
     if (!isEditMode) return "";
     if (isDealCSSearching) return "Searching CS representatives...";
     if (isDealCSLoading) return "Loading CS representatives...";
-    if (useDealCSSearchMode && dealCSSearchTerm) {
+    if (useDealCSSearchMode && lastDealCSSearchTerm) {
       const count = dealCS.length > 1 ? dealCS.length - 1 : 0;
-      return `${count} matches for "${dealCSSearchTerm}"`;
+      return `${count} results for "${lastDealCSSearchTerm}"`;
     }
     if (dealCS.length > 1) {
       const count = dealCS.length - 1;
@@ -564,7 +534,7 @@ const CampaignDetails = ({
           </Flex>
         )}
 
-        {/* 🆕 VIEW MODE INDICATOR */}
+        {/* VIEW MODE INDICATOR */}
         {!isEditMode && (
           <Text variant="microcopy" format={{ color: 'medium' }}>
             👁️ View Mode - Read Only
@@ -585,7 +555,7 @@ const CampaignDetails = ({
 
       <Box marginTop="medium">
         <Flex direction="row" gap="medium" wrap="wrap">
-          {/* 🆕 CAMPAIGN TYPE - VIEW/EDIT MODE */}
+          {/* CAMPAIGN TYPE - VIEW/EDIT MODE */}
           <Box flex={1} minWidth="250px">
             {/* View Mode: Simple Input Display */}
             {!isEditMode ? (
@@ -593,9 +563,11 @@ const CampaignDetails = ({
                 label="Campaign Type *"
                 name="campaignType"
                 placeholder="No campaign type selected"
-                value={displayLabels.campaignType}
+                value={
+                  displayLabels.campaignType || 
+                  (formData.campaignType ? `Campaign Type (${formData.campaignType})` : "")
+                }
                 readOnly={true}
-                style={getFieldStyle(!!displayLabels.campaignType)}
               />
             ) : (
               /* Edit Mode: Select */
@@ -610,7 +582,7 @@ const CampaignDetails = ({
             )}
           </Box>
 
-          {/* 🆕 TAX ID - VIEW/EDIT MODE */}
+          {/* TAX ID - VIEW/EDIT MODE */}
           <Box flex={1} minWidth="250px">
             <Input
               label="Tax ID *"
@@ -619,7 +591,6 @@ const CampaignDetails = ({
               value={formData.taxId}
               onChange={isEditMode ? (value) => handleFieldChange("taxId", value) : undefined}
               readOnly={!isEditMode}
-              style={getFieldStyle(!!formData.taxId)}
               required={isEditMode}
             />
           </Box>
@@ -627,7 +598,7 @@ const CampaignDetails = ({
 
         <Box marginTop="medium">
           <Flex direction="row" gap="medium" wrap="wrap">
-            {/* 🆕 BUSINESS NAME - VIEW/EDIT MODE */}
+            {/* BUSINESS NAME - VIEW/EDIT MODE */}
             <Box flex={1} minWidth="250px">
               <Input
                 label="Business Name *"
@@ -636,16 +607,15 @@ const CampaignDetails = ({
                 value={formData.businessName}
                 onChange={isEditMode ? (value) => handleFieldChange("businessName", value) : undefined}
                 readOnly={!isEditMode}
-                style={getFieldStyle(!!formData.businessName)}
                 required={isEditMode}
               />
             </Box>
             
-            {/* 🔧 FIXED: DEAL CS - VIEW/EDIT MODE */}
+            {/* DEAL CS - VIEW/EDIT MODE WITH SEARCH BUTTON */}
             <Box flex={1} minWidth="250px">
               {/* Mode Controls - Only show in Edit Mode */}
               {isEditMode && (
-                <Flex gap="small" marginBottom="small">
+                <Flex gap="small" marginBottom="small" wrap="wrap">
                   <Button
                     variant={!useDealCSSearchMode ? "primary" : "secondary"}
                     size="xs"
@@ -662,11 +632,11 @@ const CampaignDetails = ({
                   >
                     🔍 Search
                   </Button>
-                  {(formData.dealCS || dealCSSearchTerm) && (
+                  {useDealCSSearchMode && (
                     <Button
                       variant="secondary"
                       size="xs"
-                      onClick={clearDealCSSelection}
+                      onClick={clearDealCSSearch}
                     >
                       ✕ Clear
                     </Button>
@@ -680,22 +650,36 @@ const CampaignDetails = ({
                   label="Deal CS *"
                   name="dealCS"
                   placeholder="No CS representative selected"
-                  value={displayLabels.dealCS}
+                  value={
+                    displayLabels.dealCS || 
+                    (formData.dealCS ? `CS Rep (${formData.dealCS})` : "")
+                  }
                   readOnly={true}
-                  style={getFieldStyle(!!displayLabels.dealCS)}
                 />
               )}
 
               {/* Edit Mode: Search or Select */}
               {isEditMode && useDealCSSearchMode ? (
-                <Input
-                  label="Search CS Representatives *"
-                  name="searchDealCS"
-                  placeholder="Type CS rep name to search..."
-                  value={dealCSSearchTerm}
-                  onChange={handleDealCSSearchChange}
-                  disabled={isDealCSLoading || isDealCSSearching}
-                />
+                <Flex gap="small" direction="row" align="end">
+                  <Box flex={1}>
+                    <Input
+                      label="Search CS Representatives *"
+                      name="searchDealCS"
+                      placeholder="Enter CS rep name..."
+                      value={dealCSSearchTerm}
+                      onChange={(value) => setDealCSSearchTerm(value)}
+                      disabled={isDealCSLoading || isDealCSSearching}
+                    />
+                  </Box>
+                  <Box>
+                    <Button 
+                      onClick={performDealCSSearch}
+                      disabled={!dealCSSearchTerm.trim() || isDealCSSearching || isDealCSLoading}
+                    >
+                      {isDealCSSearching ? <LoadingSpinner size="xs" /> : "🔍"}
+                    </Button>
+                  </Box>
+                </Flex>
               ) : isEditMode ? (
                 <Select
                   label="Deal CS *"
@@ -709,7 +693,7 @@ const CampaignDetails = ({
               ) : null}
 
               {/* Search Results - Only in Edit Mode */}
-              {isEditMode && useDealCSSearchMode && dealCSSearchTerm && dealCS.length > 1 && (
+              {isEditMode && useDealCSSearchMode && lastDealCSSearchTerm && dealCS.length > 1 && (
                 <Box marginTop="small">
                   <Select
                     label="Select from search results"
