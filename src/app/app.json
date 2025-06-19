@@ -17,6 +17,8 @@
     "crm.objects.custom.write",
     "crm.schemas.deals.read",
     "crm.schemas.deals.write",
+    "crm.schemas.custom.read",
+    "crm.schemas.custom.write",
     "crm.objects.owners.read",
     "hubdb"
   ],

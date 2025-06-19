@@ -5,3 +5,4 @@ export { default as BasicInformation } from './BasicInformation.jsx';
 export { default as CampaignDetails } from './CampaignDetails.jsx';
 export { default as LineItems } from './LineItems.jsx';
 export { default as CampaignSummary } from './CampaignSummary.jsx';
+export { default as PropertySetup } from './PropertySetup.jsx'; // 🆕 NEW COMPONENT
