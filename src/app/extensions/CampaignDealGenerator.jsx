@@ -21,7 +21,7 @@ import LineItems from './components/LineItems.jsx';
 import CampaignSummary from './components/CampaignSummary.jsx';
 
 // Import utilities
-import { 
+import {
   INITIAL_FORM_STATE,
   COMPONENT_SAVE_STATES,
   SAVE_STATUS,
@@ -113,7 +113,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
 
       if (response?.status === "SUCCESS" && response?.response?.data) {
         const data = response.response.data;
-        
+
         // 🔧 UPDATE FORM DATA
         Object.keys(data.formData).forEach(key => {
           if (data.formData[key] !== formData[key]) {
@@ -144,7 +144,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
 
       if (response?.status === "SUCCESS" && response?.response?.data) {
         const data = response.response.data;
-        
+
         // 🔧 UPDATE FORM DATA
         const campaignDetailsFields = ['campaignType', 'taxId', 'businessName', 'dealCS'];
         campaignDetailsFields.forEach(key => {
@@ -176,7 +176,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
 
       if (response?.status === "SUCCESS" && response?.response?.data) {
         const data = response.response.data;
-        
+
         // 🔧 UPDATE LINE ITEMS
         setLineItems(data.lineItems || []);
 
@@ -235,7 +235,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
   // === SAVE STATUS HANDLERS ===
   const handleBasicInfoSaveStatusChange = (statusData) => {
     setBasicInfoSaveStatus(statusData);
-    
+
     if (statusData.status === 'Saved') {
       sendAlert({
         message: "✅ Basic information saved successfully!",
@@ -246,7 +246,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
 
   const handleCampaignDetailsSaveStatusChange = (statusData) => {
     setCampaignDetailsSaveStatus(statusData);
-    
+
     if (statusData.status === 'Saved') {
       sendAlert({
         message: "✅ Campaign details saved successfully!",
@@ -257,7 +257,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
 
   const handleLineItemsSaveStatusChange = (statusData) => {
     setLineItemsSaveStatus(statusData);
-    
+
     if (statusData.status === 'Saved') {
       sendAlert({
         message: "✅ Line items saved successfully!",
@@ -364,22 +364,22 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
               {modeInfo.icon} {modeInfo.text}
             </Text>
           </Box>
-          
+
           <Flex align="center" gap="medium">
             {/* Progress Indicator */}
             <Box>
-              <Text 
-                variant="microcopy" 
-                format={{ 
+              <Text
+                variant="microcopy"
+                format={{
                   color: getProgressColor(),
-                  fontWeight: "bold" 
+                  fontWeight: "bold"
                 }}
               >
                 📊 Progress: {progressInfo.progress}/{progressInfo.total} ({progressInfo.percentage}%)
               </Text>
               <Text variant="microcopy" format={{ color: 'medium' }}>
-                {basicInfoSaveStatus.status === 'Saved' ? "✅ Basic Info" : "⏳ Basic Info"} | 
-                {campaignDetailsSaveStatus.status === 'Saved' ? "✅ Details" : "⏳ Details"} | 
+                {basicInfoSaveStatus.status === 'Saved' ? "✅ Basic Info" : "⏳ Basic Info"} |
+                {campaignDetailsSaveStatus.status === 'Saved' ? "✅ Details" : "⏳ Details"} |
                 {lineItemsSaveStatus.status === 'Saved' ? "✅ Line Items" : "⏳ Line Items"}
               </Text>
             </Box>
@@ -460,9 +460,9 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
             </Box>
           )}
 
-          {/* LINE ITEMS SECTION */}
-          {/* <Box>
-            <LineItems 
+          /* LINE ITEMS SECTION */
+          <Box>
+            <LineItems
               lineItems={lineItems}
               onLineItemsChange={handleLineItemsChange}
               onAlert={handleAlert}
@@ -471,16 +471,16 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
               onSaveStatusChange={handleLineItemsSaveStatusChange}
               isEditMode={isEditMode}
             />
-          </Box> */}
+          </Box>
 
-          {/* Line Items Status Alert */}
-          {/* {isEditMode && lineItemsSaveStatus.status !== 'Saved' && lineItemsSaveStatus.hasData && (
+          /* Line Items Status Alert */
+          {isEditMode && lineItemsSaveStatus.status !== 'Saved' && lineItemsSaveStatus.hasData && (
             <Box>
               <Alert variant="warning">
                 ⚠️ Line Items have unsaved changes. Please save to lock in your progress.
               </Alert>
             </Box>
-          )} */}
+          )}
 
           {/* CAMPAIGN SUMMARY SECTION */}
           {/* <Box>
@@ -499,7 +499,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
               <Box>
                 {(basicInfoSaveStatus.lastSaved || campaignDetailsSaveStatus.lastSaved || lineItemsSaveStatus.lastSaved) && (
                   <Text variant="microcopy" format={{ color: 'medium' }}>
-                    📅 Last saved: 
+                    📅 Last saved:
                     {basicInfoSaveStatus.lastSaved && ` Basic Info (${basicInfoSaveStatus.lastSaved})`}
                     {(basicInfoSaveStatus.lastSaved && (campaignDetailsSaveStatus.lastSaved || lineItemsSaveStatus.lastSaved)) && `, `}
                     {campaignDetailsSaveStatus.lastSaved && ` Details (${campaignDetailsSaveStatus.lastSaved})`}
@@ -508,7 +508,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
                   </Text>
                 )}
               </Box>
-              
+
               <Flex gap="medium">
                 {/* Clear button - only show in edit mode */}
                 {isEditMode && (
