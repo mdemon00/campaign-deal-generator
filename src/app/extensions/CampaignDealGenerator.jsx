@@ -1,5 +1,5 @@
 // src/app/extensions/CampaignDealGenerator.jsx
-// Updated version with PropertySetup component for easy property creation
+// Fixed version with proper view mode data loading
 
 import React, { useState, useEffect } from "react";
 import {
@@ -19,10 +19,9 @@ import BasicInformation from './components/BasicInformation.jsx';
 import CampaignDetails from './components/CampaignDetails.jsx';
 import LineItems from './components/LineItems.jsx';
 import CampaignSummary from './components/CampaignSummary.jsx';
-import PropertySetup from './components/PropertySetup.jsx'; // 🆕 NEW COMPONENT
 
 // Import utilities
-import { 
+import {
   INITIAL_FORM_STATE,
   COMPONENT_SAVE_STATES,
   SAVE_STATUS,
@@ -47,9 +46,6 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
   const [isEditMode, setIsEditMode] = useState(false); // Start in VIEW mode
   const [hasLoadedData, setHasLoadedData] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
-
-  // === 🆕 SETUP MODE STATE ===
-  const [showSetup, setShowSetup] = useState(false);
 
   // Get current object information
   const objectId = context.crm.objectId;
@@ -117,7 +113,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
 
       if (response?.status === "SUCCESS" && response?.response?.data) {
         const data = response.response.data;
-        
+
         // 🔧 UPDATE FORM DATA
         Object.keys(data.formData).forEach(key => {
           if (data.formData[key] !== formData[key]) {
@@ -148,7 +144,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
 
       if (response?.status === "SUCCESS" && response?.response?.data) {
         const data = response.response.data;
-        
+
         // 🔧 UPDATE FORM DATA
         const campaignDetailsFields = ['campaignType', 'taxId', 'businessName', 'dealCS'];
         campaignDetailsFields.forEach(key => {
@@ -180,7 +176,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
 
       if (response?.status === "SUCCESS" && response?.response?.data) {
         const data = response.response.data;
-        
+
         // 🔧 UPDATE LINE ITEMS
         setLineItems(data.lineItems || []);
 
@@ -201,7 +197,6 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
   // === MODE TOGGLE HANDLERS ===
   const handleSwitchToEditMode = () => {
     setIsEditMode(true);
-    setShowSetup(false); // Hide setup when entering edit mode
     sendAlert({
       message: "✏️ Switched to Edit Mode - You can now modify fields",
       variant: "info"
@@ -210,27 +205,8 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
 
   const handleSwitchToViewMode = () => {
     setIsEditMode(false);
-    setShowSetup(false); // Hide setup when entering view mode
     sendAlert({
       message: "👁️ Switched to View Mode - Fields are now read-only",
-      variant: "info"
-    });
-  };
-
-  // === 🆕 SETUP MODE HANDLERS ===
-  const handleShowSetup = () => {
-    setShowSetup(true);
-    setIsEditMode(false); // Exit edit mode when showing setup
-    sendAlert({
-      message: "🔧 Showing Properties Setup - Fix line items save errors",
-      variant: "info"
-    });
-  };
-
-  const handleHideSetup = () => {
-    setShowSetup(false);
-    sendAlert({
-      message: "📋 Setup hidden - Back to normal view",
       variant: "info"
     });
   };
@@ -259,7 +235,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
   // === SAVE STATUS HANDLERS ===
   const handleBasicInfoSaveStatusChange = (statusData) => {
     setBasicInfoSaveStatus(statusData);
-    
+
     if (statusData.status === 'Saved') {
       sendAlert({
         message: "✅ Basic information saved successfully!",
@@ -270,7 +246,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
 
   const handleCampaignDetailsSaveStatusChange = (statusData) => {
     setCampaignDetailsSaveStatus(statusData);
-    
+
     if (statusData.status === 'Saved') {
       sendAlert({
         message: "✅ Campaign details saved successfully!",
@@ -281,7 +257,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
 
   const handleLineItemsSaveStatusChange = (statusData) => {
     setLineItemsSaveStatus(statusData);
-    
+
     if (statusData.status === 'Saved') {
       sendAlert({
         message: "✅ Line items saved successfully!",
@@ -358,13 +334,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
   };
 
   const getModeDisplayInfo = () => {
-    if (showSetup) {
-      return {
-        icon: "🔧",
-        text: "Setup Mode - Fix line items properties",
-        color: "warning"
-      };
-    } else if (isEditMode) {
+    if (isEditMode) {
       return {
         icon: "✏️",
         text: "Edit Mode - You can modify all fields",
@@ -394,48 +364,34 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
               {modeInfo.icon} {modeInfo.text}
             </Text>
           </Box>
-          
+
           <Flex align="center" gap="medium">
-            {/* Progress Indicator - Hide in setup mode */}
-            {!showSetup && (
-              <Box>
-                <Text 
-                  variant="microcopy" 
-                  format={{ 
-                    color: getProgressColor(),
-                    fontWeight: "bold" 
-                  }}
-                >
-                  📊 Progress: {progressInfo.progress}/{progressInfo.total} ({progressInfo.percentage}%)
-                </Text>
-                <Text variant="microcopy" format={{ color: 'medium' }}>
-                  {basicInfoSaveStatus.status === 'Saved' ? "✅ Basic Info" : "⏳ Basic Info"} | 
-                  {campaignDetailsSaveStatus.status === 'Saved' ? "✅ Details" : "⏳ Details"} | 
-                  {lineItemsSaveStatus.status === 'Saved' ? "✅ Line Items" : "⏳ Line Items"}
-                </Text>
-              </Box>
-            )}
-
-            {/* 🆕 MODE TOGGLE BUTTONS */}
-            <Flex gap="small">
-              {!showSetup && (
-                <Button
-                  variant={isEditMode ? "secondary" : "primary"}
-                  onClick={isEditMode ? handleSwitchToViewMode : handleSwitchToEditMode}
-                  disabled={loading}
-                >
-                  {isEditMode ? "👁️ Switch to View" : "✏️ Switch to Edit"}
-                </Button>
-              )}
-
-              <Button
-                variant={showSetup ? "primary" : "secondary"}
-                onClick={showSetup ? handleHideSetup : handleShowSetup}
-                disabled={loading}
+            {/* Progress Indicator */}
+            <Box>
+              <Text
+                variant="microcopy"
+                format={{
+                  color: getProgressColor(),
+                  fontWeight: "bold"
+                }}
               >
-                {showSetup ? "📋 Hide Setup" : "🔧 Properties Setup"}
-              </Button>
-            </Flex>
+                📊 Progress: {progressInfo.progress}/{progressInfo.total} ({progressInfo.percentage}%)
+              </Text>
+              <Text variant="microcopy" format={{ color: 'medium' }}>
+                {basicInfoSaveStatus.status === 'Saved' ? "✅ Basic Info" : "⏳ Basic Info"} |
+                {campaignDetailsSaveStatus.status === 'Saved' ? "✅ Details" : "⏳ Details"} |
+                {lineItemsSaveStatus.status === 'Saved' ? "✅ Line Items" : "⏳ Line Items"}
+              </Text>
+            </Box>
+
+            {/* MODE TOGGLE BUTTON */}
+            <Button
+              variant={isEditMode ? "secondary" : "primary"}
+              onClick={isEditMode ? handleSwitchToViewMode : handleSwitchToEditMode}
+              disabled={loading}
+            >
+              {isEditMode ? "👁️ Switch to View" : "✏️ Switch to Edit"}
+            </Button>
           </Flex>
         </Flex>
         <Divider />
@@ -450,139 +406,123 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
         </Box>
       )}
 
-      {/* 🆕 SETUP MODE - Show PropertySetup component */}
-      {showSetup && (
+      {/* MODE INSTRUCTION ALERT */}
+      {!isEditMode && hasLoadedData && (
         <Box>
-          <PropertySetup
-            runServerless={runServerless}
-            context={context}
-            onAlert={handleAlert}
-          />
+          <Alert variant="info">
+            👁️ Currently in View Mode. All fields are read-only. Click "Switch to Edit" to make changes.
+          </Alert>
         </Box>
       )}
 
-      {/* NORMAL MODE - Show regular components */}
-      {!showSetup && (
+      {/* 🔧 SHOW CONTENT AFTER LOADING OR IF NO DATA */}
+      {(hasLoadedData || !isInitialLoad) && (
         <>
-          {/* MODE INSTRUCTION ALERT */}
-          {!isEditMode && hasLoadedData && (
+          {/* BASIC INFORMATION */}
+          <Box>
+            <BasicInformation
+              formData={formData}
+              onChange={handleFormChange}
+              runServerless={runServerless}
+              context={context}
+              onSaveStatusChange={handleBasicInfoSaveStatusChange}
+              isEditMode={isEditMode}
+            />
+          </Box>
+
+          {/* Basic Info Status Alert */}
+          {isEditMode && basicInfoSaveStatus.status !== 'Saved' && basicInfoSaveStatus.hasData && (
             <Box>
-              <Alert variant="info">
-                👁️ Currently in View Mode. All fields are read-only. Click "Switch to Edit" to make changes.
+              <Alert variant="warning">
+                ⚠️ Basic Information has unsaved changes. Please save before proceeding to Campaign Details.
               </Alert>
             </Box>
           )}
 
-          {/* 🔧 SHOW CONTENT AFTER LOADING OR IF NO DATA */}
-          {(hasLoadedData || !isInitialLoad) && (
-            <>
-              {/* BASIC INFORMATION */}
-              <Box>
-                <BasicInformation
-                  formData={formData}
-                  onChange={handleFormChange}
-                  runServerless={runServerless}
-                  context={context}
-                  onSaveStatusChange={handleBasicInfoSaveStatusChange}
-                  isEditMode={isEditMode}
-                />
-              </Box>
+          {/* CAMPAIGN DETAILS */}
+          <Box>
+            <CampaignDetails
+              formData={formData}
+              onChange={handleFormChange}
+              runServerless={runServerless}
+              context={context}
+              onSaveStatusChange={handleCampaignDetailsSaveStatusChange}
+              isEditMode={isEditMode}
+            />
+          </Box>
 
-              {/* Basic Info Status Alert */}
-              {isEditMode && basicInfoSaveStatus.status !== 'Saved' && basicInfoSaveStatus.hasData && (
-                <Box>
-                  <Alert variant="warning">
-                    ⚠️ Basic Information has unsaved changes. Please save before proceeding to Campaign Details.
-                  </Alert>
-                </Box>
-              )}
-
-              {/* CAMPAIGN DETAILS */}
-              <Box>
-                <CampaignDetails
-                  formData={formData}
-                  onChange={handleFormChange}
-                  runServerless={runServerless}
-                  context={context}
-                  onSaveStatusChange={handleCampaignDetailsSaveStatusChange}
-                  isEditMode={isEditMode}
-                />
-              </Box>
-
-              {/* Campaign Details Status Alert */}
-              {isEditMode && campaignDetailsSaveStatus.status !== 'Saved' && campaignDetailsSaveStatus.hasData && (
-                <Box>
-                  <Alert variant="warning">
-                    ⚠️ Campaign Details have unsaved changes. Please save to lock in your progress.
-                  </Alert>
-                </Box>
-              )}
-
-              {/* LINE ITEMS SECTION */}
-              <Box>
-                <LineItems 
-                  lineItems={lineItems}
-                  onLineItemsChange={handleLineItemsChange}
-                  onAlert={handleAlert}
-                  runServerless={runServerless}
-                  context={context}
-                  onSaveStatusChange={handleLineItemsSaveStatusChange}
-                  isEditMode={isEditMode}
-                />
-              </Box>
-
-              {/* Line Items Status Alert */}
-              {isEditMode && lineItemsSaveStatus.status !== 'Saved' && lineItemsSaveStatus.hasData && (
-                <Box>
-                  <Alert variant="warning">
-                    ⚠️ Line Items have unsaved changes. Please save to lock in your progress.
-                  </Alert>
-                </Box>
-              )}
-
-              {/* CAMPAIGN SUMMARY SECTION */}
-              <Box>
-                <CampaignSummary 
-                  lineItems={lineItems}
-                  currency={formData.currency}
-                  formData={formData}
-                  isEditMode={isEditMode}
-                />
-              </Box>
-
-              {/* GLOBAL ACTIONS */}
-              <Box>
-                <Divider />
-                <Flex gap="medium" justify="space-between" align="center">
-                  <Box>
-                    {(basicInfoSaveStatus.lastSaved || campaignDetailsSaveStatus.lastSaved || lineItemsSaveStatus.lastSaved) && (
-                      <Text variant="microcopy" format={{ color: 'medium' }}>
-                        📅 Last saved: 
-                        {basicInfoSaveStatus.lastSaved && ` Basic Info (${basicInfoSaveStatus.lastSaved})`}
-                        {(basicInfoSaveStatus.lastSaved && (campaignDetailsSaveStatus.lastSaved || lineItemsSaveStatus.lastSaved)) && `, `}
-                        {campaignDetailsSaveStatus.lastSaved && ` Details (${campaignDetailsSaveStatus.lastSaved})`}
-                        {(campaignDetailsSaveStatus.lastSaved && lineItemsSaveStatus.lastSaved) && `, `}
-                        {lineItemsSaveStatus.lastSaved && ` Line Items (${lineItemsSaveStatus.lastSaved})`}
-                      </Text>
-                    )}
-                  </Box>
-                  
-                  <Flex gap="medium">
-                    {/* Clear button - only show in edit mode */}
-                    {isEditMode && (
-                      <Button
-                        variant="secondary"
-                        onClick={handleClearForm}
-                        disabled={loading}
-                      >
-                        🗑️ Clear All
-                      </Button>
-                    )}
-                  </Flex>
-                </Flex>
-              </Box>
-            </>
+          {/* Campaign Details Status Alert */}
+          {isEditMode && campaignDetailsSaveStatus.status !== 'Saved' && campaignDetailsSaveStatus.hasData && (
+            <Box>
+              <Alert variant="warning">
+                ⚠️ Campaign Details have unsaved changes. Please save to lock in your progress.
+              </Alert>
+            </Box>
           )}
+
+          /* LINE ITEMS SECTION */
+          <Box>
+            <LineItems
+              lineItems={lineItems}
+              onLineItemsChange={handleLineItemsChange}
+              onAlert={handleAlert}
+              runServerless={runServerless}
+              context={context}
+              onSaveStatusChange={handleLineItemsSaveStatusChange}
+              isEditMode={isEditMode}
+            />
+          </Box>
+
+          /* Line Items Status Alert */
+          {isEditMode && lineItemsSaveStatus.status !== 'Saved' && lineItemsSaveStatus.hasData && (
+            <Box>
+              <Alert variant="warning">
+                ⚠️ Line Items have unsaved changes. Please save to lock in your progress.
+              </Alert>
+            </Box>
+          )}
+
+          {/* CAMPAIGN SUMMARY SECTION */}
+          {/* <Box>
+            <CampaignSummary 
+              lineItems={lineItems}
+              currency={formData.currency}
+              formData={formData}
+              isEditMode={isEditMode}
+            />
+          </Box> */}
+
+          {/* GLOBAL ACTIONS */}
+          <Box>
+            <Divider />
+            <Flex gap="medium" justify="space-between" align="center">
+              <Box>
+                {(basicInfoSaveStatus.lastSaved || campaignDetailsSaveStatus.lastSaved || lineItemsSaveStatus.lastSaved) && (
+                  <Text variant="microcopy" format={{ color: 'medium' }}>
+                    📅 Last saved:
+                    {basicInfoSaveStatus.lastSaved && ` Basic Info (${basicInfoSaveStatus.lastSaved})`}
+                    {(basicInfoSaveStatus.lastSaved && (campaignDetailsSaveStatus.lastSaved || lineItemsSaveStatus.lastSaved)) && `, `}
+                    {campaignDetailsSaveStatus.lastSaved && ` Details (${campaignDetailsSaveStatus.lastSaved})`}
+                    {(campaignDetailsSaveStatus.lastSaved && lineItemsSaveStatus.lastSaved) && `, `}
+                    {lineItemsSaveStatus.lastSaved && ` Line Items (${lineItemsSaveStatus.lastSaved})`}
+                  </Text>
+                )}
+              </Box>
+
+              <Flex gap="medium">
+                {/* Clear button - only show in edit mode */}
+                {isEditMode && (
+                  <Button
+                    variant="secondary"
+                    onClick={handleClearForm}
+                    disabled={loading}
+                  >
+                    🗑️ Clear All
+                  </Button>
+                )}
+              </Flex>
+            </Flex>
+          </Box>
         </>
       )}
 

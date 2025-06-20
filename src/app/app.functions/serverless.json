@@ -4,26 +4,6 @@
       "file": "testCampaignDeal.js",
       "secrets": []
     },
-    "createLineItemProperties": {
-      "file": "createLineItemProperties.js",
-      "secrets": []
-    },
-    "setupLineItemProperties": {
-      "file": "setupLineItemProperties.js",
-      "secrets": []
-    },
-    "verifyLineItemsFix": {
-      "file": "verifyLineItemsFix.js",
-      "secrets": []
-    },
-    "debugPropertyCreation": {
-      "file": "debugPropertyCreation.js",
-      "secrets": []
-    },
-    "simplePropertySetup": {
-      "file": "simplePropertySetup.js",
-      "secrets": []
-    },
     "fetchCommercialAgreements": {
       "file": "fetchCommercialAgreements.js",
       "secrets": []
