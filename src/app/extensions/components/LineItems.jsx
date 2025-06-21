@@ -24,7 +24,7 @@ import {
   LoadingSpinner
 } from "@hubspot/ui-extensions";
 
-import { 
+import {
   COUNTRY_OPTIONS,
   LINE_ITEM_TYPE_OPTIONS,
   INITIAL_LINE_ITEM_STATE,
@@ -36,20 +36,20 @@ import {
 import { calculateLineItemTotals } from '../utils/calculations.js';
 import { validateLineItem } from '../utils/validation.js';
 
-const LineItems = ({ 
-  lineItems, 
-  onLineItemsChange, 
+const LineItems = ({
+  lineItems,
+  onLineItemsChange,
   onAlert,
   runServerless,
   context,
   onSaveStatusChange,
   isEditMode = false // 🆕 NEW PROP - defaults to false (view mode)
 }) => {
-  
+
   // === LINE ITEM FORM STATE ===
   const [newLineItem, setNewLineItem] = useState(INITIAL_LINE_ITEM_STATE);
   const [lineItemCounter, setLineItemCounter] = useState(0);
-  
+
   // === SAVE/LOAD STATE ===
   const [saveState, setSaveState] = useState(COMPONENT_SAVE_STATES.NOT_SAVED);
   const [lastSaved, setLastSaved] = useState(null);
@@ -116,7 +116,7 @@ const LineItems = ({
 
         // Update line items
         onLineItemsChange(data.lineItems || []);
-        
+
         // Update counter to continue from max ID
         const maxId = Math.max(0, ...data.lineItems.map(item => item.id || 0));
         setLineItemCounter(maxId);
@@ -200,7 +200,7 @@ const LineItems = ({
   // === LINE ITEM MANAGEMENT FUNCTIONS ===
   const handleNewLineItemChange = (field, value) => {
     if (!isEditMode) return;
-    
+
     setNewLineItem(prev => ({
       ...prev,
       [field]: value
@@ -231,7 +231,7 @@ const LineItems = ({
 
     onLineItemsChange([...lineItems, lineItem]);
     setLineItemCounter(newCounter);
-    
+
     // Reset form
     setNewLineItem(INITIAL_LINE_ITEM_STATE);
 
@@ -246,7 +246,7 @@ const LineItems = ({
 
     const updatedItems = lineItems.filter((_, i) => i !== index);
     onLineItemsChange(updatedItems);
-    
+
     onAlert({
       message: "Line item removed successfully!",
       variant: "success"
@@ -256,7 +256,7 @@ const LineItems = ({
   // === INLINE EDITING FUNCTIONS ===
   const startEditingItem = (index) => {
     if (!isEditMode) return;
-    
+
     setEditingItemId(lineItems[index].id);
     setEditingItem({ ...lineItems[index] });
   };
@@ -284,7 +284,7 @@ const LineItems = ({
     const updatedItem = { ...editingItem, ...totals };
 
     // Update the line items array
-    const updatedItems = lineItems.map(item => 
+    const updatedItems = lineItems.map(item =>
       item.id === editingItemId ? updatedItem : item
     );
 
@@ -300,7 +300,7 @@ const LineItems = ({
 
   const handleEditingItemChange = (field, value) => {
     if (!isEditMode) return;
-    
+
     setEditingItem(prev => ({
       ...prev,
       [field]: value
@@ -330,8 +330,8 @@ const LineItems = ({
 
   const isSaveDisabled = () => {
     return saveState === COMPONENT_SAVE_STATES.SAVING ||
-           saveState === COMPONENT_SAVE_STATES.LOADING ||
-           lineItems.length === 0;
+      saveState === COMPONENT_SAVE_STATES.LOADING ||
+      lineItems.length === 0;
   };
 
   // === RENDER HELPER FUNCTIONS ===
@@ -350,9 +350,22 @@ const LineItems = ({
     if (!isEditMode || !isEditing) {
       // View mode or non-editing row
       let displayValue = currentValue;
-      
+
       if (field === 'startDate' || field === 'endDate') {
-        displayValue = currentValue ? new Date(currentValue).toLocaleDateString() : '';
+        if (!currentValue) {
+          displayValue = 'Date not set';
+        } else if (typeof currentValue === 'object' && currentValue.formattedDate) {
+          // HubSpot DateInput object - use the pre-formatted date
+          displayValue = currentValue.formattedDate;
+        } else {
+          // Fallback for other formats
+          try {
+            const dateObj = new Date(currentValue);
+            displayValue = isNaN(dateObj.getTime()) ? 'Invalid date' : dateObj.toLocaleDateString();
+          } catch (error) {
+            displayValue = 'Invalid date';
+          }
+        }
       } else if (field === 'price' || field === 'totalBudget') {
         displayValue = currentValue ? `$${Number(currentValue).toFixed(2)}` : '$0.00';
       } else if (field === 'type') {
@@ -452,7 +465,7 @@ const LineItems = ({
       {isEditMode && (
         <Tile>
           <Text format={{ fontWeight: "bold" }}>Add New Line Item</Text>
-          
+
           <Box marginTop="medium">
             <Flex direction="row" gap="medium" wrap="wrap">
               <Box flex={1} minWidth="200px">
@@ -576,20 +589,20 @@ const LineItems = ({
                   <TableCell>{renderEditableCell(item, "bonus", "number")}</TableCell>
                   <TableCell>{renderEditableCell(item, "totalBudget")}</TableCell>
                   <TableCell>{renderEditableCell(item, "type", "select")}</TableCell>
-                  
+
                   {/* Actions Column - Only show in Edit Mode */}
                   {isEditMode && (
                     <TableCell>
                       {editingItemId === item.id ? (
                         <Flex gap="small">
-                          <Button 
+                          <Button
                             variant="primary"
                             size="xs"
                             onClick={saveEditingItem}
                           >
                             ✓ Save
                           </Button>
-                          <Button 
+                          <Button
                             variant="secondary"
                             size="xs"
                             onClick={cancelEditingItem}
@@ -599,14 +612,14 @@ const LineItems = ({
                         </Flex>
                       ) : (
                         <Flex gap="small">
-                          <Button 
+                          <Button
                             variant="secondary"
                             size="xs"
                             onClick={() => startEditingItem(index)}
                           >
                             ✏️ Edit
                           </Button>
-                          <Button 
+                          <Button
                             variant="destructive"
                             size="xs"
                             onClick={() => removeLineItem(index)}
@@ -626,7 +639,7 @@ const LineItems = ({
         /* Empty State */
         <Box marginTop="medium">
           <Alert variant="info">
-            {isEditMode 
+            {isEditMode
               ? "📝 No line items yet. Add your first line item using the form above."
               : "📋 No line items have been added to this campaign deal yet."
             }
