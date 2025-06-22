@@ -43,7 +43,7 @@ const LineItems = ({
   runServerless,
   context,
   onSaveStatusChange,
-  isEditMode = false // 🆕 NEW PROP - defaults to false (view mode)
+  isEditMode = false
 }) => {
 
   // === LINE ITEM FORM STATE ===
@@ -257,8 +257,28 @@ const LineItems = ({
   const startEditingItem = (index) => {
     if (!isEditMode) return;
 
-    setEditingItemId(lineItems[index].id);
-    setEditingItem({ ...lineItems[index] });
+    // Validate item exists
+    if (!lineItems[index]) {
+      onAlert({
+        message: "Error: Cannot edit this line item - item not found",
+        variant: "error"
+      });
+      return;
+    }
+
+    const itemToEdit = lineItems[index];
+    
+    try {
+      const editingCopy = { ...itemToEdit };
+      setEditingItemId(itemToEdit.id);
+      setEditingItem(editingCopy);
+    } catch (error) {
+      console.error("Error creating editing copy:", error);
+      onAlert({
+        message: "Error: Cannot edit this line item - data issue",
+        variant: "error"
+      });
+    }
   };
 
   const cancelEditingItem = () => {
@@ -344,7 +364,17 @@ const LineItems = ({
   };
 
   const renderEditableCell = (item, field, type = "text") => {
+    // Safety check for null items
+    if (!item) {
+      return renderViewModeCell("ERROR: Item not found");
+    }
+
     const isEditing = editingItemId === item.id;
+    
+    if (isEditing && !editingItem) {
+      return renderViewModeCell("ERROR: Editing data not found");
+    }
+
     const currentValue = isEditing ? editingItem[field] : item[field];
 
     if (!isEditMode || !isEditing) {
@@ -576,62 +606,84 @@ const LineItems = ({
               </TableRow>
             </TableHead>
             <TableBody>
-              {lineItems.map((item, index) => (
-                <TableRow key={item.id}>
-                  <TableCell>{renderViewModeCell(item.id)}</TableCell>
-                  <TableCell>{renderViewModeCell("DSP Display")}</TableCell>
-                  <TableCell>{renderEditableCell(item, "name")}</TableCell>
-                  <TableCell>{renderEditableCell(item, "country", "select")}</TableCell>
-                  <TableCell>{renderEditableCell(item, "startDate", "date")}</TableCell>
-                  <TableCell>{renderEditableCell(item, "endDate", "date")}</TableCell>
-                  <TableCell>{renderEditableCell(item, "price", "number")}</TableCell>
-                  <TableCell>{renderEditableCell(item, "billable", "number")}</TableCell>
-                  <TableCell>{renderEditableCell(item, "bonus", "number")}</TableCell>
-                  <TableCell>{renderEditableCell(item, "totalBudget")}</TableCell>
-                  <TableCell>{renderEditableCell(item, "type", "select")}</TableCell>
+              {lineItems.map((item, index) => {
+                // Safety check for null items
+                if (!item) {
+                  return (
+                    <TableRow key={`error-${index}`}>
+                      <TableCell>ERROR</TableCell>
+                      <TableCell>Item not found</TableCell>
+                      <TableCell>-</TableCell>
+                      <TableCell>-</TableCell>
+                      <TableCell>-</TableCell>
+                      <TableCell>-</TableCell>
+                      <TableCell>-</TableCell>
+                      <TableCell>-</TableCell>
+                      <TableCell>-</TableCell>
+                      <TableCell>-</TableCell>
+                      <TableCell>-</TableCell>
+                      {isEditMode && <TableCell>-</TableCell>}
+                    </TableRow>
+                  );
+                }
 
-                  {/* Actions Column - Only show in Edit Mode */}
-                  {isEditMode && (
-                    <TableCell>
-                      {editingItemId === item.id ? (
-                        <Flex gap="small">
-                          <Button
-                            variant="primary"
-                            size="xs"
-                            onClick={saveEditingItem}
-                          >
-                            ✓ Save
-                          </Button>
-                          <Button
-                            variant="secondary"
-                            size="xs"
-                            onClick={cancelEditingItem}
-                          >
-                            ✕ Cancel
-                          </Button>
-                        </Flex>
-                      ) : (
-                        <Flex gap="small">
-                          <Button
-                            variant="secondary"
-                            size="xs"
-                            onClick={() => startEditingItem(index)}
-                          >
-                            ✏️ Edit
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="xs"
-                            onClick={() => removeLineItem(index)}
-                          >
-                            🗑️ Remove
-                          </Button>
-                        </Flex>
-                      )}
-                    </TableCell>
-                  )}
-                </TableRow>
-              ))}
+                return (
+                  <TableRow key={item.id || `item-${index}`}>
+                    <TableCell>{renderViewModeCell(item.id)}</TableCell>
+                    <TableCell>{renderViewModeCell("DSP Display")}</TableCell>
+                    <TableCell>{renderEditableCell(item, "name")}</TableCell>
+                    <TableCell>{renderEditableCell(item, "country", "select")}</TableCell>
+                    <TableCell>{renderEditableCell(item, "startDate", "date")}</TableCell>
+                    <TableCell>{renderEditableCell(item, "endDate", "date")}</TableCell>
+                    <TableCell>{renderEditableCell(item, "price", "number")}</TableCell>
+                    <TableCell>{renderEditableCell(item, "billable", "number")}</TableCell>
+                    <TableCell>{renderEditableCell(item, "bonus", "number")}</TableCell>
+                    <TableCell>{renderEditableCell(item, "totalBudget")}</TableCell>
+                    <TableCell>{renderEditableCell(item, "type", "select")}</TableCell>
+
+                    {/* Actions Column - Only show in Edit Mode */}
+                    {isEditMode && (
+                      <TableCell>
+                        {editingItemId === item.id ? (
+                          <Flex gap="small">
+                            <Button
+                              variant="primary"
+                              size="xs"
+                              onClick={saveEditingItem}
+                            >
+                              ✓ Save
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              size="xs"
+                              onClick={cancelEditingItem}
+                            >
+                              ✕ Cancel
+                            </Button>
+                          </Flex>
+                        ) : (
+                          <Flex gap="small">
+                            <Button
+                              variant="secondary"
+                              size="xs"
+                              onClick={() => startEditingItem(index)}
+                            >
+                              ✏️ Edit
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="xs"
+                              onClick={() => removeLineItem(index)}
+                            >
+                              🗑️ Remove
+                            </Button>
+                          </Flex>
+                        )}
+                      </TableCell>
+                    )}
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </Box>
