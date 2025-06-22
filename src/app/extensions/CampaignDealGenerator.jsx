@@ -460,7 +460,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
             </Box>
           )}
 
-          /* LINE ITEMS SECTION */
+          {/* LINE ITEMS SECTION */}
           <Box>
             <LineItems
               lineItems={lineItems}
@@ -473,7 +473,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
             />
           </Box>
 
-          /* Line Items Status Alert */
+          {/* Line Items Status Alert */}
           {isEditMode && lineItemsSaveStatus.status !== 'Saved' && lineItemsSaveStatus.hasData && (
             <Box>
               <Alert variant="warning">
@@ -483,14 +483,14 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
           )}
 
           {/* CAMPAIGN SUMMARY SECTION */}
-          {/* <Box>
+          <Box>
             <CampaignSummary 
               lineItems={lineItems}
               currency={formData.currency}
               formData={formData}
               isEditMode={isEditMode}
             />
-          </Box> */}
+          </Box>
 
           {/* GLOBAL ACTIONS */}
           <Box>

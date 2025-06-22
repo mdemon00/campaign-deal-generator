@@ -594,7 +594,7 @@ async function getPaginatedAdvertisers(hubspotClient, objectId, page, limit) {
     try {
       console.log(`🔍 [SCHEMA] Fetching object schema for ${objectId}...`);
       const schema = await hubspotClient.crm.schemas.coreApi.getById(objectId);
-      availableProperties = schema.properties
+      availableProperties = sgetPaginatedAdvertiserschema.properties
         .filter(prop => !prop.name.startsWith('hs_')) // Filter out system properties
         .map(prop => prop.name);
       console.log(`✅ [SCHEMA] Found custom properties:`, availableProperties);
