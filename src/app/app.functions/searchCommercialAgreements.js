@@ -10,7 +10,7 @@ exports.main = async (context) => {
       page = 1,
       limit = 20,
       loadAll = false,
-      selectedAgreementId = "" // Add this parameter
+      selectedAgreementId = ""
     } = context.parameters;
 
     console.log('🔍 Search Parameters:', { searchTerm, page, limit, loadAll, selectedAgreementId });
@@ -19,11 +19,11 @@ exports.main = async (context) => {
 
     // Determine search strategy
     if (searchTerm && searchTerm.trim() !== "") {
-      return await searchAgreements(hubspotClient, COMMERCIAL_AGREEMENTS_OBJECT_ID, searchTerm.trim());
+      return await searchAgreementsWithAPI(hubspotClient, COMMERCIAL_AGREEMENTS_OBJECT_ID, searchTerm.trim());
     } else if (loadAll) {
-      return await getPaginatedAgreements(hubspotClient, COMMERCIAL_AGREEMENTS_OBJECT_ID, page, limit, selectedAgreementId);
+      return await getPaginatedAgreementsWithAPI(hubspotClient, COMMERCIAL_AGREEMENTS_OBJECT_ID, page, limit, selectedAgreementId);
     } else {
-      return await getDefaultAgreements(hubspotClient, COMMERCIAL_AGREEMENTS_OBJECT_ID, limit, selectedAgreementId);
+      return await getDefaultAgreementsWithAPI(hubspotClient, COMMERCIAL_AGREEMENTS_OBJECT_ID, limit, selectedAgreementId);
     }
 
   } catch (error) {
@@ -38,22 +38,496 @@ exports.main = async (context) => {
 };
 
 /**
+ * 🆕 FIXED: Use Search API for recently created records first
+ */
+async function searchAgreementsWithAPI(hubspotClient, objectId, searchTerm) {
+  console.log(`🔍 [SEARCH API] Searching for: "${searchTerm}"`);
+
+  try {
+    // 🔧 FIX: Use Search API with sorting to get recent records
+    const searchRequest = {
+      limit: 100,
+      properties: ['status'],
+      sorts: [
+        {
+          propertyName: "createdate", // Sort by creation date
+          direction: "DESCENDING"     // Newest first
+        }
+      ],
+      filterGroups: [
+        {
+          filters: [
+            {
+              propertyName: "status",
+              operator: "CONTAINS_TOKEN", // Use CONTAINS_TOKEN for partial matches
+              value: searchTerm
+            }
+          ]
+        }
+      ]
+    };
+
+    console.log(`🔍 [SEARCH API] Request:`, JSON.stringify(searchRequest, null, 2));
+
+    // Use Search API endpoint
+    const searchResponse = await hubspotClient.apiRequest({
+      method: 'POST',
+      path: `/crm/v3/objects/${objectId}/search`,
+      body: searchRequest
+    });
+
+    const searchData = await searchResponse.json();
+    console.log(`🔍 [SEARCH API] Found ${searchData.results?.length || 0} agreements for "${searchTerm}"`);
+
+    if (!searchData.results || searchData.results.length === 0) {
+      return {
+        status: "SUCCESS",
+        data: {
+          options: [{ label: "Select Commercial Agreement", value: "" }],
+          totalCount: 0,
+          searchTerm: searchTerm,
+          isSearchResult: true,
+          hasMore: false,
+          timestamp: Date.now()
+        }
+      };
+    }
+
+    // Process each agreement with company information
+    const processedAgreements = await Promise.all(
+      searchData.results.map((agreement, index) =>
+        processAgreementWithCompany(hubspotClient, agreement, index)
+      )
+    );
+
+    // Sort by name (already sorted by date from API)
+    processedAgreements.sort((a, b) => a.label.localeCompare(b.label));
+
+    const options = [
+      { label: "Select Commercial Agreement", value: "" },
+      ...processedAgreements
+    ];
+
+    console.log(`✅ [SEARCH API] Search completed: ${processedAgreements.length} matches for "${searchTerm}"`);
+
+    return {
+      status: "SUCCESS",
+      data: {
+        options: options,
+        totalCount: processedAgreements.length,
+        searchTerm: searchTerm,
+        isSearchResult: true,
+        hasMore: false,
+        timestamp: Date.now()
+      }
+    };
+
+  } catch (error) {
+    console.error("❌ [SEARCH API] Error in searchAgreementsWithAPI:", error);
+    // Fallback to basic API if search fails
+    console.log("🔄 [FALLBACK] Trying basic API search...");
+    return await searchAgreementsBasic(hubspotClient, objectId, searchTerm);
+  }
+}
+
+/**
+ * 🆕 FIXED: Use Search API for paginated results with recent records first
+ */
+async function getPaginatedAgreementsWithAPI(hubspotClient, objectId, page, limit, selectedAgreementId = "") {
+  console.log(`📄 [SEARCH API] Getting page ${page} with limit ${limit}, selected: ${selectedAgreementId}`);
+
+  try {
+    // Calculate offset for pagination
+    const offset = (page - 1) * limit;
+
+    // 🔧 FIX: Use Search API with sorting to get recent records
+    const searchRequest = {
+      limit: Math.min(offset + limit + 10, 100), // Get slightly more for accurate hasMore
+      properties: ['status'],
+      sorts: [
+        {
+          propertyName: "createdate", // Sort by creation date
+          direction: "DESCENDING"     // Newest first ⭐ KEY FIX
+        }
+      ]
+      // No filters - get all records
+    };
+
+    console.log(`📄 [SEARCH API] Request:`, JSON.stringify(searchRequest, null, 2));
+
+    // Use Search API endpoint
+    const searchResponse = await hubspotClient.apiRequest({
+      method: 'POST',
+      path: `/crm/v3/objects/${objectId}/search`,
+      body: searchRequest
+    });
+
+    const searchData = await searchResponse.json();
+    console.log(`📄 [SEARCH API] Retrieved ${searchData.results?.length || 0} agreements from API`);
+
+    if (!searchData.results || searchData.results.length === 0) {
+      return {
+        status: "SUCCESS",
+        data: {
+          options: [{ label: "Select Commercial Agreement", value: "" }],
+          totalCount: 0,
+          totalAvailable: 0,
+          page: page,
+          hasMore: false,
+          isPaginated: true,
+          timestamp: Date.now()
+        }
+      };
+    }
+
+    // Slice results for the requested page
+    let paginatedResults = searchData.results.slice(offset, offset + limit);
+    let hasMore = searchData.results.length > (offset + limit);
+    let totalAvailable = searchData.total || searchData.results.length;
+
+    // Handle selected agreement inclusion (same logic as before)
+    if (selectedAgreementId && selectedAgreementId.trim() !== "" && !paginatedResults.some(a => a.id === selectedAgreementId)) {
+      try {
+        const selectedAgreement = await hubspotClient.crm.objects.basicApi.getById(
+          objectId,
+          selectedAgreementId,
+          ['status']
+        );
+        paginatedResults.unshift(selectedAgreement);
+        if (paginatedResults.length > limit) {
+          paginatedResults = paginatedResults.slice(0, limit);
+        }
+        totalAvailable++;
+      } catch (error) {
+        console.warn(`⚠️ Could not fetch selected agreement ${selectedAgreementId}:`, error.message);
+      }
+    }
+
+    // Process each agreement with company information
+    const processedAgreements = await Promise.all(
+      paginatedResults.map((agreement, index) =>
+        processAgreementWithCompany(hubspotClient, agreement, index)
+      )
+    );
+
+    processedAgreements.sort((a, b) => a.label.localeCompare(b.label));
+
+    const options = [
+      { label: "Select Commercial Agreement", value: "" },
+      ...processedAgreements
+    ];
+
+    console.log(`✅ [SEARCH API] Returned page ${page}: ${processedAgreements.length} agreements, hasMore: ${hasMore}`);
+
+    return {
+      status: "SUCCESS",
+      data: {
+        options: options,
+        totalCount: processedAgreements.length,
+        totalAvailable: totalAvailable,
+        page: page,
+        hasMore: hasMore,
+        isPaginated: true,
+        timestamp: Date.now()
+      }
+    };
+
+  } catch (error) {
+    console.error("❌ [SEARCH API] Error in getPaginatedAgreementsWithAPI:", error);
+    // Fallback to basic API if search fails
+    console.log("🔄 [FALLBACK] Trying basic API pagination...");
+    return await getPaginatedAgreementsBasic(hubspotClient, objectId, page, limit, selectedAgreementId);
+  }
+}
+
+/**
+ * 🆕 FIXED: Use Search API for default results with recent records first
+ */
+async function getDefaultAgreementsWithAPI(hubspotClient, objectId, limit, selectedAgreementId = "") {
+  console.log(`🏠 [SEARCH API] Getting default agreements (limit: ${limit}), selected: ${selectedAgreementId}`);
+
+  try {
+    // 🔧 FIX: Use Search API with sorting to get recent records
+    const searchRequest = {
+      limit: limit + 5, // Get slightly more to account for selected agreement
+      properties: ['status'],
+      sorts: [
+        {
+          propertyName: "createdate", // Sort by creation date
+          direction: "DESCENDING"     // Newest first ⭐ KEY FIX
+        }
+      ]
+      // No filters - get all records
+    };
+
+    console.log(`🏠 [SEARCH API] Request:`, JSON.stringify(searchRequest, null, 2));
+
+    // Use Search API endpoint
+    const searchResponse = await hubspotClient.apiRequest({
+      method: 'POST',
+      path: `/crm/v3/objects/${objectId}/search`,
+      body: searchRequest
+    });
+
+    const searchData = await searchResponse.json();
+    console.log(`🏠 [SEARCH API] Retrieved ${searchData.results?.length || 0} default agreements`);
+
+    if (!searchData.results || searchData.results.length === 0) {
+      return {
+        status: "SUCCESS",
+        data: {
+          options: [{ label: "Select Commercial Agreement", value: "" }],
+          totalCount: 0,
+          totalAvailable: 0,
+          hasMore: false,
+          isDefault: true,
+          timestamp: Date.now()
+        }
+      };
+    }
+
+    let results = searchData.results.slice(0, limit); // Take only the requested limit
+    let totalAvailable = searchData.total || searchData.results.length;
+
+    // Handle selected agreement inclusion (same logic as before)
+    if (selectedAgreementId && selectedAgreementId.trim() !== "" && !results.some(a => a.id === selectedAgreementId)) {
+      try {
+        const selectedAgreement = await hubspotClient.crm.objects.basicApi.getById(
+          objectId,
+          selectedAgreementId,
+          ['status']
+        );
+        results.unshift(selectedAgreement);
+        if (results.length > limit) {
+          results = results.slice(0, limit);
+        }
+        totalAvailable++;
+      } catch (error) {
+        console.warn(`⚠️ Could not fetch selected agreement ${selectedAgreementId}:`, error.message);
+      }
+    }
+
+    // Process each agreement with company information
+    const processedAgreements = await Promise.all(
+      results.map((agreement, index) =>
+        processAgreementWithCompany(hubspotClient, agreement, index)
+      )
+    );
+
+    processedAgreements.sort((a, b) => a.label.localeCompare(b.label));
+
+    const options = [
+      { label: "Select Commercial Agreement", value: "" },
+      ...processedAgreements
+    ];
+
+    const hasMore = totalAvailable > limit;
+
+    console.log(`✅ [SEARCH API] Loaded ${processedAgreements.length} default agreements, hasMore: ${hasMore}`);
+
+    return {
+      status: "SUCCESS",
+      data: {
+        options: options,
+        totalCount: processedAgreements.length,
+        totalAvailable: totalAvailable,
+        hasMore: hasMore,
+        isDefault: true,
+        timestamp: Date.now()
+      }
+    };
+
+  } catch (error) {
+    console.error("❌ [SEARCH API] Error in getDefaultAgreementsWithAPI:", error);
+    // Fallback to basic API if search fails
+    console.log("🔄 [FALLBACK] Trying basic API default...");
+    return await getDefaultAgreementsBasic(hubspotClient, objectId, limit, selectedAgreementId);
+  }
+}
+
+/**
+ * 🔄 FALLBACK: Original search function using basic API
+ */
+async function searchAgreementsBasic(hubspotClient, objectId, searchTerm) {
+  console.log(`🔍 [BASIC API] Fallback search for: "${searchTerm}"`);
+
+  const agreements = await hubspotClient.crm.objects.basicApi.getPage(
+    objectId,
+    100,
+    undefined,
+    ['status']
+  );
+
+  const filteredAgreements = agreements.results.filter(agreement => {
+    const status = agreement.properties.status || '';
+    return status.toLowerCase().includes(searchTerm.toLowerCase());
+  });
+
+  const processedAgreements = await Promise.all(
+    filteredAgreements.map((agreement, index) =>
+      processAgreementWithCompany(hubspotClient, agreement, index)
+    )
+  );
+
+  processedAgreements.sort((a, b) => a.label.localeCompare(b.label));
+
+  const options = [
+    { label: "Select Commercial Agreement", value: "" },
+    ...processedAgreements
+  ];
+
+  return {
+    status: "SUCCESS",
+    data: {
+      options: options,
+      totalCount: processedAgreements.length,
+      searchTerm: searchTerm,
+      isSearchResult: true,
+      hasMore: false,
+      timestamp: Date.now()
+    }
+  };
+}
+
+/**
+ * 🔄 FALLBACK: Original pagination function using basic API
+ */
+async function getPaginatedAgreementsBasic(hubspotClient, objectId, page, limit, selectedAgreementId) {
+  console.log(`📄 [BASIC API] Fallback pagination for page ${page}`);
+  
+  const offset = (page - 1) * limit;
+  const agreements = await hubspotClient.crm.objects.basicApi.getPage(
+    objectId,
+    Math.min(offset + limit + 1, 101),
+    undefined,
+    ['status']
+  );
+
+  let paginatedResults = agreements.results.slice(offset, offset + limit);
+  let hasMore = agreements.results.length > (offset + limit);
+  let totalAvailable = agreements.total || agreements.results.length;
+
+  // Handle selected agreement inclusion
+  if (selectedAgreementId && selectedAgreementId.trim() !== "" && !paginatedResults.some(a => a.id === selectedAgreementId)) {
+    try {
+      const selectedAgreement = await hubspotClient.crm.objects.basicApi.getById(
+        objectId,
+        selectedAgreementId,
+        ['status']
+      );
+      paginatedResults.unshift(selectedAgreement);
+      if (paginatedResults.length > limit) {
+        paginatedResults = paginatedResults.slice(0, limit);
+      }
+      totalAvailable++;
+    } catch (error) {
+      console.warn(`⚠️ Could not fetch selected agreement ${selectedAgreementId}:`, error.message);
+    }
+  }
+
+  const processedAgreements = await Promise.all(
+    paginatedResults.map((agreement, index) =>
+      processAgreementWithCompany(hubspotClient, agreement, index)
+    )
+  );
+
+  processedAgreements.sort((a, b) => a.label.localeCompare(b.label));
+
+  const options = [
+    { label: "Select Commercial Agreement", value: "" },
+    ...processedAgreements
+  ];
+
+  return {
+    status: "SUCCESS",
+    data: {
+      options: options,
+      totalCount: processedAgreements.length,
+      totalAvailable: totalAvailable,
+      page: page,
+      hasMore: hasMore,
+      isPaginated: true,
+      timestamp: Date.now()
+    }
+  };
+}
+
+/**
+ * 🔄 FALLBACK: Original default function using basic API
+ */
+async function getDefaultAgreementsBasic(hubspotClient, objectId, limit, selectedAgreementId) {
+  console.log(`🏠 [BASIC API] Fallback default agreements`);
+
+  const agreements = await hubspotClient.crm.objects.basicApi.getPage(
+    objectId,
+    limit,
+    undefined,
+    ['status']
+  );
+
+  let results = agreements.results;
+  let totalAvailable = agreements.total || agreements.results.length;
+
+  // Handle selected agreement inclusion
+  if (selectedAgreementId && selectedAgreementId.trim() !== "" && !results.some(a => a.id === selectedAgreementId)) {
+    try {
+      const selectedAgreement = await hubspotClient.crm.objects.basicApi.getById(
+        objectId,
+        selectedAgreementId,
+        ['status']
+      );
+      results.unshift(selectedAgreement);
+      if (results.length > limit) {
+        results = results.slice(0, limit);
+      }
+      totalAvailable++;
+    } catch (error) {
+      console.warn(`⚠️ Could not fetch selected agreement ${selectedAgreementId}:`, error.message);
+    }
+  }
+
+  const processedAgreements = await Promise.all(
+    results.map((agreement, index) =>
+      processAgreementWithCompany(hubspotClient, agreement, index)
+    )
+  );
+
+  processedAgreements.sort((a, b) => a.label.localeCompare(b.label));
+
+  const options = [
+    { label: "Select Commercial Agreement", value: "" },
+    ...processedAgreements
+  ];
+
+  const hasMore = totalAvailable > limit;
+
+  return {
+    status: "SUCCESS",
+    data: {
+      options: options,
+      totalCount: processedAgreements.length,
+      totalAvailable: totalAvailable,
+      hasMore: hasMore,
+      isDefault: true,
+      timestamp: Date.now()
+    }
+  };
+}
+
+/**
  * Fetch associated company details for an agreement
  */
 async function fetchAssociatedCompany(hubspotClient, agreementId) {
   try {
-    // Get associations to companies
     const associations = await hubspotClient.crm.associations.v4.basicApi.getPage(
-      "2-39552013", // Commercial agreements object type
+      "2-39552013",
       agreementId,
       "companies"
     );
 
     if (associations.results && associations.results.length > 0) {
-      // Get the first associated company
       const companyId = associations.results[0].toObjectId;
 
-      // Fetch company details
       const company = await hubspotClient.crm.companies.basicApi.getById(
         companyId,
         ['name', 'domain', 'country', 'hs_additional_currencies']
@@ -84,7 +558,6 @@ async function processAgreementWithCompany(hubspotClient, agreement, index) {
     ? status
     : `Agreement ${agreement.id}`;
 
-  // Fetch associated company
   const associatedCompany = await fetchAssociatedCompany(hubspotClient, agreement.id);
 
   let companyName, currency, country;
@@ -107,204 +580,5 @@ async function processAgreementWithCompany(hubspotClient, agreement, index) {
     country: country,
     hasCompany: !!associatedCompany,
     companyId: associatedCompany?.id || null
-  };
-}
-
-/**
- * Search agreements by term (searches ALL agreements)
- */
-async function searchAgreements(hubspotClient, objectId, searchTerm) {
-  console.log(`🔍 Searching for: "${searchTerm}"`);
-
-  // Fetch more records when searching to ensure we find matches
-  const agreements = await hubspotClient.crm.objects.basicApi.getPage(
-    objectId,
-    100, // Fetch more records for search
-    undefined,
-    ['status']
-  );
-
-  // Filter agreements by search term (case-insensitive)
-  const filteredAgreements = agreements.results.filter(agreement => {
-    const status = agreement.properties.status || '';
-    return status.toLowerCase().includes(searchTerm.toLowerCase());
-  });
-
-  // Process each agreement with company information
-  const processedAgreements = await Promise.all(
-    filteredAgreements.map((agreement, index) =>
-      processAgreementWithCompany(hubspotClient, agreement, index)
-    )
-  );
-
-  // Sort by name
-  processedAgreements.sort((a, b) => a.label.localeCompare(b.label));
-
-  const options = [
-    { label: "Select Commercial Agreement", value: "" },
-    ...processedAgreements
-  ];
-
-  console.log(`✅ Search found ${processedAgreements.length} matches for "${searchTerm}"`);
-
-  return {
-    status: "SUCCESS",
-    data: {
-      options: options,
-      totalCount: processedAgreements.length,
-      searchTerm: searchTerm,
-      isSearchResult: true,
-      hasMore: false,
-      timestamp: Date.now()
-    }
-  };
-}
-
-/**
- * Get paginated agreements for Browse
- * Includes logic to ensure selectedAgreementId is in the list if not already present.
- */
-async function getPaginatedAgreements(hubspotClient, objectId, page, limit, selectedAgreementId = "") {
-  console.log(`📄 Getting page ${page} with limit ${limit}, selected: ${selectedAgreementId}`);
-
-  // Calculate offset for pagination
-  const offset = (page - 1) * limit;
-
-  // Fetch slightly more records than the limit to check for 'hasMore' and potential inclusion of selectedAgreement
-  const agreements = await hubspotClient.crm.objects.basicApi.getPage(
-    objectId,
-    Math.min(offset + limit + 1, 101), // Fetch one more than limit to check hasMore accurately, max 100+1
-    undefined,
-    ['status']
-  );
-
-  let paginatedResults = agreements.results.slice(offset, offset + limit);
-  let hasMore = agreements.results.length > (offset + limit);
-  let totalAvailable = agreements.total || agreements.results.length;
-
-  // If a selectedAgreementId is provided and it's not already in the paginated results
-  if (selectedAgreementId && selectedAgreementId.trim() !== "" && !paginatedResults.some(a => a.id === selectedAgreementId)) {
-    try {
-      const selectedAgreement = await hubspotClient.crm.objects.basicApi.getById(
-        objectId,
-        selectedAgreementId,
-        ['status']
-      );
-      // Add the selected agreement to the beginning of the list
-      // This ensures it's always available as an option
-      paginatedResults.unshift(selectedAgreement);
-      // Ensure we don't exceed the limit if we added an item
-      if (paginatedResults.length > limit) {
-          paginatedResults = paginatedResults.slice(0, limit);
-      }
-      // If we added it, it might impact hasMore or totalCount, but for a single selection, it's usually fine
-      // and we prioritize showing the selected one.
-      totalAvailable++; // Increment total if it wasn't already in the initial fetch
-    } catch (error) {
-      console.warn(`⚠️ Could not fetch selected agreement ${selectedAgreementId} for pagination:`, error.message);
-      // Continue without the selected item if it's not found
-    }
-  }
-
-
-  // Process each agreement with company information
-  const processedAgreements = await Promise.all(
-    paginatedResults.map((agreement, index) =>
-      processAgreementWithCompany(hubspotClient, agreement, index)
-    )
-  );
-
-  processedAgreements.sort((a, b) => a.label.localeCompare(b.label));
-
-  const options = [
-    { label: "Select Commercial Agreement", value: "" },
-    ...processedAgreements
-  ];
-
-
-  console.log(`✅ Returned page ${page}: ${processedAgreements.length} agreements, hasMore: ${hasMore}`);
-
-  return {
-    status: "SUCCESS",
-    data: {
-      options: options,
-      totalCount: processedAgreements.length,
-      totalAvailable: totalAvailable, // Reflect total available after considering selected
-      page: page,
-      hasMore: hasMore,
-      isPaginated: true,
-      timestamp: Date.now()
-    }
-  };
-}
-
-/**
- * Get default agreements (most recent/popular)
- * Includes logic to ensure selectedAgreementId is in the list if not already present.
- */
-async function getDefaultAgreements(hubspotClient, objectId, limit, selectedAgreementId = "") {
-  console.log(`🏠 Getting default agreements (limit: ${limit}), selected: ${selectedAgreementId}`);
-
-  const agreements = await hubspotClient.crm.objects.basicApi.getPage(
-    objectId,
-    limit,
-    undefined,
-    ['status']
-  );
-
-  let results = agreements.results;
-  let totalAvailable = agreements.total || agreements.results.length;
-
-  // If a selectedAgreementId is provided and it's not already in the default results
-  if (selectedAgreementId && selectedAgreementId.trim() !== "" && !results.some(a => a.id === selectedAgreementId)) {
-    try {
-      const selectedAgreement = await hubspotClient.crm.objects.basicApi.getById(
-        objectId,
-        selectedAgreementId,
-        ['status']
-      );
-      // Add the selected agreement to the beginning of the list
-      // This ensures it's always available as an option
-      results.unshift(selectedAgreement);
-      // Ensure we don't exceed the limit if we added an item
-      if (results.length > limit) {
-          results = results.slice(0, limit);
-      }
-      totalAvailable++; // Increment total if it wasn't already in the initial fetch
-    } catch (error) {
-      console.warn(`⚠️ Could not fetch selected agreement ${selectedAgreementId} for default list:`, error.message);
-      // Continue without the selected item if it's not found
-    }
-  }
-
-
-  // Process each agreement with company information
-  const processedAgreements = await Promise.all(
-    results.map((agreement, index) =>
-      processAgreementWithCompany(hubspotClient, agreement, index)
-    )
-  );
-
-  processedAgreements.sort((a, b) => a.label.localeCompare(b.label));
-
-  const options = [
-    { label: "Select Commercial Agreement", value: "" },
-    ...processedAgreements
-  ];
-
-  const hasMore = totalAvailable > limit; // Re-evaluate hasMore based on potentially increased total
-
-  console.log(`✅ Loaded ${processedAgreements.length} default agreements, hasMore: ${hasMore}`);
-
-  return {
-    status: "SUCCESS",
-    data: {
-      options: options,
-      totalCount: processedAgreements.length,
-      totalAvailable: totalAvailable,
-      hasMore: hasMore,
-      isDefault: true,
-      timestamp: Date.now()
-    }
   };
 }
