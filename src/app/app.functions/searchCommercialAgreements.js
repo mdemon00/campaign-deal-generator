@@ -516,9 +516,18 @@ async function getDefaultAgreementsBasic(hubspotClient, objectId, limit, selecte
 
 /**
  * Fetch associated company details for an agreement
+ * 🔧 MODIFIED: Get currency from agreement's elegir_moneda instead of company
  */
 async function fetchAssociatedCompany(hubspotClient, agreementId) {
   try {
+    // 🔧 STEP 1: Get agreement with elegir_moneda field
+    const agreement = await hubspotClient.crm.objects.basicApi.getById(
+      "2-39552013", // Commercial Agreements object ID
+      agreementId,
+      ['elegir_moneda'] // Fetch the currency field from agreement
+    );
+
+    // 🔧 STEP 2: Get associated company (for company name)
     const associations = await hubspotClient.crm.associations.v4.basicApi.getPage(
       "2-39552013",
       agreementId,
@@ -530,7 +539,7 @@ async function fetchAssociatedCompany(hubspotClient, agreementId) {
 
       const company = await hubspotClient.crm.companies.basicApi.getById(
         companyId,
-        ['name', 'domain', 'country', 'hs_additional_currencies']
+        ['name', 'domain', 'country'] // Removed hs_additional_currencies
       );
 
       return {
@@ -538,11 +547,18 @@ async function fetchAssociatedCompany(hubspotClient, agreementId) {
         name: company.properties.name || 'Unnamed Company',
         domain: company.properties.domain || '',
         country: company.properties.country || '',
-        currency: company.properties.hs_additional_currencies || 'USD'
+        currency: agreement.properties.elegir_moneda || 'USD' // 🔧 FIXED: Use agreement currency
       };
     }
 
-    return null;
+    // 🔧 STEP 3: If no company found, still return agreement currency
+    return {
+      id: null,
+      name: 'No company found',
+      domain: '',
+      country: '',
+      currency: agreement.properties.elegir_moneda || 'USD' // 🔧 FIXED: Use agreement currency
+    };
   } catch (error) {
     console.warn(`⚠️ Could not fetch company for agreement ${agreementId}:`, error.message);
     return null;

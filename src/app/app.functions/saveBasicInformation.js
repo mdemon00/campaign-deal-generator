@@ -151,10 +151,18 @@ exports.main = async (context) => {
 
 /**
  * Fetch company information from Commercial Agreement association
+ * 🔧 MODIFIED: Get currency from agreement's elegir_moneda instead of company
  */
 async function fetchCompanyFromAgreement(hubspotClient, agreementId) {
   try {
-    // Get associated company from Commercial Agreement
+    // 🔧 STEP 1: Get agreement with elegir_moneda field
+    const agreement = await hubspotClient.crm.objects.basicApi.getById(
+      "2-39552013", // Commercial Agreements object ID
+      agreementId,
+      ['elegir_moneda'] // Fetch the currency field from agreement
+    );
+
+    // 🔧 STEP 2: Get associated company from Commercial Agreement
     const associations = await hubspotClient.crm.associations.v4.basicApi.getPage(
       "2-39552013", // Commercial Agreements object type
       agreementId,
@@ -167,21 +175,28 @@ async function fetchCompanyFromAgreement(hubspotClient, agreementId) {
       // Fetch company details
       const company = await hubspotClient.crm.companies.basicApi.getById(
         companyId,
-        ['name', 'hs_additional_currencies', 'domain', 'country']
+        ['name', 'domain', 'country'] // Removed hs_additional_currencies
       );
 
       return {
         companyName: company.properties.name || 'Unknown Company',
-        currency: company.properties.hs_additional_currencies || 'USD',
+        currency: agreement.properties.elegir_moneda || 'USD', // 🔧 FIXED: Use agreement currency
         domain: company.properties.domain || '',
         country: company.properties.country || ''
       };
     }
 
-    return { companyName: 'No company found', currency: '' };
+    // 🔧 STEP 3: If no company found, still return agreement currency
+    return { 
+      companyName: 'No company found', 
+      currency: agreement.properties.elegir_moneda || 'USD' // 🔧 FIXED: Use agreement currency
+    };
   } catch (error) {
     console.warn('⚠️ Error fetching company from agreement:', error.message);
-    return { companyName: 'Error loading company', currency: '' };
+    return { 
+      companyName: 'Error loading company', 
+      currency: '' 
+    };
   }
 }
 
