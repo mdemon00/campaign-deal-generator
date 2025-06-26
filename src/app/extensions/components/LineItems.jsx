@@ -146,7 +146,7 @@ const LineItems = ({
         
         // Add default "Select Product" option
         const productOptions = [
-          { label: "Select Product", value: "", isAvailable: true },
+          { label: "Select Product", value: "", isAvailable: true, hasStandardPricing: true },
           ...data.products
         ];
         
@@ -166,7 +166,7 @@ const LineItems = ({
       });
       
       // Set fallback empty state
-      setProducts([{ label: "Select Product", value: "", isAvailable: true }]);
+      setProducts([{ label: "Select Product", value: "", isAvailable: true, hasStandardPricing: true }]);
     } finally {
       setIsProductsLoading(false);
     }
@@ -220,7 +220,7 @@ const LineItems = ({
       ...prev,
       productId: productId,
       selectedProduct: selectedProduct,
-      price: selectedProduct.price,
+      price: selectedProduct.hasStandardPricing ? selectedProduct.price : 0, // ✅ Only auto-fill for standard pricing
       buyingModel: selectedProduct.buyingModel,
       units: selectedProduct.units,
       category: selectedProduct.category,
@@ -257,10 +257,11 @@ const LineItems = ({
       return;
     }
 
-    if (!newLineItem.selectedProduct?.isAvailable) {
+    // ✅ FIXED: Allow custom pricing products, just validate price is entered
+    if (!newLineItem.selectedProduct?.hasStandardPricing && newLineItem.price <= 0) {
       onAlert({
-        message: "Selected product is not available for pricing. Please contact sales for a quote.",
-        variant: "warning"
+        message: "Please enter a price for this custom pricing product",
+        variant: "error"
       });
       return;
     }
@@ -289,7 +290,8 @@ const LineItems = ({
         category: newLineItem.category,
         buyingModel: newLineItem.buyingModel,
         units: newLineItem.units,
-        originalPrice: newLineItem.price
+        originalPrice: newLineItem.price,
+        hasStandardPricing: newLineItem.selectedProduct?.hasStandardPricing || false
       }
     };
 
@@ -674,14 +676,17 @@ const LineItems = ({
             {/* Selected Product Info Display */}
             {newLineItem.selectedProduct && newLineItem.selectedProduct.value !== "" && (
               <Box marginBottom="medium">
-                <Alert variant="info">
+                <Alert variant={newLineItem.selectedProduct.hasStandardPricing ? "info" : "warning"}>
                   <Text format={{ fontWeight: "bold" }}>Selected Product:</Text>
                   <Text>Category: {newLineItem.selectedProduct.category}</Text>
                   <Text>Buying Model: {newLineItem.selectedProduct.buyingModel}</Text>
                   <Text>Price: {newLineItem.selectedProduct.priceDisplay}</Text>
                   <Text>Units: {newLineItem.selectedProduct.units}</Text>
-                  {!newLineItem.selectedProduct.isAvailable && (
-                    <Text format={{ color: 'warning' }}>⚠️ Custom pricing required - contact sales</Text>
+                  {!newLineItem.selectedProduct.hasStandardPricing && (
+                    <Text format={{ color: 'warning' }}>💡 Custom pricing product - enter your negotiated price below</Text>
+                  )}
+                  {newLineItem.selectedProduct.hasStandardPricing && (
+                    <Text format={{ color: 'success' }}>✅ Standard pricing - price auto-filled</Text>
                   )}
                 </Alert>
               </Box>
@@ -741,14 +746,20 @@ const LineItems = ({
               </Box>
               <Box flex={1} minWidth="120px">
                 <NumberInput
-                  label={`Price (${currency})`}
+                  label={`Price (${currency}) ${!newLineItem.selectedProduct?.hasStandardPricing ? '*' : ''}`}
                   name="newItemPrice"
-                  placeholder="Auto-filled from product"
+                  placeholder={newLineItem.selectedProduct?.hasStandardPricing ? "Auto-filled from product" : "Enter custom price"}
                   value={newLineItem.price}
                   onChange={(value) => handleNewLineItemChange("price", value)}
                   precision={2}
-                  readOnly={newLineItem.selectedProduct?.isAvailable}
+                  readOnly={newLineItem.selectedProduct?.hasStandardPricing}
+                  required={!newLineItem.selectedProduct?.hasStandardPricing}
                 />
+                {!newLineItem.selectedProduct?.hasStandardPricing && newLineItem.selectedProduct && (
+                  <Text variant="microcopy" format={{ color: 'medium' }}>
+                    Enter your negotiated price for this product
+                  </Text>
+                )}
               </Box>
               <Box flex={1} minWidth="120px">
                 <NumberInput
@@ -775,10 +786,15 @@ const LineItems = ({
             <Button 
               onClick={addLineItem} 
               variant="primary"
-              disabled={!newLineItem.productId || !newLineItem.selectedProduct?.isAvailable}
+              disabled={!newLineItem.productId || (!newLineItem.selectedProduct?.hasStandardPricing && newLineItem.price <= 0)}
             >
               Add Line Item
             </Button>
+            {!newLineItem.selectedProduct?.hasStandardPricing && newLineItem.selectedProduct && newLineItem.price <= 0 && (
+              <Text variant="microcopy" format={{ color: 'error' }} marginTop="small">
+                Please enter a price for this custom pricing product
+              </Text>
+            )}
           </Box>
         </Tile>
       )}
