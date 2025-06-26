@@ -1,5 +1,5 @@
 // src/app/extensions/components/LineItems.jsx
-// Enhanced version with Product Catalog functionality
+// Corrected version with NO HTML elements - only HubSpot UI components
 
 import React, { useState, useEffect } from "react";
 import {
@@ -43,7 +43,7 @@ const LineItems = ({
   context,
   onSaveStatusChange,
   isEditMode = false,
-  currency = "MXN" // Currency from campaign
+  currency = "MXN"
 }) => {
 
   // === LINE ITEM FORM STATE ===
@@ -54,7 +54,7 @@ const LineItems = ({
     startDate: null,
     endDate: null,
     
-    // 🆕 PRODUCT SELECTION FIELDS
+    // Product selection fields
     productId: "",
     selectedProduct: null,
     
@@ -94,10 +94,6 @@ const LineItems = ({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [initialLineItems, setInitialLineItems] = useState([]);
 
-  // === EDITING STATE ===
-  const [editingItemId, setEditingItemId] = useState(null);
-  const [editingItem, setEditingItem] = useState(null);
-
   // === COMPONENT INITIALIZATION ===
 
   // Load product catalog and saved line items on component mount
@@ -125,7 +121,7 @@ const LineItems = ({
     }
   }, [lineItems, initialLineItems, saveState, hasUnsavedChanges, isEditMode]);
 
-  // === 🆕 PRODUCT CATALOG FUNCTIONS ===
+  // === PRODUCT CATALOG FUNCTIONS ===
   
   const loadProductCatalog = async (searchTerm = "", filters = {}) => {
     if (!runServerless || !isEditMode) return;
@@ -197,7 +193,7 @@ const LineItems = ({
     loadProductCatalog("", {});
   };
 
-  // === 🆕 PRODUCT SELECTION HANDLERS ===
+  // === PRODUCT SELECTION HANDLERS ===
   
   const handleProductSelection = (productId) => {
     if (!isEditMode) return;
@@ -234,7 +230,7 @@ const LineItems = ({
     console.log("✅ Product selected:", selectedProduct);
   };
 
-  // === EXISTING LINE ITEM MANAGEMENT FUNCTIONS (Enhanced) ===
+  // === LINE ITEM MANAGEMENT FUNCTIONS ===
   
   const handleNewLineItemChange = (field, value) => {
     if (!isEditMode) return;
@@ -252,7 +248,7 @@ const LineItems = ({
   const addLineItem = () => {
     if (!isEditMode) return;
 
-    // 🆕 Enhanced validation including product selection
+    // Enhanced validation including product selection
     if (!newLineItem.productId || newLineItem.productId === "") {
       onAlert({
         message: "Please select a product from the catalog",
@@ -287,7 +283,7 @@ const LineItems = ({
       ...newLineItem,
       ...totals,
       
-      // 🆕 Store product information
+      // Store product information
       productInfo: {
         productId: newLineItem.productId,
         category: newLineItem.category,
@@ -323,7 +319,7 @@ const LineItems = ({
     });
   };
 
-  // === EXISTING FUNCTIONS (Keep all existing functionality) ===
+  // === EXISTING FUNCTIONS ===
   
   const loadLineItems = async () => {
     if (!runServerless || !context?.crm?.objectId) return;
@@ -445,7 +441,7 @@ const LineItems = ({
       lineItems.length === 0;
   };
 
-  // === 🆕 ENHANCED RENDER FUNCTIONS ===
+  // === RENDER FUNCTIONS ===
   
   const renderViewModeCell = (value, placeholder = "Not set") => {
     return (
@@ -575,12 +571,12 @@ const LineItems = ({
         </Box>
       )}
 
-      {/* 🆕 PRODUCT CATALOG & ADD NEW LINE ITEM FORM - Only show in Edit Mode */}
+      {/* PRODUCT CATALOG & ADD NEW LINE ITEM FORM - Only show in Edit Mode */}
       {isEditMode && (
         <Tile>
           <Text format={{ fontWeight: "bold" }}>Add New Line Item</Text>
 
-          {/* 🆕 Product Catalog Section */}
+          {/* Product Catalog Section */}
           <Box marginTop="medium">
             <Text format={{ fontWeight: "bold" }} marginBottom="small">
               📦 Select Product from Catalog
@@ -675,7 +671,7 @@ const LineItems = ({
               )}
             </Box>
 
-            {/* 🆕 Selected Product Info Display */}
+            {/* Selected Product Info Display */}
             {newLineItem.selectedProduct && newLineItem.selectedProduct.value !== "" && (
               <Box marginBottom="medium">
                 <Alert variant="info">
@@ -751,7 +747,7 @@ const LineItems = ({
                   value={newLineItem.price}
                   onChange={(value) => handleNewLineItemChange("price", value)}
                   precision={2}
-                  readOnly={newLineItem.selectedProduct?.isAvailable} // Read-only if product has set pricing
+                  readOnly={newLineItem.selectedProduct?.isAvailable}
                 />
               </Box>
               <Box flex={1} minWidth="120px">
@@ -787,7 +783,7 @@ const LineItems = ({
         </Tile>
       )}
 
-      {/* 🆕 ENHANCED LINE ITEMS TABLE */}
+      {/* ENHANCED LINE ITEMS TABLE */}
       {lineItems.length > 0 ? (
         <Box marginTop="medium">
           <Table>

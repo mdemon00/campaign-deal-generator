@@ -1,5 +1,5 @@
-// src/app/extensions/CampaignDealGeneratorEnhanced.jsx
-// Updated version with Product Catalog functionality
+// src/app/extensions/CampaignDealGeneratorFixed.jsx
+// Corrected version with NO HTML elements - only HubSpot UI components
 
 import React, { useState, useEffect } from "react";
 import {
@@ -17,7 +17,7 @@ import {
 import TestConnection from './components/TestConnection.jsx';
 import BasicInformation from './components/BasicInformation.jsx';
 import CampaignDetails from './components/CampaignDetails.jsx';
-import LineItems from './components/LineItems.jsx'; // 🆕 Enhanced version
+import LineItems from './components/LineItems.jsx';
 import CampaignSummary from './components/CampaignSummary.jsx';
 
 // Import utilities
@@ -42,7 +42,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
   const [alertMessage, setAlertMessage] = useState("");
 
   // === VIEW/EDIT MODE STATE ===
-  const [isEditMode, setIsEditMode] = useState(false); // Start in VIEW mode
+  const [isEditMode, setIsEditMode] = useState(false);
   const [hasLoadedData, setHasLoadedData] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
@@ -344,7 +344,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
 
   return (
     <Flex direction="column" gap="large">
-      {/* ENHANCED HEADER WITH MODE TOGGLE */}
+      {/* HEADER WITH MODE TOGGLE */}
       <Box>
         <Divider />
         <Flex justify="space-between" align="center">
@@ -353,7 +353,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
             <Text variant="microcopy" format={{ color: modeInfo.color }}>
               {modeInfo.icon} {modeInfo.text}
             </Text>
-            {/* 🆕 Product Catalog Status */}
+            {/* Product Catalog Status */}
             {isEditMode && (
               <Text variant="microcopy" format={{ color: 'success' }}>
                 📦 Product Catalog Integration Active
@@ -411,11 +411,11 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
         </Box>
       )}
 
-      {/* 🆕 PRODUCT CATALOG INTRODUCTION */}
+      {/* PRODUCT CATALOG INTRODUCTION */}
       {isEditMode && (
         <Box>
           <Alert variant="success">
-            📦 <strong>Product Catalog Integration:</strong> You can now select products with predefined pricing, buying models (CPM, CPC, CPA), and appropriate units. This ensures accurate pricing and eliminates manual entry errors.
+            📦 Product Catalog Integration: You can now select products with predefined pricing, buying models (CPM, CPC, CPA), and appropriate units. This ensures accurate pricing and eliminates manual entry errors.
           </Alert>
         </Box>
       )}
@@ -465,7 +465,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
             </Box>
           )}
 
-          {/* 🆕 ENHANCED LINE ITEMS SECTION */}
+          {/* ENHANCED LINE ITEMS SECTION */}
           <Box>
             <LineItems
               lineItems={lineItems}
@@ -475,7 +475,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
               context={context}
               onSaveStatusChange={handleLineItemsSaveStatusChange}
               isEditMode={isEditMode}
-              currency={formData.currency || "MXN"} // 🆕 Pass currency from campaign
+              currency={formData.currency || "MXN"}
             />
           </Box>
 
@@ -527,7 +527,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
                   </Button>
                 )}
 
-                {/* 🆕 Product Catalog Status */}
+                {/* Product Catalog Status */}
                 {isEditMode && (
                   <Text variant="microcopy" format={{ color: 'success' }}>
                     📦 Product Catalog: Ready
