@@ -1,5 +1,5 @@
-// src/app/extensions/CampaignDealGenerator.jsx
-// Fixed version with proper view mode data loading
+// src/app/extensions/CampaignDealGeneratorEnhanced.jsx
+// Updated version with Product Catalog functionality
 
 import React, { useState, useEffect } from "react";
 import {
@@ -17,7 +17,7 @@ import {
 import TestConnection from './components/TestConnection.jsx';
 import BasicInformation from './components/BasicInformation.jsx';
 import CampaignDetails from './components/CampaignDetails.jsx';
-import LineItems from './components/LineItems.jsx';
+import LineItems from './components/LineItems.jsx'; // 🆕 Enhanced version
 import CampaignSummary from './components/CampaignSummary.jsx';
 
 // Import utilities
@@ -27,7 +27,6 @@ import {
   SAVE_STATUS,
   SAVE_STATUS_MESSAGES
 } from './utils/constants.js';
-import { validateBasicInformation } from './utils/validation.js';
 
 hubspot.extend(({ context, runServerlessFunction, actions }) => (
   <CampaignDealExtension
@@ -83,11 +82,10 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
     }
   }, [context?.crm?.objectId, runServerless, isInitialLoad]);
 
-  // === 🔧 ENHANCED DATA LOADING FOR VIEW MODE ===
+  // === DATA LOADING FOR VIEW MODE ===
   const loadAllDataForViewMode = async () => {
     setLoading(true);
     try {
-      // Load all data in parallel but quietly (no UI state updates for save status)
       await Promise.all([
         loadBasicInfoQuietly(),
         loadCampaignDetailsQuietly(),
@@ -97,7 +95,6 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
       console.log("✅ All data loaded for view mode");
     } catch (error) {
       console.error("Error loading data for view mode:", error);
-      // Still set hasLoadedData to true so UI doesn't stay in loading state
       setHasLoadedData(true);
     } finally {
       setLoading(false);
@@ -114,14 +111,12 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
       if (response?.status === "SUCCESS" && response?.response?.data) {
         const data = response.response.data;
 
-        // 🔧 UPDATE FORM DATA
         Object.keys(data.formData).forEach(key => {
           if (data.formData[key] !== formData[key]) {
             setFormData(prev => ({ ...prev, [key]: data.formData[key] }));
           }
         });
 
-        // 🔧 UPDATE SAVE STATUS
         setBasicInfoSaveStatus({
           status: data.saveStatus || 'not_saved',
           lastSaved: data.metadata?.lastSaved,
@@ -145,7 +140,6 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
       if (response?.status === "SUCCESS" && response?.response?.data) {
         const data = response.response.data;
 
-        // 🔧 UPDATE FORM DATA
         const campaignDetailsFields = ['campaignType', 'taxId', 'businessName', 'dealCS'];
         campaignDetailsFields.forEach(key => {
           if (data.formData[key] !== formData[key]) {
@@ -153,7 +147,6 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
           }
         });
 
-        // 🔧 UPDATE SAVE STATUS
         setCampaignDetailsSaveStatus({
           status: data.saveStatus || 'not_saved',
           lastSaved: data.metadata?.lastSaved,
@@ -177,10 +170,8 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
       if (response?.status === "SUCCESS" && response?.response?.data) {
         const data = response.response.data;
 
-        // 🔧 UPDATE LINE ITEMS
         setLineItems(data.lineItems || []);
 
-        // 🔧 UPDATE SAVE STATUS
         setLineItemsSaveStatus({
           status: data.saveStatus || 'not_saved',
           lastSaved: data.metadata?.lastSaved,
@@ -198,7 +189,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
   const handleSwitchToEditMode = () => {
     setIsEditMode(true);
     sendAlert({
-      message: "✏️ Switched to Edit Mode - You can now modify fields",
+      message: "✏️ Switched to Edit Mode - You can now modify fields and select products",
       variant: "info"
     });
   };
@@ -337,7 +328,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
     if (isEditMode) {
       return {
         icon: "✏️",
-        text: "Edit Mode - You can modify all fields",
+        text: "Edit Mode - You can select products and modify all fields",
         color: "warning"
       };
     } else {
@@ -351,7 +342,6 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
 
   const modeInfo = getModeDisplayInfo();
 
-  // === 🔧 ENHANCED RENDERING LOGIC ===
   return (
     <Flex direction="column" gap="large">
       {/* ENHANCED HEADER WITH MODE TOGGLE */}
@@ -363,6 +353,12 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
             <Text variant="microcopy" format={{ color: modeInfo.color }}>
               {modeInfo.icon} {modeInfo.text}
             </Text>
+            {/* 🆕 Product Catalog Status */}
+            {isEditMode && (
+              <Text variant="microcopy" format={{ color: 'success' }}>
+                📦 Product Catalog Integration Active
+              </Text>
+            )}
           </Box>
 
           <Flex align="center" gap="medium">
@@ -410,12 +406,21 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
       {!isEditMode && hasLoadedData && (
         <Box>
           <Alert variant="info">
-            👁️ Currently in View Mode. All fields are read-only. Click "Switch to Edit" to make changes.
+            👁️ Currently in View Mode. All fields are read-only. Click "Switch to Edit" to access the product catalog and make changes.
           </Alert>
         </Box>
       )}
 
-      {/* 🔧 SHOW CONTENT AFTER LOADING OR IF NO DATA */}
+      {/* 🆕 PRODUCT CATALOG INTRODUCTION */}
+      {isEditMode && (
+        <Box>
+          <Alert variant="success">
+            📦 <strong>Product Catalog Integration:</strong> You can now select products with predefined pricing, buying models (CPM, CPC, CPA), and appropriate units. This ensures accurate pricing and eliminates manual entry errors.
+          </Alert>
+        </Box>
+      )}
+
+      {/* SHOW CONTENT AFTER LOADING OR IF NO DATA */}
       {(hasLoadedData || !isInitialLoad) && (
         <>
           {/* BASIC INFORMATION */}
@@ -460,7 +465,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
             </Box>
           )}
 
-          {/* LINE ITEMS SECTION */}
+          {/* 🆕 ENHANCED LINE ITEMS SECTION */}
           <Box>
             <LineItems
               lineItems={lineItems}
@@ -470,6 +475,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
               context={context}
               onSaveStatusChange={handleLineItemsSaveStatusChange}
               isEditMode={isEditMode}
+              currency={formData.currency || "MXN"} // 🆕 Pass currency from campaign
             />
           </Box>
 
@@ -519,6 +525,13 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
                   >
                     🗑️ Clear All
                   </Button>
+                )}
+
+                {/* 🆕 Product Catalog Status */}
+                {isEditMode && (
+                  <Text variant="microcopy" format={{ color: 'success' }}>
+                    📦 Product Catalog: Ready
+                  </Text>
                 )}
               </Flex>
             </Flex>

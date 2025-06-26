@@ -47,6 +47,10 @@
     "loadLineItems": {
       "file": "loadLineItems.js",
       "secrets": []
+    },
+    "getProductCatalog": {
+      "file": "getProductCatalog.js",
+      "secrets": []
     }
   }
 }

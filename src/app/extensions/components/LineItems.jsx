@@ -1,5 +1,5 @@
 // src/app/extensions/components/LineItems.jsx
-// Enhanced version with View/Edit Mode functionality
+// Enhanced version with Product Catalog functionality
 
 import React, { useState, useEffect } from "react";
 import {
@@ -27,7 +27,6 @@ import {
 import {
   COUNTRY_OPTIONS,
   LINE_ITEM_TYPE_OPTIONS,
-  INITIAL_LINE_ITEM_STATE,
   COMPONENT_SAVE_STATES,
   SAVE_STATUS_MESSAGES,
   SAVE_STATUS_COLORS
@@ -43,12 +42,50 @@ const LineItems = ({
   runServerless,
   context,
   onSaveStatusChange,
-  isEditMode = false
+  isEditMode = false,
+  currency = "MXN" // Currency from campaign
 }) => {
 
   // === LINE ITEM FORM STATE ===
-  const [newLineItem, setNewLineItem] = useState(INITIAL_LINE_ITEM_STATE);
+  const [newLineItem, setNewLineItem] = useState({
+    name: "",
+    country: "MX",
+    type: "initial",
+    startDate: null,
+    endDate: null,
+    
+    // 🆕 PRODUCT SELECTION FIELDS
+    productId: "",
+    selectedProduct: null,
+    
+    // Pricing fields (auto-populated from product)
+    price: 0,
+    buyingModel: "",
+    units: "",
+    category: "",
+    
+    // Quantity fields
+    billable: 0,
+    bonus: 0
+  });
+
   const [lineItemCounter, setLineItemCounter] = useState(0);
+
+  // === PRODUCT CATALOG STATE ===
+  const [products, setProducts] = useState([]);
+  const [productSearchTerm, setProductSearchTerm] = useState("");
+  const [isProductsLoading, setIsProductsLoading] = useState(false);
+  const [hasProductsLoaded, setHasProductsLoaded] = useState(false);
+  const [productFilters, setProductFilters] = useState({
+    category: "",
+    buyingModel: "",
+    media: ""
+  });
+  const [availableFilters, setAvailableFilters] = useState({
+    categories: [],
+    buyingModels: [],
+    mediaTypes: []
+  });
 
   // === SAVE/LOAD STATE ===
   const [saveState, setSaveState] = useState(COMPONENT_SAVE_STATES.NOT_SAVED);
@@ -63,12 +100,15 @@ const LineItems = ({
 
   // === COMPONENT INITIALIZATION ===
 
-  // Load saved line items on component mount (only in edit mode)
+  // Load product catalog and saved line items on component mount
   useEffect(() => {
-    if (context?.crm?.objectId && runServerless && isEditMode) {
-      loadLineItems();
+    if (runServerless && isEditMode) {
+      loadProductCatalog();
+      if (context?.crm?.objectId) {
+        loadLineItems();
+      }
     }
-  }, [context?.crm?.objectId, runServerless, isEditMode]);
+  }, [runServerless, isEditMode, context?.crm?.objectId, currency]);
 
   // Track line items changes (only in edit mode)
   useEffect(() => {
@@ -85,18 +125,206 @@ const LineItems = ({
     }
   }, [lineItems, initialLineItems, saveState, hasUnsavedChanges, isEditMode]);
 
-  // === 🆕 STYLING FUNCTIONS (Simplified) ===
-  const getFieldStyle = (hasValue = true) => {
-    // Simplified styling for HubSpot UI Extensions
-    return {};
+  // === 🆕 PRODUCT CATALOG FUNCTIONS ===
+  
+  const loadProductCatalog = async (searchTerm = "", filters = {}) => {
+    if (!runServerless || !isEditMode) return;
+
+    setIsProductsLoading(true);
+
+    try {
+      const response = await runServerless({
+        name: "getProductCatalog",
+        parameters: {
+          searchTerm: searchTerm,
+          currency: currency,
+          category: filters.category || "",
+          buyingModel: filters.buyingModel || "",
+          media: filters.media || "",
+          limit: 100
+        }
+      });
+
+      if (response?.status === "SUCCESS" && response?.response?.data) {
+        const data = response.response.data;
+        
+        // Add default "Select Product" option
+        const productOptions = [
+          { label: "Select Product", value: "", isAvailable: true },
+          ...data.products
+        ];
+        
+        setProducts(productOptions);
+        setAvailableFilters(data.filters);
+        setHasProductsLoaded(true);
+        
+        console.log(`✅ Product catalog loaded: ${data.products.length} products`);
+      } else {
+        throw new Error(response?.response?.message || "Failed to load product catalog");
+      }
+    } catch (error) {
+      console.error("❌ Error loading product catalog:", error);
+      onAlert({
+        message: `Failed to load product catalog: ${error.message}`,
+        variant: "error"
+      });
+      
+      // Set fallback empty state
+      setProducts([{ label: "Select Product", value: "", isAvailable: true }]);
+    } finally {
+      setIsProductsLoading(false);
+    }
   };
 
-  const getTableCellStyle = () => {
-    // Simplified styling for HubSpot UI Extensions
-    return {};
+  const handleProductSearch = () => {
+    if (!isEditMode) return;
+    loadProductCatalog(productSearchTerm, productFilters);
   };
 
-  // === SAVE/LOAD FUNCTIONS ===
+  const handleProductFilterChange = (filterType, value) => {
+    if (!isEditMode) return;
+    
+    const newFilters = { ...productFilters, [filterType]: value };
+    setProductFilters(newFilters);
+    loadProductCatalog(productSearchTerm, newFilters);
+  };
+
+  const clearProductFilters = () => {
+    if (!isEditMode) return;
+    
+    setProductSearchTerm("");
+    setProductFilters({ category: "", buyingModel: "", media: "" });
+    loadProductCatalog("", {});
+  };
+
+  // === 🆕 PRODUCT SELECTION HANDLERS ===
+  
+  const handleProductSelection = (productId) => {
+    if (!isEditMode) return;
+
+    const selectedProduct = products.find(p => p.value === productId);
+    
+    if (!selectedProduct || selectedProduct.value === "") {
+      // Clear product selection
+      setNewLineItem(prev => ({
+        ...prev,
+        productId: "",
+        selectedProduct: null,
+        price: 0,
+        buyingModel: "",
+        units: "",
+        category: "",
+        name: "" // Clear name when no product selected
+      }));
+      return;
+    }
+
+    // Auto-populate fields from selected product
+    setNewLineItem(prev => ({
+      ...prev,
+      productId: productId,
+      selectedProduct: selectedProduct,
+      price: selectedProduct.price,
+      buyingModel: selectedProduct.buyingModel,
+      units: selectedProduct.units,
+      category: selectedProduct.category,
+      name: selectedProduct.label // Auto-fill name with product name
+    }));
+
+    console.log("✅ Product selected:", selectedProduct);
+  };
+
+  // === EXISTING LINE ITEM MANAGEMENT FUNCTIONS (Enhanced) ===
+  
+  const handleNewLineItemChange = (field, value) => {
+    if (!isEditMode) return;
+
+    if (field === 'productId') {
+      handleProductSelection(value);
+    } else {
+      setNewLineItem(prev => ({
+        ...prev,
+        [field]: value
+      }));
+    }
+  };
+
+  const addLineItem = () => {
+    if (!isEditMode) return;
+
+    // 🆕 Enhanced validation including product selection
+    if (!newLineItem.productId || newLineItem.productId === "") {
+      onAlert({
+        message: "Please select a product from the catalog",
+        variant: "error"
+      });
+      return;
+    }
+
+    if (!newLineItem.selectedProduct?.isAvailable) {
+      onAlert({
+        message: "Selected product is not available for pricing. Please contact sales for a quote.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    // Validate other required fields
+    const validation = validateLineItem(newLineItem);
+    if (!validation.isValid) {
+      onAlert({
+        message: `Please fix the following errors: ${validation.errors.join(', ')}`,
+        variant: "error"
+      });
+      return;
+    }
+
+    const newCounter = lineItemCounter + 1;
+    const totals = calculateLineItemTotals(newLineItem);
+
+    const lineItem = {
+      id: newCounter,
+      ...newLineItem,
+      ...totals,
+      
+      // 🆕 Store product information
+      productInfo: {
+        productId: newLineItem.productId,
+        category: newLineItem.category,
+        buyingModel: newLineItem.buyingModel,
+        units: newLineItem.units,
+        originalPrice: newLineItem.price
+      }
+    };
+
+    onLineItemsChange([...lineItems, lineItem]);
+    setLineItemCounter(newCounter);
+
+    // Reset form but keep product selection filters
+    setNewLineItem({
+      name: "",
+      country: "MX",
+      type: "initial",
+      startDate: null,
+      endDate: null,
+      productId: "",
+      selectedProduct: null,
+      price: 0,
+      buyingModel: "",
+      units: "",
+      category: "",
+      billable: 0,
+      bonus: 0
+    });
+
+    onAlert({
+      message: "Line item added successfully!",
+      variant: "success"
+    });
+  };
+
+  // === EXISTING FUNCTIONS (Keep all existing functionality) ===
+  
   const loadLineItems = async () => {
     if (!runServerless || !context?.crm?.objectId) return;
 
@@ -114,20 +342,14 @@ const LineItems = ({
       if (response?.status === "SUCCESS" && response?.response?.data) {
         const data = response.response.data;
 
-        // Update line items
         onLineItemsChange(data.lineItems || []);
-
-        // Update counter to continue from max ID
         const maxId = Math.max(0, ...data.lineItems.map(item => item.id || 0));
         setLineItemCounter(maxId);
-
-        // Store initial state for change tracking
         setInitialLineItems(data.lineItems || []);
         setLastSaved(data.metadata?.lastSaved);
         setSaveState(data.saveStatus === 'Saved' ? COMPONENT_SAVE_STATES.SAVED : COMPONENT_SAVE_STATES.NOT_SAVED);
         setHasUnsavedChanges(false);
 
-        // Notify parent component
         if (onSaveStatusChange) {
           onSaveStatusChange({
             status: data.saveStatus,
@@ -166,13 +388,11 @@ const LineItems = ({
       if (response?.status === "SUCCESS" && response?.response?.data) {
         const data = response.response.data;
 
-        // Update tracking state
         setInitialLineItems([...lineItems]);
         setLastSaved(new Date().toISOString().split('T')[0]);
         setSaveState(COMPONENT_SAVE_STATES.SAVED);
         setHasUnsavedChanges(false);
 
-        // Notify parent component
         if (onSaveStatusChange) {
           onSaveStatusChange({
             status: 'Saved',
@@ -197,137 +417,8 @@ const LineItems = ({
     }
   };
 
-  // === LINE ITEM MANAGEMENT FUNCTIONS ===
-  const handleNewLineItemChange = (field, value) => {
-    if (!isEditMode) return;
-
-    setNewLineItem(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  const addLineItem = () => {
-    if (!isEditMode) return;
-
-    // Validate line item
-    const validation = validateLineItem(newLineItem);
-    if (!validation.isValid) {
-      onAlert({
-        message: `Please fix the following errors: ${validation.errors.join(', ')}`,
-        variant: "error"
-      });
-      return;
-    }
-
-    const newCounter = lineItemCounter + 1;
-    const totals = calculateLineItemTotals(newLineItem);
-
-    const lineItem = {
-      id: newCounter,
-      ...newLineItem,
-      ...totals
-    };
-
-    onLineItemsChange([...lineItems, lineItem]);
-    setLineItemCounter(newCounter);
-
-    // Reset form
-    setNewLineItem(INITIAL_LINE_ITEM_STATE);
-
-    onAlert({
-      message: "Line item added successfully!",
-      variant: "success"
-    });
-  };
-
-  const removeLineItem = (index) => {
-    if (!isEditMode) return;
-
-    const updatedItems = lineItems.filter((_, i) => i !== index);
-    onLineItemsChange(updatedItems);
-
-    onAlert({
-      message: "Line item removed successfully!",
-      variant: "success"
-    });
-  };
-
-  // === INLINE EDITING FUNCTIONS ===
-  const startEditingItem = (index) => {
-    if (!isEditMode) return;
-
-    // Validate item exists
-    if (!lineItems[index]) {
-      onAlert({
-        message: "Error: Cannot edit this line item - item not found",
-        variant: "error"
-      });
-      return;
-    }
-
-    const itemToEdit = lineItems[index];
-    
-    try {
-      const editingCopy = { ...itemToEdit };
-      setEditingItemId(itemToEdit.id);
-      setEditingItem(editingCopy);
-    } catch (error) {
-      console.error("Error creating editing copy:", error);
-      onAlert({
-        message: "Error: Cannot edit this line item - data issue",
-        variant: "error"
-      });
-    }
-  };
-
-  const cancelEditingItem = () => {
-    setEditingItemId(null);
-    setEditingItem(null);
-  };
-
-  const saveEditingItem = () => {
-    if (!editingItem || !isEditMode) return;
-
-    // Validate edited item
-    const validation = validateLineItem(editingItem);
-    if (!validation.isValid) {
-      onAlert({
-        message: `Please fix the following errors: ${validation.errors.join(', ')}`,
-        variant: "error"
-      });
-      return;
-    }
-
-    // Calculate new totals
-    const totals = calculateLineItemTotals(editingItem);
-    const updatedItem = { ...editingItem, ...totals };
-
-    // Update the line items array
-    const updatedItems = lineItems.map(item =>
-      item.id === editingItemId ? updatedItem : item
-    );
-
-    onLineItemsChange(updatedItems);
-    setEditingItemId(null);
-    setEditingItem(null);
-
-    onAlert({
-      message: "Line item updated successfully!",
-      variant: "success"
-    });
-  };
-
-  const handleEditingItemChange = (field, value) => {
-    if (!isEditMode) return;
-
-    setEditingItem(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
   // === UI HELPER FUNCTIONS ===
+  
   const getSaveStatusDisplay = () => {
     const message = SAVE_STATUS_MESSAGES[saveState] || SAVE_STATUS_MESSAGES[COMPONENT_SAVE_STATES.NOT_SAVED];
     const color = SAVE_STATUS_COLORS[saveState] || SAVE_STATUS_COLORS[COMPONENT_SAVE_STATES.NOT_SAVED];
@@ -354,7 +445,8 @@ const LineItems = ({
       lineItems.length === 0;
   };
 
-  // === RENDER HELPER FUNCTIONS ===
+  // === 🆕 ENHANCED RENDER FUNCTIONS ===
+  
   const renderViewModeCell = (value, placeholder = "Not set") => {
     return (
       <Text>
@@ -363,92 +455,84 @@ const LineItems = ({
     );
   };
 
-  const renderEditableCell = (item, field, type = "text") => {
-    // Safety check for null items
+  const renderLineItemRow = (item, index) => {
     if (!item) {
-      return renderViewModeCell("ERROR: Item not found");
+      return (
+        <TableRow key={`error-${index}`}>
+          <TableCell>ERROR</TableCell>
+          <TableCell>Item not found</TableCell>
+          <TableCell>-</TableCell>
+          <TableCell>-</TableCell>
+          <TableCell>-</TableCell>
+          <TableCell>-</TableCell>
+          <TableCell>-</TableCell>
+          <TableCell>-</TableCell>
+          <TableCell>-</TableCell>
+          <TableCell>-</TableCell>
+          <TableCell>-</TableCell>
+          <TableCell>-</TableCell>
+          {isEditMode && <TableCell>-</TableCell>}
+        </TableRow>
+      );
     }
 
-    const isEditing = editingItemId === item.id;
-    
-    if (isEditing && !editingItem) {
-      return renderViewModeCell("ERROR: Editing data not found");
-    }
-
-    const currentValue = isEditing ? editingItem[field] : item[field];
-
-    if (!isEditMode || !isEditing) {
-      // View mode or non-editing row
-      let displayValue = currentValue;
-
-      if (field === 'startDate' || field === 'endDate') {
-        if (!currentValue) {
-          displayValue = 'Date not set';
-        } else if (typeof currentValue === 'object' && currentValue.formattedDate) {
-          // HubSpot DateInput object - use the pre-formatted date
-          displayValue = currentValue.formattedDate;
-        } else {
-          // Fallback for other formats
-          try {
-            const dateObj = new Date(currentValue);
-            displayValue = isNaN(dateObj.getTime()) ? 'Invalid date' : dateObj.toLocaleDateString();
-          } catch (error) {
-            displayValue = 'Invalid date';
-          }
-        }
-      } else if (field === 'price' || field === 'totalBudget') {
-        displayValue = currentValue ? `$${Number(currentValue).toFixed(2)}` : '$0.00';
-      } else if (field === 'type') {
-        const typeOption = LINE_ITEM_TYPE_OPTIONS.find(opt => opt.value === currentValue);
-        displayValue = typeOption ? typeOption.label : currentValue;
-      } else if (field === 'country') {
-        const countryOption = COUNTRY_OPTIONS.find(opt => opt.value === currentValue);
-        displayValue = countryOption ? countryOption.label : currentValue;
+    // Format dates
+    const formatDate = (dateValue) => {
+      if (!dateValue) return 'Date not set';
+      if (typeof dateValue === 'object' && dateValue.formattedDate) {
+        return dateValue.formattedDate;
       }
+      try {
+        const dateObj = new Date(dateValue);
+        return isNaN(dateObj.getTime()) ? 'Invalid date' : dateObj.toLocaleDateString();
+      } catch (error) {
+        return 'Invalid date';
+      }
+    };
 
-      return renderViewModeCell(displayValue);
-    }
+    return (
+      <TableRow key={item.id || `item-${index}`}>
+        <TableCell>{renderViewModeCell(item.id)}</TableCell>
+        <TableCell>{renderViewModeCell(item.category || "DSP Display")}</TableCell>
+        <TableCell>{renderViewModeCell(item.name)}</TableCell>
+        <TableCell>{renderViewModeCell(item.buyingModel || "CPM")}</TableCell>
+        <TableCell>{renderViewModeCell(formatDate(item.startDate))}</TableCell>
+        <TableCell>{renderViewModeCell(formatDate(item.endDate))}</TableCell>
+        <TableCell>{renderViewModeCell(item.price ? `${item.price} ${currency}` : `0.00 ${currency}`)}</TableCell>
+        <TableCell>{renderViewModeCell(item.units || "Units")}</TableCell>
+        <TableCell>{renderViewModeCell(item.billable)}</TableCell>
+        <TableCell>{renderViewModeCell(item.bonus)}</TableCell>
+        <TableCell>{renderViewModeCell(item.totalBudget ? `${item.totalBudget.toFixed(2)} ${currency}` : `0.00 ${currency}`)}</TableCell>
+        <TableCell>{renderViewModeCell(item.type?.charAt(0).toUpperCase() + item.type?.slice(1))}</TableCell>
 
-    // Edit mode - show appropriate input
-    if (type === "select" && field === "country") {
-      return (
-        <Select
-          options={COUNTRY_OPTIONS}
-          value={currentValue}
-          onChange={(value) => handleEditingItemChange(field, value)}
-        />
-      );
-    } else if (type === "select" && field === "type") {
-      return (
-        <Select
-          options={LINE_ITEM_TYPE_OPTIONS}
-          value={currentValue}
-          onChange={(value) => handleEditingItemChange(field, value)}
-        />
-      );
-    } else if (type === "date") {
-      return (
-        <DateInput
-          value={currentValue}
-          onChange={(value) => handleEditingItemChange(field, value)}
-        />
-      );
-    } else if (type === "number") {
-      return (
-        <NumberInput
-          value={currentValue}
-          onChange={(value) => handleEditingItemChange(field, value)}
-          precision={field === 'price' ? 2 : 0}
-        />
-      );
-    } else {
-      return (
-        <Input
-          value={currentValue}
-          onChange={(value) => handleEditingItemChange(field, value)}
-        />
-      );
-    }
+        {/* Actions Column - Only show in Edit Mode */}
+        {isEditMode && (
+          <TableCell>
+            <Flex gap="small">
+              <Button
+                variant="secondary"
+                size="xs"
+                onClick={() => removeLineItem(index)}
+              >
+                🗑️ Remove
+              </Button>
+            </Flex>
+          </TableCell>
+        )}
+      </TableRow>
+    );
+  };
+
+  const removeLineItem = (index) => {
+    if (!isEditMode) return;
+
+    const updatedItems = lineItems.filter((_, i) => i !== index);
+    onLineItemsChange(updatedItems);
+
+    onAlert({
+      message: "Line item removed successfully!",
+      variant: "success"
+    });
   };
 
   const statusDisplay = getSaveStatusDisplay();
@@ -472,7 +556,7 @@ const LineItems = ({
           </Flex>
         )}
 
-        {/* 🆕 VIEW MODE INDICATOR */}
+        {/* VIEW MODE INDICATOR */}
         {!isEditMode && (
           <Text variant="microcopy" format={{ color: 'medium' }}>
             👁️ View Mode - Read Only
@@ -491,18 +575,131 @@ const LineItems = ({
         </Box>
       )}
 
-      {/* 🆕 ADD NEW LINE ITEM FORM - Only show in Edit Mode */}
+      {/* 🆕 PRODUCT CATALOG & ADD NEW LINE ITEM FORM - Only show in Edit Mode */}
       {isEditMode && (
         <Tile>
           <Text format={{ fontWeight: "bold" }}>Add New Line Item</Text>
 
+          {/* 🆕 Product Catalog Section */}
+          <Box marginTop="medium">
+            <Text format={{ fontWeight: "bold" }} marginBottom="small">
+              📦 Select Product from Catalog
+            </Text>
+
+            {/* Product Search & Filters */}
+            <Flex direction="row" gap="medium" wrap="wrap" marginBottom="medium">
+              <Box flex={1} minWidth="200px">
+                <Input
+                  label="Search Products"
+                  placeholder="Search by category, media, content type..."
+                  value={productSearchTerm}
+                  onChange={(value) => setProductSearchTerm(value)}
+                  disabled={isProductsLoading}
+                />
+              </Box>
+              <Box>
+                <Button
+                  variant="secondary"
+                  onClick={handleProductSearch}
+                  disabled={isProductsLoading}
+                >
+                  {isProductsLoading ? <LoadingSpinner size="xs" /> : "🔍 Search"}
+                </Button>
+              </Box>
+            </Flex>
+
+            {/* Filter Options */}
+            <Flex direction="row" gap="medium" wrap="wrap" marginBottom="medium">
+              <Box flex={1} minWidth="150px">
+                <Select
+                  label="Category"
+                  options={[
+                    { label: "All Categories", value: "" },
+                    ...availableFilters.categories
+                  ]}
+                  value={productFilters.category}
+                  onChange={(value) => handleProductFilterChange("category", value)}
+                  disabled={isProductsLoading}
+                />
+              </Box>
+              <Box flex={1} minWidth="150px">
+                <Select
+                  label="Buying Model"
+                  options={[
+                    { label: "All Models", value: "" },
+                    ...availableFilters.buyingModels
+                  ]}
+                  value={productFilters.buyingModel}
+                  onChange={(value) => handleProductFilterChange("buyingModel", value)}
+                  disabled={isProductsLoading}
+                />
+              </Box>
+              <Box flex={1} minWidth="150px">
+                <Select
+                  label="Media Type"
+                  options={[
+                    { label: "All Media", value: "" },
+                    ...availableFilters.mediaTypes
+                  ]}
+                  value={productFilters.media}
+                  onChange={(value) => handleProductFilterChange("media", value)}
+                  disabled={isProductsLoading}
+                />
+              </Box>
+              <Box>
+                <Button
+                  variant="secondary"
+                  onClick={clearProductFilters}
+                  disabled={isProductsLoading}
+                >
+                  ✕ Clear
+                </Button>
+              </Box>
+            </Flex>
+
+            {/* Product Selection */}
+            <Box marginBottom="medium">
+              <Select
+                label="Product *"
+                options={products}
+                value={newLineItem.productId}
+                onChange={(value) => handleNewLineItemChange("productId", value)}
+                disabled={isProductsLoading || !hasProductsLoaded}
+                required
+              />
+              
+              {isProductsLoading && (
+                <Text variant="microcopy" format={{ color: 'medium' }}>
+                  Loading product catalog...
+                </Text>
+              )}
+            </Box>
+
+            {/* 🆕 Selected Product Info Display */}
+            {newLineItem.selectedProduct && newLineItem.selectedProduct.value !== "" && (
+              <Box marginBottom="medium">
+                <Alert variant="info">
+                  <Text format={{ fontWeight: "bold" }}>Selected Product:</Text>
+                  <Text>Category: {newLineItem.selectedProduct.category}</Text>
+                  <Text>Buying Model: {newLineItem.selectedProduct.buyingModel}</Text>
+                  <Text>Price: {newLineItem.selectedProduct.priceDisplay}</Text>
+                  <Text>Units: {newLineItem.selectedProduct.units}</Text>
+                  {!newLineItem.selectedProduct.isAvailable && (
+                    <Text format={{ color: 'warning' }}>⚠️ Custom pricing required - contact sales</Text>
+                  )}
+                </Alert>
+              </Box>
+            )}
+          </Box>
+
+          {/* Regular Line Item Fields */}
           <Box marginTop="medium">
             <Flex direction="row" gap="medium" wrap="wrap">
               <Box flex={1} minWidth="200px">
                 <Input
-                  label="Line Item Name *"
+                  label="Line Item Name"
                   name="newItemName"
-                  placeholder="Enter line item name"
+                  placeholder="Auto-filled from product selection"
                   value={newLineItem.name}
                   onChange={(value) => handleNewLineItemChange("name", value)}
                 />
@@ -548,17 +745,18 @@ const LineItems = ({
               </Box>
               <Box flex={1} minWidth="120px">
                 <NumberInput
-                  label="Price"
+                  label={`Price (${currency})`}
                   name="newItemPrice"
-                  placeholder="0.00"
+                  placeholder="Auto-filled from product"
                   value={newLineItem.price}
                   onChange={(value) => handleNewLineItemChange("price", value)}
                   precision={2}
+                  readOnly={newLineItem.selectedProduct?.isAvailable} // Read-only if product has set pricing
                 />
               </Box>
               <Box flex={1} minWidth="120px">
                 <NumberInput
-                  label="Billable Qty"
+                  label={`Billable ${newLineItem.units || 'Quantity'}`}
                   name="newItemBillable"
                   placeholder="0"
                   value={newLineItem.billable}
@@ -567,7 +765,7 @@ const LineItems = ({
               </Box>
               <Box flex={1} minWidth="120px">
                 <NumberInput
-                  label="Bonus Qty"
+                  label={`Bonus ${newLineItem.units || 'Quantity'}`}
                   name="newItemBonus"
                   placeholder="0"
                   value={newLineItem.bonus}
@@ -578,26 +776,31 @@ const LineItems = ({
           </Box>
 
           <Box marginTop="medium">
-            <Button onClick={addLineItem} variant="primary">
+            <Button 
+              onClick={addLineItem} 
+              variant="primary"
+              disabled={!newLineItem.productId || !newLineItem.selectedProduct?.isAvailable}
+            >
               Add Line Item
             </Button>
           </Box>
         </Tile>
       )}
 
-      {/* 🆕 LINE ITEMS TABLE - View/Edit Mode */}
+      {/* 🆕 ENHANCED LINE ITEMS TABLE */}
       {lineItems.length > 0 ? (
         <Box marginTop="medium">
           <Table>
             <TableHead>
               <TableRow>
                 <TableHeader>#</TableHeader>
-                <TableHeader>Line Item</TableHeader>
+                <TableHeader>Category</TableHeader>
                 <TableHeader>Name</TableHeader>
-                <TableHeader>Country</TableHeader>
+                <TableHeader>Buying Model</TableHeader>
                 <TableHeader>Start Date</TableHeader>
                 <TableHeader>End Date</TableHeader>
                 <TableHeader>Price</TableHeader>
+                <TableHeader>Units</TableHeader>
                 <TableHeader>Billable Qty</TableHeader>
                 <TableHeader>Bonus Qty</TableHeader>
                 <TableHeader>Total Budget</TableHeader>
@@ -606,84 +809,7 @@ const LineItems = ({
               </TableRow>
             </TableHead>
             <TableBody>
-              {lineItems.map((item, index) => {
-                // Safety check for null items
-                if (!item) {
-                  return (
-                    <TableRow key={`error-${index}`}>
-                      <TableCell>ERROR</TableCell>
-                      <TableCell>Item not found</TableCell>
-                      <TableCell>-</TableCell>
-                      <TableCell>-</TableCell>
-                      <TableCell>-</TableCell>
-                      <TableCell>-</TableCell>
-                      <TableCell>-</TableCell>
-                      <TableCell>-</TableCell>
-                      <TableCell>-</TableCell>
-                      <TableCell>-</TableCell>
-                      <TableCell>-</TableCell>
-                      {isEditMode && <TableCell>-</TableCell>}
-                    </TableRow>
-                  );
-                }
-
-                return (
-                  <TableRow key={item.id || `item-${index}`}>
-                    <TableCell>{renderViewModeCell(item.id)}</TableCell>
-                    <TableCell>{renderViewModeCell("DSP Display")}</TableCell>
-                    <TableCell>{renderEditableCell(item, "name")}</TableCell>
-                    <TableCell>{renderEditableCell(item, "country", "select")}</TableCell>
-                    <TableCell>{renderEditableCell(item, "startDate", "date")}</TableCell>
-                    <TableCell>{renderEditableCell(item, "endDate", "date")}</TableCell>
-                    <TableCell>{renderEditableCell(item, "price", "number")}</TableCell>
-                    <TableCell>{renderEditableCell(item, "billable", "number")}</TableCell>
-                    <TableCell>{renderEditableCell(item, "bonus", "number")}</TableCell>
-                    <TableCell>{renderEditableCell(item, "totalBudget")}</TableCell>
-                    <TableCell>{renderEditableCell(item, "type", "select")}</TableCell>
-
-                    {/* Actions Column - Only show in Edit Mode */}
-                    {isEditMode && (
-                      <TableCell>
-                        {editingItemId === item.id ? (
-                          <Flex gap="small">
-                            <Button
-                              variant="primary"
-                              size="xs"
-                              onClick={saveEditingItem}
-                            >
-                              ✓ Save
-                            </Button>
-                            <Button
-                              variant="secondary"
-                              size="xs"
-                              onClick={cancelEditingItem}
-                            >
-                              ✕ Cancel
-                            </Button>
-                          </Flex>
-                        ) : (
-                          <Flex gap="small">
-                            <Button
-                              variant="secondary"
-                              size="xs"
-                              onClick={() => startEditingItem(index)}
-                            >
-                              ✏️ Edit
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              size="xs"
-                              onClick={() => removeLineItem(index)}
-                            >
-                              🗑️ Remove
-                            </Button>
-                          </Flex>
-                        )}
-                      </TableCell>
-                    )}
-                  </TableRow>
-                );
-              })}
+              {lineItems.map((item, index) => renderLineItemRow(item, index))}
             </TableBody>
           </Table>
         </Box>
@@ -692,7 +818,7 @@ const LineItems = ({
         <Box marginTop="medium">
           <Alert variant="info">
             {isEditMode
-              ? "📝 No line items yet. Add your first line item using the form above."
+              ? "📝 No line items yet. Add your first line item by selecting a product from the catalog above."
               : "📋 No line items have been added to this campaign deal yet."
             }
           </Alert>
