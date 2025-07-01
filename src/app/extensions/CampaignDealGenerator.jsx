@@ -360,82 +360,6 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
 
   return (
     <Flex direction="column" gap="large">
-      {/* HEADER */}
-      <Box>
-        <Divider />
-        <Flex justify="space-between" align="center">
-          <Box>
-            <Heading>Campaign Deal Generator</Heading>
-            <Text variant="microcopy" format={{ color: modeInfo.color }}>
-              {modeInfo.text}
-            </Text>
-            {/* Product Catalog Status */}
-            {isEditMode && (
-              <Text variant="microcopy" format={{ color: 'success' }}>
-                Product Catalog Integration Active
-              </Text>
-            )}
-          </Box>
-
-          <Flex align="center" gap="medium">
-            {/* Progress Indicator */}
-            <Box>
-              <Text
-                variant="microcopy"
-                format={{
-                  color: getProgressColor(),
-                  fontWeight: "bold"
-                }}
-              >
-                Progress: {progressInfo.progress}/{progressInfo.total} ({progressInfo.percentage}%)
-              </Text>
-              <Text variant="microcopy" format={{ color: 'medium' }}>
-                {basicInfoSaveStatus.status === 'Saved' ? "Basic Info Saved" : "Basic Info Pending"} |
-                {campaignDetailsSaveStatus.status === 'Saved' ? "Details Saved" : "Details Pending"} |
-                {lineItemsSaveStatus.status === 'Saved' ? "Line Items Saved" : "Line Items Pending"}
-              </Text>
-            </Box>
-          </Flex>
-        </Flex>
-        <Divider />
-      </Box>
-
-      {/* Loading State */}
-      {loading && isInitialLoad && (
-        <Box>
-          <Alert variant="info">
-            Loading campaign deal data...
-          </Alert>
-        </Box>
-      )}
-
-      {/* MODE INSTRUCTION ALERT */}
-      {!isEditMode && hasLoadedData && (
-        <Box>
-          <Alert variant="info">
-            Currently in View Mode. All fields are read-only. Click "Edit" below to access the product catalog and make changes.
-          </Alert>
-        </Box>
-      )}
-
-      {/* UNSAVED CHANGES WARNING */}
-      {isEditMode && hasUnsavedChanges && (
-        <Box>
-          <Alert variant="warning">
-            You have unsaved changes. Please save your work or cancel to discard changes.
-          </Alert>
-        </Box>
-      )}
-
-      {/* PRODUCT CATALOG INTRODUCTION */}
-      {isEditMode && (
-        <Box>
-          <Alert variant="success">
-            Product Catalog Integration: You can now select products with predefined pricing, buying models (CPM, CPC, CPA), and appropriate units. This ensures accurate pricing and eliminates manual entry errors.
-          </Alert>
-        </Box>
-      )}
-
       {/* SHOW CONTENT AFTER LOADING OR IF NO DATA */}
       {(hasLoadedData || !isInitialLoad) && (
         <>
@@ -547,22 +471,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
                     </Text>
                   )}
                 </Box>
-
-                <Flex gap="medium">
-                  {/* Clear button */}
-                  <Button
-                    variant="secondary"
-                    onClick={handleClearForm}
-                    disabled={loading}
-                  >
-                    Clear All
-                  </Button>
-
-                  {/* Product Catalog Status */}
-                  <Text variant="microcopy" format={{ color: 'success' }}>
-                    Product Catalog: Ready
-                  </Text>
-                </Flex>
+              
               </Flex>
             </Box>
           )}
