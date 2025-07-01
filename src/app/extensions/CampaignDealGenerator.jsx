@@ -20,8 +20,9 @@ import CampaignDetails from './components/CampaignDetails.jsx';
 import LineItems from './components/LineItems.jsx';
 
 // Import utilities
-import { INITIAL_FORM_STATE } from './utils/constants.js';
-import { validateCampaignDeal } from './utils/validation.js';
+import {
+  INITIAL_FORM_STATE
+} from './utils/constants.js';
 
 hubspot.extend(({ context, runServerlessFunction, actions }) => (
   <CampaignDealExtension
@@ -46,16 +47,9 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
   const objectType = context.crm.objectType;
   const userName = `${context.user.firstName} ${context.user.lastName}`;
 
-  // === UNIFIED FORM STATE ===
+  // === FORM STATE ===
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
   const [lineItems, setLineItems] = useState([]);
-  
-  // === ORIGINAL DATA FOR CANCEL FUNCTIONALITY ===
-  const [originalFormData, setOriginalFormData] = useState(INITIAL_FORM_STATE);
-  const [originalLineItems, setOriginalLineItems] = useState([]);
-  
-  // === FORM STATE TRACKING ===
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // === INITIAL DATA LOADING ===
   useEffect(() => {
@@ -64,20 +58,6 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
       setIsInitialLoad(false);
     }
   }, [context?.crm?.objectId, runServerless, isInitialLoad]);
-
-  // === CHANGE TRACKING ===
-  useEffect(() => {
-    if (isEditMode && hasLoadedData) {
-      const formDataChanged = JSON.stringify(formData) !== JSON.stringify(originalFormData);
-      const lineItemsChanged = JSON.stringify(lineItems) !== JSON.stringify(originalLineItems);
-      
-      const hasChanges = formDataChanged || lineItemsChanged;
-      
-      if (hasChanges !== hasUnsavedChanges) {
-        setHasUnsavedChanges(hasChanges);
-      }
-    }
-  }, [formData, lineItems, originalFormData, originalLineItems, isEditMode, hasLoadedData, hasUnsavedChanges]);
 
   // === DATA LOADING FOR VIEW MODE ===
   const loadAllDataForViewMode = async () => {
@@ -108,15 +88,11 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
       if (response?.status === "SUCCESS" && response?.response?.data) {
         const data = response.response.data;
 
-        // Update form data
-        const updatedFormData = { ...formData };
         Object.keys(data.formData).forEach(key => {
-          updatedFormData[key] = data.formData[key];
+          if (data.formData[key] !== formData[key]) {
+            setFormData(prev => ({ ...prev, [key]: data.formData[key] }));
+          }
         });
-        setFormData(updatedFormData);
-
-        // Store original data for cancel functionality
-        setOriginalFormData(prev => ({ ...prev, ...data.formData }));
 
         console.log("✅ Basic information loaded quietly for view mode");
       }
@@ -135,20 +111,12 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
       if (response?.status === "SUCCESS" && response?.response?.data) {
         const data = response.response.data;
 
-        // Update form data
         const campaignDetailsFields = ['campaignType', 'taxId', 'businessName', 'dealCS'];
-        const updatedFormData = { ...formData };
         campaignDetailsFields.forEach(key => {
-          updatedFormData[key] = data.formData[key];
+          if (data.formData[key] !== formData[key]) {
+            setFormData(prev => ({ ...prev, [key]: data.formData[key] }));
+          }
         });
-        setFormData(updatedFormData);
-
-        // Store original data for cancel functionality
-        const originalCampaignDetails = {};
-        campaignDetailsFields.forEach(key => {
-          originalCampaignDetails[key] = data.formData[key];
-        });
-        setOriginalFormData(prev => ({ ...prev, ...originalCampaignDetails }));
 
         console.log("✅ Campaign details loaded quietly for view mode");
       }
@@ -168,8 +136,6 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
         const data = response.response.data;
 
         setLineItems(data.lineItems || []);
-        // Store original line items for cancel functionality
-        setOriginalLineItems(data.lineItems || []);
 
         console.log("✅ Line items loaded quietly for view mode");
       }
@@ -188,191 +154,11 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
   };
 
   const handleSwitchToViewMode = () => {
-    if (hasUnsavedChanges) {
-      const confirmDiscard = window.confirm(
-        "You have unsaved changes. Switching to view mode will discard them. Are you sure?"
-      );
-      if (!confirmDiscard) {
-        return;
-      }
-    }
-    
     setIsEditMode(false);
-    
-    // Reset to original data if there were unsaved changes
-    if (hasUnsavedChanges) {
-      setFormData({ ...originalFormData });
-      setLineItems([...originalLineItems]);
-      setHasUnsavedChanges(false);
-      sendAlert({
-        message: "🔄 Unsaved changes discarded - Switched to View Mode",
-        variant: "info"
-      });
-    } else {
-      sendAlert({
-        message: "👁️ Switched to View Mode - Fields are now read-only",
-        variant: "info"
-      });
-    }
-  };
-
-  // === UNIFIED SAVE FUNCTION ===
-  const saveAllData = async () => {
-    if (!isEditMode || !context?.crm?.objectId || loading) return;
-
-    // Validate entire form before saving
-    const validation = validateCampaignDeal(formData, lineItems);
-    if (!validation.isValid) {
-      sendAlert({
-        message: `❌ Please fix the following errors:\n${validation.errors.join('\n')}`,
-        variant: "error"
-      });
-      return;
-    }
-
-    setLoading(true);
-    
-    try {
-      const userName = `${context.user.firstName} ${context.user.lastName}`.trim();
-      
-      // Call all save functions in parallel
-      const [basicResponse, detailsResponse, lineItemsResponse] = await Promise.all([
-        runServerless({
-          name: "saveBasicInformation",
-          parameters: {
-            campaignDealId: context.crm.objectId,
-            campaignName: formData.campaignName,
-            commercialAgreement: formData.commercialAgreement,
-            advertiser: formData.advertiser,
-            dealOwner: formData.dealOwner,
-            createdBy: userName
-          }
-        }),
-        runServerless({
-          name: "saveCampaignDetails",
-          parameters: {
-            campaignDealId: context.crm.objectId,
-            campaignType: formData.campaignType,
-            taxId: formData.taxId,
-            businessName: formData.businessName,
-            dealCS: formData.dealCS,
-            createdBy: userName
-          }
-        }),
-        runServerless({
-          name: "saveLineItems",
-          parameters: {
-            campaignDealId: context.crm.objectId,
-            lineItems: lineItems,
-            createdBy: userName
-          }
-        })
-      ]);
-
-      // Check if all saves were successful
-      const allSuccessful = [basicResponse, detailsResponse, lineItemsResponse].every(
-        response => response?.status === "SUCCESS"
-      );
-
-      if (allSuccessful) {
-        // Update original data to current data
-        setOriginalFormData({ ...formData });
-        setOriginalLineItems([...lineItems]);
-        setHasUnsavedChanges(false);
-        
-        // Switch to view mode
-        setIsEditMode(false);
-        
-        sendAlert({
-          message: "✅ Campaign Deal saved successfully!",
-          variant: "success"
-        });
-        
-        console.log("✅ All data saved successfully");
-      } else {
-        // Handle partial failures
-        const failedSections = [];
-        if (basicResponse?.status !== "SUCCESS") failedSections.push("Basic Information");
-        if (detailsResponse?.status !== "SUCCESS") failedSections.push("Campaign Details");
-        if (lineItemsResponse?.status !== "SUCCESS") failedSections.push("Line Items");
-        
-        throw new Error(`Failed to save: ${failedSections.join(", ")}`);
-      }
-      
-    } catch (error) {
-      console.error("❌ Error saving campaign deal:", error);
-      sendAlert({
-        message: `❌ Save failed: ${error.message}`,
-        variant: "error"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // === CANCEL CHANGES FUNCTION ===
-  const cancelChanges = () => {
-    if (!hasUnsavedChanges) {
-      setIsEditMode(false);
-      return;
-    }
-
-    const confirmCancel = window.confirm(
-      "Are you sure you want to cancel? All unsaved changes will be lost."
-    );
-    
-    if (confirmCancel) {
-      // Reset to original data
-      setFormData({ ...originalFormData });
-      setLineItems([...originalLineItems]);
-      setHasUnsavedChanges(false);
-      setIsEditMode(false);
-      
-      sendAlert({
-        message: "🔄 Changes cancelled - returned to saved version",
-        variant: "info"
-      });
-    }
-  };
-
-  // === DELETE FUNCTION ===
-  const deleteRecord = async () => {
-    if (isEditMode) {
-      sendAlert({
-        message: "⚠️ Cannot delete while in edit mode. Please save or cancel changes first.",
-        variant: "warning"
-      });
-      return;
-    }
-
-    const confirmDelete = window.confirm(
-      "Are you sure you want to delete this Campaign Deal? This action cannot be undone."
-    );
-    
-    if (confirmDelete) {
-      setLoading(true);
-      try {
-        // TODO: Implement delete function
-        // const response = await runServerless({
-        //   name: "deleteCampaignDeal",
-        //   parameters: { campaignDealId: context.crm.objectId }
-        // });
-        
-        sendAlert({
-          message: "🗑️ Delete functionality will be implemented in a future update",
-          variant: "warning"
-        });
-        
-      } catch (error) {
-        console.error("❌ Error deleting campaign deal:", error);
-        sendAlert({
-          message: `❌ Delete failed: ${error.message}`,
-          variant: "error"
-        });
-      } finally {
-        setLoading(false);
-      }
-    }
+    sendAlert({
+      message: "👁️ Switched to View Mode - Fields are now read-only",
+      variant: "info"
+    });
   };
 
   // === FORM HANDLERS ===
@@ -394,6 +180,24 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
   const handleAlert = (alertData) => {
     setAlertMessage(alertData);
     setTimeout(() => setAlertMessage(""), 4000);
+  };
+
+  // === UTILITY FUNCTIONS ===
+  const handleClearForm = () => {
+    if (!isEditMode) {
+      sendAlert({
+        message: "⚠️ Switch to Edit Mode to clear the form",
+        variant: "warning"
+      });
+      return;
+    }
+
+    setFormData(INITIAL_FORM_STATE);
+    setLineItems([]);
+    handleAlert({
+      message: "Form cleared successfully",
+      variant: "success"
+    });
   };
 
   // === UI STATE CALCULATIONS ===
@@ -449,19 +253,21 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
           </Box>
 
           <Flex align="center" gap="medium">
-            {/* Data Status and Change Indicator */}
-            <Box>
-              {hasFormData() && (
-                <Text variant="microcopy" format={{ color: 'success' }}>
-                  📊 Campaign data loaded
-                </Text>
-              )}
-              {isEditMode && hasUnsavedChanges && (
-                <Text variant="microcopy" format={{ color: 'warning' }}>
-                  ⚠️ Unsaved changes
-                </Text>
-              )}
-            </Box>
+            {/* Data Status */}
+            {hasFormData() && (
+              <Text variant="microcopy" format={{ color: 'success' }}>
+                📊 Campaign data loaded
+              </Text>
+            )}
+
+            {/* MODE TOGGLE BUTTON */}
+            <Button
+              variant={isEditMode ? "secondary" : "primary"}
+              onClick={isEditMode ? handleSwitchToViewMode : handleSwitchToEditMode}
+              disabled={loading}
+            >
+              {isEditMode ? "👁️ Switch to View" : "✏️ Switch to Edit"}
+            </Button>
           </Flex>
         </Flex>
         <Divider />
@@ -538,57 +344,27 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
             <Flex gap="medium" justify="space-between" align="center">
               <Box>
                 <Text variant="microcopy" format={{ color: 'medium' }}>
-                  {isEditMode ? (
-                    hasUnsavedChanges ? (
-                      "⚠️ You have unsaved changes"
-                    ) : (
-                      "📝 Edit mode - Make your changes"
-                    )
-                  ) : (
-                    hasFormData() ? "👁️ Viewing saved campaign deal" : "📋 No data saved yet"
-                  )}
+                  Campaign Deal Generator - Simplified Workflow
                 </Text>
               </Box>
 
               <Flex gap="medium">
-                {/* PREVIEW MODE BUTTONS */}
-                {!isEditMode && (
-                  <>
-                    <Button
-                      variant="primary"
-                      onClick={handleSwitchToEditMode}
-                      disabled={loading}
-                    >
-                      ✏️ Edit
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      onClick={deleteRecord}
-                      disabled={loading || !hasFormData()}
-                    >
-                      🗑️ Delete
-                    </Button>
-                  </>
+                {/* Clear button - only show in edit mode */}
+                {isEditMode && (
+                  <Button
+                    variant="secondary"
+                    onClick={handleClearForm}
+                    disabled={loading}
+                  >
+                    🗑️ Clear All
+                  </Button>
                 )}
 
-                {/* EDIT MODE BUTTONS */}
+                {/* Product Catalog Status */}
                 {isEditMode && (
-                  <>
-                    <Button
-                      variant="secondary"
-                      onClick={cancelChanges}
-                      disabled={loading}
-                    >
-                      ❌ Cancel
-                    </Button>
-                    <Button
-                      variant="primary"
-                      onClick={saveAllData}
-                      disabled={loading || !hasFormData()}
-                    >
-                      {loading ? "💾 Saving..." : "💾 Save"}
-                    </Button>
-                  </>
+                  <Text variant="microcopy" format={{ color: 'success' }}>
+                    📦 Product Catalog: Ready
+                  </Text>
                 )}
               </Flex>
             </Flex>
