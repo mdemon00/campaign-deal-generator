@@ -73,7 +73,7 @@ exports.main = async (context) => {
 
     // Format products for UI
     const formattedProducts = filteredProducts.map(product => {
-      const priceField = `pricing${currency}`;
+      const priceField = `pricing${currency === 'R' ? 'BRL' : currency}`;
       const price = product[priceField] || "0.00";
       const isAvailable = price !== "-";
 
