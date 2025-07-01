@@ -1,5 +1,5 @@
 // src/app/extensions/components/CampaignDetails.jsx
-// Complete Fixed Version - Resolves View Mode ID Display Issues
+// Phase 1: Removed progressive saving infrastructure
 
 import React, { useState, useEffect } from "react";
 import {
@@ -12,17 +12,12 @@ import {
   Divider,
   Text,
   Button,
-  Alert,
   LoadingSpinner
 } from "@hubspot/ui-extensions";
 
 import {
   CAMPAIGN_TYPE_OPTIONS,
-  DEAL_CS_OPTIONS,
-  COMPONENT_SAVE_STATES,
-  SAVE_STATUS,
-  SAVE_STATUS_MESSAGES,
-  SAVE_STATUS_COLORS
+  DEAL_CS_OPTIONS
 } from '../utils/constants.js';
 
 const CampaignDetails = ({
@@ -30,16 +25,8 @@ const CampaignDetails = ({
   onChange,
   runServerless,
   context,
-  onSaveStatusChange,
   isEditMode = false
 }) => {
-
-  // === SAVE/LOAD STATE ===
-  const [saveState, setSaveState] = useState(COMPONENT_SAVE_STATES.NOT_SAVED);
-  const [lastSaved, setLastSaved] = useState(null);
-  const [saveError, setSaveError] = useState("");
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [initialFormData, setInitialFormData] = useState(null);
 
   // === DEAL CS STATE ===
   const [dealCS, setDealCS] = useState(DEAL_CS_OPTIONS);
@@ -60,20 +47,6 @@ const CampaignDetails = ({
 
   // === COMPONENT INITIALIZATION ===
 
-  // Load saved data on component mount (only in edit mode)
-  useEffect(() => {
-    if (context?.crm?.objectId && runServerless && isEditMode) {
-      loadCampaignDetails();
-    }
-  }, [context?.crm?.objectId, runServerless, isEditMode]);
-
-  // Load data for view mode - but quietly
-  useEffect(() => {
-    if (context?.crm?.objectId && runServerless && !isEditMode) {
-      loadCampaignDetailsForViewMode();
-    }
-  }, [context?.crm?.objectId, runServerless, isEditMode]);
-
   // Load default Deal CS data (only in edit mode)
   useEffect(() => {
     if (runServerless && isEditMode && !hasDealCSLoaded) {
@@ -81,252 +54,77 @@ const CampaignDetails = ({
     }
   }, [runServerless, isEditMode, hasDealCSLoaded]);
 
-  // 🔧 FIXED: Only update display labels in edit mode when arrays are populated
+  // Update display labels
   useEffect(() => {
-    if (isEditMode) {
+    if (!isEditMode) {
+      updateDisplayLabelsForViewMode();
+    } else {
       updateDisplayLabels();
     }
   }, [formData, dealCS, isEditMode]);
 
-  // Track form changes (only in edit mode)
-  useEffect(() => {
-    if (initialFormData && saveState === COMPONENT_SAVE_STATES.SAVED && isEditMode) {
-      const campaignDetailsFields = ['campaignType', 'taxId', 'businessName', 'dealCS'];
-      const hasChanges = campaignDetailsFields.some(key =>
-        formData[key] !== initialFormData[key]
-      );
-
-      if (hasChanges && !hasUnsavedChanges) {
-        setHasUnsavedChanges(true);
-        setSaveState(COMPONENT_SAVE_STATES.MODIFIED);
-      } else if (!hasChanges && hasUnsavedChanges) {
-        setHasUnsavedChanges(false);
-        setSaveState(COMPONENT_SAVE_STATES.SAVED);
-      }
-    }
-  }, [formData, initialFormData, saveState, hasUnsavedChanges, isEditMode]);
-
   // === DISPLAY LABEL FUNCTIONS ===
   const updateDisplayLabels = () => {
+    if (!isEditMode) return;
+    
     const newLabels = { ...displayLabels };
 
-    // 🔧 FIXED: Don't overwrite existing labels in view mode
-    // Only update labels when in edit mode and arrays are populated
-
     // Campaign Type
-    if (!displayLabels.campaignType || isEditMode) {
-      const selectedCampaignType = CAMPAIGN_TYPE_OPTIONS.find(t => t.value === formData.campaignType);
-      if (selectedCampaignType) {
-        newLabels.campaignType = selectedCampaignType.label;
-      }
+    const selectedCampaignType = CAMPAIGN_TYPE_OPTIONS.find(t => t.value === formData.campaignType);
+    if (selectedCampaignType) {
+      newLabels.campaignType = selectedCampaignType.label;
     }
 
     // Deal CS
-    if (!displayLabels.dealCS || isEditMode) {
-      const selectedDealCS = dealCS.find(cs => cs.value === formData.dealCS);
-      if (selectedDealCS) {
-        newLabels.dealCS = selectedDealCS.label;
-      }
+    const selectedDealCS = dealCS.find(cs => cs.value === formData.dealCS);
+    if (selectedDealCS) {
+      newLabels.dealCS = selectedDealCS.label;
     }
 
     setDisplayLabels(newLabels);
   };
 
-  // === 🔧 FIXED: Enhanced View Mode Loading ===
-  const loadCampaignDetailsForViewMode = async () => {
-    if (!runServerless || !context?.crm?.objectId) return;
+  const updateDisplayLabelsForViewMode = async () => {
+    if (isEditMode) return;
 
-    try {
-      const response = await runServerless({
-        name: "loadCampaignDetails",
-        parameters: {
-          campaignDealId: context.crm.objectId
-        }
-      });
+    const newDisplayLabels = {};
 
-      if (response?.status === "SUCCESS" && response?.response?.data) {
-        const data = response.response.data;
+    // Campaign Type - find from constants
+    const selectedCampaignType = CAMPAIGN_TYPE_OPTIONS.find(t => t.value === formData.campaignType);
+    newDisplayLabels.campaignType = selectedCampaignType?.label || formData.campaignType || "";
 
-        // Populate form with loaded data (quietly, no state changes for save tracking)
-        const campaignDetailsFields = ['campaignType', 'taxId', 'businessName', 'dealCS'];
-        campaignDetailsFields.forEach(key => {
-          if (data.formData[key] !== formData[key]) {
-            onChange(key, data.formData[key]);
+    // Deal CS - Handle association data OR fallback gracefully
+    if (formData.dealCS && !displayLabels.dealCS) {
+      try {
+        const dealCSLookupResponse = await runServerless({
+          name: "searchDealOwners",
+          parameters: {
+            searchTerm: "",
+            loadAll: false,
+            limit: 100
           }
         });
-
-        // 🔧 FIXED: Set display labels directly from association data with proper fallbacks
-        const newDisplayLabels = {};
         
-        // Campaign Type - find from constants
-        const selectedCampaignType = CAMPAIGN_TYPE_OPTIONS.find(t => t.value === data.formData.campaignType);
-        newDisplayLabels.campaignType = selectedCampaignType?.label || data.formData.campaignType || "";
-
-        // Deal CS - Handle association data OR fallback gracefully
-        if (data.associations?.dealCS) {
-          // Best case: we have association data with the label
-          newDisplayLabels.dealCS = data.associations.dealCS.label;
-        } else if (data.formData.dealCS) {
-          // Fallback: Try to fetch Deal CS info for this specific ID
-          try {
-            const dealCSLookupResponse = await runServerless({
-              name: "searchDealOwners",
-              parameters: {
-                searchTerm: "",
-                loadAll: false,
-                limit: 100 // Load enough to find the specific ID
-              }
-            });
-            
-            if (dealCSLookupResponse?.status === "SUCCESS" && dealCSLookupResponse?.response?.data) {
-              const dealCSOptions = dealCSLookupResponse.response.data.options || [];
-              const foundDealCS = dealCSOptions.find(cs => cs.value === data.formData.dealCS);
-              
-              if (foundDealCS) {
-                newDisplayLabels.dealCS = foundDealCS.label;
-              } else {
-                // Still not found, use user-friendly fallback
-                newDisplayLabels.dealCS = `CS Representative (${data.formData.dealCS})`;
-              }
-            } else {
-              // API call failed, use user-friendly fallback
-              newDisplayLabels.dealCS = `CS Representative (${data.formData.dealCS})`;
-            }
-          } catch (lookupError) {
-            console.warn("Could not lookup Deal CS details for view mode:", lookupError);
-            // Final fallback: user-friendly display
-            newDisplayLabels.dealCS = `CS Representative (${data.formData.dealCS})`;
+        if (dealCSLookupResponse?.status === "SUCCESS" && dealCSLookupResponse?.response?.data) {
+          const dealCSOptions = dealCSLookupResponse.response.data.options || [];
+          const foundDealCS = dealCSOptions.find(cs => cs.value === formData.dealCS);
+          
+          if (foundDealCS) {
+            newDisplayLabels.dealCS = foundDealCS.label;
+          } else {
+            newDisplayLabels.dealCS = `CS Representative (${formData.dealCS})`;
           }
         } else {
-          newDisplayLabels.dealCS = "";
+          newDisplayLabels.dealCS = `CS Representative (${formData.dealCS})`;
         }
-        
-        // 🔧 CRITICAL: Set display labels directly, bypassing updateDisplayLabels
-        setDisplayLabels(newDisplayLabels);
-
-        console.log("✅ Campaign details loaded for view mode with enhanced display labels:", newDisplayLabels);
+      } catch (lookupError) {
+        console.warn("Could not lookup Deal CS details for view mode:", lookupError);
+        newDisplayLabels.dealCS = `CS Representative (${formData.dealCS})`;
       }
-    } catch (error) {
-      console.warn("Could not load campaign details for view mode:", error);
     }
-  };
-
-  // === SAVE/LOAD FUNCTIONS ===
-  const loadCampaignDetails = async () => {
-    if (!runServerless || !context?.crm?.objectId) return;
-
-    setSaveState(COMPONENT_SAVE_STATES.LOADING);
-    setSaveError("");
-
-    try {
-      const response = await runServerless({
-        name: "loadCampaignDetails",
-        parameters: {
-          campaignDealId: context.crm.objectId
-        }
-      });
-
-      if (response?.status === "SUCCESS" && response?.response?.data) {
-        const data = response.response.data;
-
-        // Populate form with loaded data
-        const campaignDetailsFields = ['campaignType', 'taxId', 'businessName', 'dealCS'];
-        campaignDetailsFields.forEach(key => {
-          if (data.formData[key] !== formData[key]) {
-            onChange(key, data.formData[key]);
-          }
-        });
-
-        // Update display labels from association data and form data
-        const newDisplayLabels = { ...displayLabels };
-        
-        // Campaign Type - find from constants
-        const selectedCampaignType = CAMPAIGN_TYPE_OPTIONS.find(t => t.value === data.formData.campaignType);
-        newDisplayLabels.campaignType = selectedCampaignType?.label || data.formData.campaignType || "";
-
-        if (data.associations?.dealCS) {
-          newDisplayLabels.dealCS = data.associations.dealCS.label;
-          setDealCSSearchTerm(data.associations.dealCS.label);
-        }
-        
-        setDisplayLabels(newDisplayLabels);
-
-        // Store initial form data for change tracking
-        setInitialFormData(data.formData);
-        setLastSaved(data.metadata?.lastSaved);
-        setSaveState(data.saveStatus === 'Saved' ? COMPONENT_SAVE_STATES.SAVED : COMPONENT_SAVE_STATES.NOT_SAVED);
-        setHasUnsavedChanges(false);
-
-        // Notify parent component
-        if (onSaveStatusChange) {
-          onSaveStatusChange({
-            status: data.saveStatus,
-            lastSaved: data.metadata?.lastSaved,
-            hasData: !!(data.formData.campaignType || data.formData.taxId || data.formData.businessName || data.formData.dealCS)
-          });
-        }
-
-        console.log("✅ Campaign details loaded successfully with display labels:", newDisplayLabels);
-      } else {
-        throw new Error(response?.response?.message || "Failed to load campaign details");
-      }
-    } catch (error) {
-      console.error("❌ Error loading campaign details:", error);
-      setSaveError(`Failed to load: ${error.message}`);
-      setSaveState(COMPONENT_SAVE_STATES.ERROR);
-    }
-  };
-
-  const saveCampaignDetails = async () => {
-    if (!runServerless || !context?.crm?.objectId) return;
-
-    setSaveState(COMPONENT_SAVE_STATES.SAVING);
-    setSaveError("");
-
-    try {
-      const response = await runServerless({
-        name: "saveCampaignDetails",
-        parameters: {
-          campaignDealId: context.crm.objectId,
-          campaignType: formData.campaignType,
-          taxId: formData.taxId,
-          businessName: formData.businessName,
-          dealCS: formData.dealCS,
-          createdBy: `${context?.user?.firstName || ''} ${context?.user?.lastName || ''}`.trim()
-        }
-      });
-
-      if (response?.status === "SUCCESS" && response?.response?.data) {
-        const data = response.response.data;
-
-        // Update tracking state
-        setInitialFormData({ 
-          campaignType: formData.campaignType,
-          taxId: formData.taxId,
-          businessName: formData.businessName,
-          dealCS: formData.dealCS
-        });
-        setLastSaved(new Date().toISOString().split('T')[0]);
-        setSaveState(COMPONENT_SAVE_STATES.SAVED);
-        setHasUnsavedChanges(false);
-
-        // Notify parent component
-        if (onSaveStatusChange) {
-          onSaveStatusChange({
-            status: 'Saved',
-            lastSaved: data.savedAt,
-            hasData: true
-          });
-        }
-
-        console.log("✅ Campaign details saved successfully");
-      } else {
-        throw new Error(response?.response?.message || "Failed to save campaign details");
-      }
-    } catch (error) {
-      console.error("❌ Error saving campaign details:", error);
-      setSaveError(`Failed to save: ${error.message}`);
-      setSaveState(COMPONENT_SAVE_STATES.ERROR);
+    
+    if (Object.keys(newDisplayLabels).length > 0) {
+      setDisplayLabels(prev => ({ ...prev, ...newDisplayLabels }));
     }
   };
 
@@ -467,36 +265,6 @@ const CampaignDetails = ({
     setLastDealCSSearchTerm("");
   };
 
-  // === UI HELPER FUNCTIONS ===
-  const getSaveStatusDisplay = () => {
-    const message = SAVE_STATUS_MESSAGES[saveState] || SAVE_STATUS_MESSAGES[COMPONENT_SAVE_STATES.NOT_SAVED];
-    const color = SAVE_STATUS_COLORS[saveState] || SAVE_STATUS_COLORS[COMPONENT_SAVE_STATES.NOT_SAVED];
-
-    let statusText = message;
-    if (saveState === COMPONENT_SAVE_STATES.SAVED && lastSaved) {
-      statusText = `${message} on ${lastSaved}`;
-    }
-
-    return { message: statusText, color };
-  };
-
-  const shouldShowSaveButton = () => {
-    return isEditMode && (
-      saveState === COMPONENT_SAVE_STATES.NOT_SAVED ||
-      saveState === COMPONENT_SAVE_STATES.MODIFIED ||
-      saveState === COMPONENT_SAVE_STATES.ERROR
-    );
-  };
-
-  const isSaveDisabled = () => {
-    return saveState === COMPONENT_SAVE_STATES.SAVING ||
-           saveState === COMPONENT_SAVE_STATES.LOADING ||
-           !formData.campaignType ||
-           !formData.taxId ||
-           !formData.businessName ||
-           !formData.dealCS;
-  };
-
   // === STATUS MESSAGES ===
   const getDealCSStatusMessage = () => {
     if (!isEditMode) return "";
@@ -513,26 +281,10 @@ const CampaignDetails = ({
     return "";
   };
 
-  const statusDisplay = getSaveStatusDisplay();
-
   return (
     <Tile>
       <Flex justify="space-between" align="center">
         <Heading>Campaign Details</Heading>
-
-        {/* Save Status Display - Only show in Edit Mode */}
-        {isEditMode && (
-          <Flex align="center" gap="small">
-            <Text
-              variant="microcopy"
-              format={{ color: statusDisplay.color }}
-            >
-              {statusDisplay.message}
-            </Text>
-            {saveState === COMPONENT_SAVE_STATES.SAVING && <LoadingSpinner size="xs" />}
-            {saveState === COMPONENT_SAVE_STATES.LOADING && <LoadingSpinner size="xs" />}
-          </Flex>
-        )}
 
         {/* VIEW MODE INDICATOR */}
         {!isEditMode && (
@@ -543,15 +295,6 @@ const CampaignDetails = ({
       </Flex>
 
       <Divider />
-
-      {/* Save Error Alert - Only show in Edit Mode */}
-      {isEditMode && saveError && (
-        <Box marginTop="small" marginBottom="medium">
-          <Alert variant="error">
-            {saveError}
-          </Alert>
-        </Box>
-      )}
 
       <Box marginTop="medium">
         <Flex direction="row" gap="medium" wrap="wrap">
@@ -645,7 +388,7 @@ const CampaignDetails = ({
               )}
 
               {/* View Mode: Simple Input Display with proper label */}
-              {!isEditMode && (
+              {!isEditMode ? (
                 <Input
                   label="Deal CS *"
                   name="dealCS"
@@ -656,99 +399,86 @@ const CampaignDetails = ({
                   }
                   readOnly={true}
                 />
-              )}
-
-              {/* Edit Mode: Search or Select */}
-              {isEditMode && useDealCSSearchMode ? (
-                <Flex gap="small" direction="row" align="end">
-                  <Box flex={1}>
-                    <Input
-                      label="Search CS Representatives *"
-                      name="searchDealCS"
-                      placeholder="Enter CS rep name..."
-                      value={dealCSSearchTerm}
-                      onChange={(value) => setDealCSSearchTerm(value)}
-                      disabled={isDealCSLoading || isDealCSSearching}
-                    />
-                  </Box>
-                  <Box>
-                    <Button 
-                      onClick={performDealCSSearch}
-                      disabled={!dealCSSearchTerm.trim() || isDealCSSearching || isDealCSLoading}
-                    >
-                      {isDealCSSearching ? <LoadingSpinner size="xs" /> : "🔍"}
-                    </Button>
-                  </Box>
-                </Flex>
-              ) : isEditMode ? (
-                <Select
-                  label="Deal CS *"
-                  name="dealCS"
-                  options={dealCS}
-                  value={formData.dealCS}
-                  onChange={(value) => handleFieldChange("dealCS", value)}
-                  required
-                  disabled={isDealCSLoading}
-                />
-              ) : null}
-
-              {/* Search Results - Only in Edit Mode */}
-              {isEditMode && useDealCSSearchMode && lastDealCSSearchTerm && dealCS.length > 1 && (
-                <Box marginTop="small">
-                  <Select
-                    label="Select from search results"
-                    name="dealCSSearchResults"
-                    options={dealCS}
-                    value={formData.dealCS}
-                    onChange={(value) => handleFieldChange("dealCS", value)}
-                    disabled={isDealCSSearching}
-                  />
-                </Box>
-              )}
-
-              {/* Status Messages - Only in Edit Mode */}
-              {getDealCSStatusMessage() && (
-                <Text variant="microcopy" format={{ color: 'medium' }}>
-                  {getDealCSStatusMessage()}
-                </Text>
-              )}
-
-              {/* Error Messages - Only in Edit Mode */}
-              {isEditMode && dealCSErrorMessage && (
-                <Box marginTop="extra-small">
-                  <Text variant="microcopy" format={{ color: 'error' }}>
-                    {dealCSErrorMessage}
-                  </Text>
-                  <Box marginTop="extra-small">
-                    <Button
-                      variant="secondary"
-                      size="xs"
-                      onClick={loadDefaultDealCS}
+              ) : (
+                /* Edit Mode: Search or Select */
+                <>
+                  {useDealCSSearchMode ? (
+                    <Flex gap="small" direction="row" align="end">
+                      <Box flex={1}>
+                        <Input
+                          label="Search CS Representatives *"
+                          name="searchDealCS"
+                          placeholder="Enter CS rep name..."
+                          value={dealCSSearchTerm}
+                          onChange={(value) => setDealCSSearchTerm(value)}
+                          disabled={isDealCSLoading || isDealCSSearching}
+                        />
+                      </Box>
+                      <Box>
+                        <Button 
+                          onClick={performDealCSSearch}
+                          disabled={!dealCSSearchTerm.trim() || isDealCSSearching || isDealCSLoading}
+                        >
+                          {isDealCSSearching ? <LoadingSpinner size="xs" /> : "🔍"}
+                        </Button>
+                      </Box>
+                    </Flex>
+                  ) : (
+                    <Select
+                      label="Deal CS *"
+                      name="dealCS"
+                      options={dealCS}
+                      value={formData.dealCS}
+                      onChange={(value) => handleFieldChange("dealCS", value)}
+                      required
                       disabled={isDealCSLoading}
-                    >
-                      Retry
-                    </Button>
-                  </Box>
-                </Box>
+                    />
+                  )}
+
+                  {/* Search Results */}
+                  {useDealCSSearchMode && lastDealCSSearchTerm && dealCS.length > 1 && (
+                    <Box marginTop="small">
+                      <Select
+                        label="Select from search results"
+                        name="dealCSSearchResults"
+                        options={dealCS}
+                        value={formData.dealCS}
+                        onChange={(value) => handleFieldChange("dealCS", value)}
+                        disabled={isDealCSSearching}
+                      />
+                    </Box>
+                  )}
+
+                  {/* Status Messages */}
+                  {getDealCSStatusMessage() && (
+                    <Text variant="microcopy" format={{ color: 'medium' }}>
+                      {getDealCSStatusMessage()}
+                    </Text>
+                  )}
+
+                  {/* Error Messages */}
+                  {dealCSErrorMessage && (
+                    <Box marginTop="extra-small">
+                      <Text variant="microcopy" format={{ color: 'error' }}>
+                        {dealCSErrorMessage}
+                      </Text>
+                      <Box marginTop="extra-small">
+                        <Button
+                          variant="secondary"
+                          size="xs"
+                          onClick={loadDefaultDealCS}
+                          disabled={isDealCSLoading}
+                        >
+                          Retry
+                        </Button>
+                      </Box>
+                    </Box>
+                  )}
+                </>
               )}
             </Box>
           </Flex>
         </Box>
-
-        {/* Save Button - Only show in Edit Mode */}
-        {shouldShowSaveButton() && (
-          <Box marginTop="medium">
-            <Flex justify="end">
-              <Button
-                variant="primary"
-                onClick={saveCampaignDetails}
-                disabled={isSaveDisabled()}
-              >
-                {saveState === COMPONENT_SAVE_STATES.SAVING ? "Saving..." : "💾 Save Campaign Details"}
-              </Button>
-            </Flex>
-          </Box>
-        )}
       </Box>
     </Tile>
   );

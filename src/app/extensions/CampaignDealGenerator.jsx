@@ -1,5 +1,5 @@
-// src/app/extensions/CampaignDealGeneratorFixed.jsx
-// Corrected version with NO HTML elements - only HubSpot UI components
+// src/app/extensions/CampaignDealGenerator.jsx
+// Phase 1: Removed progressive saving infrastructure
 
 import React, { useState, useEffect } from "react";
 import {
@@ -18,14 +18,10 @@ import TestConnection from './components/TestConnection.jsx';
 import BasicInformation from './components/BasicInformation.jsx';
 import CampaignDetails from './components/CampaignDetails.jsx';
 import LineItems from './components/LineItems.jsx';
-import CampaignSummary from './components/CampaignSummary.jsx';
 
 // Import utilities
 import {
-  INITIAL_FORM_STATE,
-  COMPONENT_SAVE_STATES,
-  SAVE_STATUS,
-  SAVE_STATUS_MESSAGES
+  INITIAL_FORM_STATE
 } from './utils/constants.js';
 
 hubspot.extend(({ context, runServerlessFunction, actions }) => (
@@ -54,25 +50,6 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
   // === FORM STATE ===
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
   const [lineItems, setLineItems] = useState([]);
-
-  // === SAVE STATUS TRACKING ===
-  const [basicInfoSaveStatus, setBasicInfoSaveStatus] = useState({
-    status: 'not_saved',
-    lastSaved: null,
-    hasData: false
-  });
-
-  const [campaignDetailsSaveStatus, setCampaignDetailsSaveStatus] = useState({
-    status: 'not_saved',
-    lastSaved: null,
-    hasData: false
-  });
-
-  const [lineItemsSaveStatus, setLineItemsSaveStatus] = useState({
-    status: 'not_saved',
-    lastSaved: null,
-    hasData: false
-  });
 
   // === INITIAL DATA LOADING ===
   useEffect(() => {
@@ -117,12 +94,6 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
           }
         });
 
-        setBasicInfoSaveStatus({
-          status: data.saveStatus || 'not_saved',
-          lastSaved: data.metadata?.lastSaved,
-          hasData: !!(data.formData.campaignName || data.formData.commercialAgreement)
-        });
-
         console.log("✅ Basic information loaded quietly for view mode");
       }
     } catch (error) {
@@ -147,12 +118,6 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
           }
         });
 
-        setCampaignDetailsSaveStatus({
-          status: data.saveStatus || 'not_saved',
-          lastSaved: data.metadata?.lastSaved,
-          hasData: !!(data.formData.campaignType || data.formData.taxId || data.formData.businessName || data.formData.dealCS)
-        });
-
         console.log("✅ Campaign details loaded quietly for view mode");
       }
     } catch (error) {
@@ -171,12 +136,6 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
         const data = response.response.data;
 
         setLineItems(data.lineItems || []);
-
-        setLineItemsSaveStatus({
-          status: data.saveStatus || 'not_saved',
-          lastSaved: data.metadata?.lastSaved,
-          hasData: data.lineItems && data.lineItems.length > 0
-        });
 
         console.log("✅ Line items loaded quietly for view mode");
       }
@@ -223,40 +182,6 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
     setTimeout(() => setAlertMessage(""), 4000);
   };
 
-  // === SAVE STATUS HANDLERS ===
-  const handleBasicInfoSaveStatusChange = (statusData) => {
-    setBasicInfoSaveStatus(statusData);
-
-    if (statusData.status === 'Saved') {
-      sendAlert({
-        message: "✅ Basic information saved successfully!",
-        variant: "success"
-      });
-    }
-  };
-
-  const handleCampaignDetailsSaveStatusChange = (statusData) => {
-    setCampaignDetailsSaveStatus(statusData);
-
-    if (statusData.status === 'Saved') {
-      sendAlert({
-        message: "✅ Campaign details saved successfully!",
-        variant: "success"
-      });
-    }
-  };
-
-  const handleLineItemsSaveStatusChange = (statusData) => {
-    setLineItemsSaveStatus(statusData);
-
-    if (statusData.status === 'Saved') {
-      sendAlert({
-        message: "✅ Line items saved successfully!",
-        variant: "success"
-      });
-    }
-  };
-
   // === UTILITY FUNCTIONS ===
   const handleClearForm = () => {
     if (!isEditMode) {
@@ -269,21 +194,6 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
 
     setFormData(INITIAL_FORM_STATE);
     setLineItems([]);
-    setBasicInfoSaveStatus({
-      status: 'not_saved',
-      lastSaved: null,
-      hasData: false
-    });
-    setCampaignDetailsSaveStatus({
-      status: 'not_saved',
-      lastSaved: null,
-      hasData: false
-    });
-    setLineItemsSaveStatus({
-      status: 'not_saved',
-      lastSaved: null,
-      hasData: false
-    });
     handleAlert({
       message: "Form cleared successfully",
       variant: "success"
@@ -291,37 +201,18 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
   };
 
   // === UI STATE CALCULATIONS ===
-  const getOverallProgress = () => {
-    let progress = 0;
-    let total = 3;
-
-    if (basicInfoSaveStatus.status === 'Saved') {
-      progress += 1;
-    } else if (basicInfoSaveStatus.hasData) {
-      progress += 0.5;
-    }
-
-    if (campaignDetailsSaveStatus.status === 'Saved') {
-      progress += 1;
-    } else if (campaignDetailsSaveStatus.hasData) {
-      progress += 0.5;
-    }
-
-    if (lineItemsSaveStatus.status === 'Saved') {
-      progress += 1;
-    } else if (lineItemsSaveStatus.hasData) {
-      progress += 0.5;
-    }
-
-    return { progress, total, percentage: Math.round((progress / total) * 100) };
-  };
-
-  const progressInfo = getOverallProgress();
-
-  const getProgressColor = () => {
-    if (progressInfo.percentage >= 100) return "success";
-    if (progressInfo.percentage >= 50) return "warning";
-    return "medium";
+  const hasFormData = () => {
+    return !!(
+      formData.campaignName ||
+      formData.commercialAgreement ||
+      formData.advertiser ||
+      formData.dealOwner ||
+      formData.campaignType ||
+      formData.taxId ||
+      formData.businessName ||
+      formData.dealCS ||
+      lineItems.length > 0
+    );
   };
 
   const getModeDisplayInfo = () => {
@@ -362,23 +253,12 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
           </Box>
 
           <Flex align="center" gap="medium">
-            {/* Progress Indicator */}
-            <Box>
-              <Text
-                variant="microcopy"
-                format={{
-                  color: getProgressColor(),
-                  fontWeight: "bold"
-                }}
-              >
-                📊 Progress: {progressInfo.progress}/{progressInfo.total} ({progressInfo.percentage}%)
+            {/* Data Status */}
+            {hasFormData() && (
+              <Text variant="microcopy" format={{ color: 'success' }}>
+                📊 Campaign data loaded
               </Text>
-              <Text variant="microcopy" format={{ color: 'medium' }}>
-                {basicInfoSaveStatus.status === 'Saved' ? "✅ Basic Info" : "⏳ Basic Info"} |
-                {campaignDetailsSaveStatus.status === 'Saved' ? "✅ Details" : "⏳ Details"} |
-                {lineItemsSaveStatus.status === 'Saved' ? "✅ Line Items" : "⏳ Line Items"}
-              </Text>
-            </Box>
+            )}
 
             {/* MODE TOGGLE BUTTON */}
             <Button
@@ -430,19 +310,9 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
               onChange={handleFormChange}
               runServerless={runServerless}
               context={context}
-              onSaveStatusChange={handleBasicInfoSaveStatusChange}
               isEditMode={isEditMode}
             />
           </Box>
-
-          {/* Basic Info Status Alert */}
-          {isEditMode && basicInfoSaveStatus.status !== 'Saved' && basicInfoSaveStatus.hasData && (
-            <Box>
-              <Alert variant="warning">
-                ⚠️ Basic Information has unsaved changes. Please save before proceeding to Campaign Details.
-              </Alert>
-            </Box>
-          )}
 
           {/* CAMPAIGN DETAILS */}
           <Box>
@@ -451,21 +321,11 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
               onChange={handleFormChange}
               runServerless={runServerless}
               context={context}
-              onSaveStatusChange={handleCampaignDetailsSaveStatusChange}
               isEditMode={isEditMode}
             />
           </Box>
 
-          {/* Campaign Details Status Alert */}
-          {isEditMode && campaignDetailsSaveStatus.status !== 'Saved' && campaignDetailsSaveStatus.hasData && (
-            <Box>
-              <Alert variant="warning">
-                ⚠️ Campaign Details have unsaved changes. Please save to lock in your progress.
-              </Alert>
-            </Box>
-          )}
-
-          {/* ENHANCED LINE ITEMS SECTION */}
+          {/* LINE ITEMS SECTION */}
           <Box>
             <LineItems
               lineItems={lineItems}
@@ -473,28 +333,8 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
               onAlert={handleAlert}
               runServerless={runServerless}
               context={context}
-              onSaveStatusChange={handleLineItemsSaveStatusChange}
               isEditMode={isEditMode}
               currency={formData.currency || "MXN"}
-            />
-          </Box>
-
-          {/* Line Items Status Alert */}
-          {isEditMode && lineItemsSaveStatus.status !== 'Saved' && lineItemsSaveStatus.hasData && (
-            <Box>
-              <Alert variant="warning">
-                ⚠️ Line Items have unsaved changes. Please save to lock in your progress.
-              </Alert>
-            </Box>
-          )}
-
-          {/* CAMPAIGN SUMMARY SECTION */}
-          <Box>
-            <CampaignSummary 
-              lineItems={lineItems}
-              currency={formData.currency}
-              formData={formData}
-              isEditMode={isEditMode}
             />
           </Box>
 
@@ -503,16 +343,9 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
             <Divider />
             <Flex gap="medium" justify="space-between" align="center">
               <Box>
-                {(basicInfoSaveStatus.lastSaved || campaignDetailsSaveStatus.lastSaved || lineItemsSaveStatus.lastSaved) && (
-                  <Text variant="microcopy" format={{ color: 'medium' }}>
-                    📅 Last saved:
-                    {basicInfoSaveStatus.lastSaved && ` Basic Info (${basicInfoSaveStatus.lastSaved})`}
-                    {(basicInfoSaveStatus.lastSaved && (campaignDetailsSaveStatus.lastSaved || lineItemsSaveStatus.lastSaved)) && `, `}
-                    {campaignDetailsSaveStatus.lastSaved && ` Details (${campaignDetailsSaveStatus.lastSaved})`}
-                    {(campaignDetailsSaveStatus.lastSaved && lineItemsSaveStatus.lastSaved) && `, `}
-                    {lineItemsSaveStatus.lastSaved && ` Line Items (${lineItemsSaveStatus.lastSaved})`}
-                  </Text>
-                )}
+                <Text variant="microcopy" format={{ color: 'medium' }}>
+                  Campaign Deal Generator - Simplified Workflow
+                </Text>
               </Box>
 
               <Flex gap="medium">

@@ -1,5 +1,5 @@
 // src/app/extensions/components/BasicInformation.jsx
-// Complete Fixed Version - Resolves View Mode ID Display Issues
+// Phase 1: Removed progressive saving infrastructure
 
 import React, { useState, useEffect } from "react";
 import {
@@ -12,17 +12,12 @@ import {
   Divider,
   Text,
   Button,
-  Alert,
   LoadingSpinner
 } from "@hubspot/ui-extensions";
 
 import {
   COMMERCIAL_AGREEMENTS,
-  DEAL_OWNER_OPTIONS,
-  COMPONENT_SAVE_STATES,
-  SAVE_STATUS,
-  SAVE_STATUS_MESSAGES,
-  SAVE_STATUS_COLORS
+  DEAL_OWNER_OPTIONS
 } from '../utils/constants.js';
 
 const BasicInformation = ({
@@ -30,16 +25,8 @@ const BasicInformation = ({
   onChange,
   runServerless,
   context,
-  onSaveStatusChange,
   isEditMode = false
 }) => {
-
-  // === SAVE/LOAD STATE ===
-  const [saveState, setSaveState] = useState(COMPONENT_SAVE_STATES.NOT_SAVED);
-  const [lastSaved, setLastSaved] = useState(null);
-  const [saveError, setSaveError] = useState("");
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [initialFormData, setInitialFormData] = useState(null);
 
   // === COMMERCIAL AGREEMENTS STATE ===
   const [agreements, setAgreements] = useState(COMMERCIAL_AGREEMENTS);
@@ -83,20 +70,6 @@ const BasicInformation = ({
 
   // === COMPONENT INITIALIZATION ===
 
-  // Load saved data on component mount (only in edit mode)
-  useEffect(() => {
-    if (context?.crm?.objectId && runServerless && isEditMode) {
-      loadBasicInformation();
-    }
-  }, [context?.crm?.objectId, runServerless, isEditMode]);
-
-  // Load data for view mode - but quietly
-  useEffect(() => {
-    if (context?.crm?.objectId && runServerless && !isEditMode) {
-      loadBasicInformationForViewMode();
-    }
-  }, [context?.crm?.objectId, runServerless, isEditMode]);
-
   // Load default data for all search components (only in edit mode)
   useEffect(() => {
     if (runServerless && isEditMode) {
@@ -110,325 +83,118 @@ const BasicInformation = ({
     }
   }, [runServerless, isEditMode, formData.commercialAgreement, hasAdvertiserLoaded, hasDealOwnerLoaded]);
 
-  // 🔧 FIXED: Only update display labels in edit mode when arrays are populated
+  // Update display labels for view mode
   useEffect(() => {
-    if (isEditMode) {
+    if (!isEditMode) {
+      updateDisplayLabelsForViewMode();
+    } else {
       updateDisplayLabels();
     }
   }, [formData, agreements, advertisers, dealOwners, isEditMode]);
 
-  // Track form changes (only in edit mode)
-  useEffect(() => {
-    if (initialFormData && saveState === COMPONENT_SAVE_STATES.SAVED && isEditMode) {
-      const hasChanges = Object.keys(initialFormData).some(key =>
-        formData[key] !== initialFormData[key]
-      );
-
-      if (hasChanges && !hasUnsavedChanges) {
-        setHasUnsavedChanges(true);
-        setSaveState(COMPONENT_SAVE_STATES.MODIFIED);
-      } else if (!hasChanges && hasUnsavedChanges) {
-        setHasUnsavedChanges(false);
-        setSaveState(COMPONENT_SAVE_STATES.SAVED);
-      }
-    }
-  }, [formData, initialFormData, saveState, hasUnsavedChanges, isEditMode]);
-
   // === DISPLAY LABEL FUNCTIONS ===
   const updateDisplayLabels = () => {
+    if (!isEditMode) return;
+    
     const newLabels = { ...displayLabels };
 
-    // 🔧 FIXED: Don't overwrite existing labels in view mode
-    // Only update labels when in edit mode and arrays are populated
-
     // Commercial Agreement
-    if (!displayLabels.commercialAgreement || isEditMode) {
-      const selectedAgreement = agreements.find(a => a.value === formData.commercialAgreement);
-      if (selectedAgreement) {
-        newLabels.commercialAgreement = selectedAgreement.label;
-      }
+    const selectedAgreement = agreements.find(a => a.value === formData.commercialAgreement);
+    if (selectedAgreement) {
+      newLabels.commercialAgreement = selectedAgreement.label;
     }
 
     // Advertiser
-    if (!displayLabels.advertiser || isEditMode) {
-      const selectedAdvertiser = advertisers.find(a => a.value === formData.advertiser);
-      if (selectedAdvertiser) {
-        newLabels.advertiser = selectedAdvertiser.label;
-      }
+    const selectedAdvertiser = advertisers.find(a => a.value === formData.advertiser);
+    if (selectedAdvertiser) {
+      newLabels.advertiser = selectedAdvertiser.label;
     }
 
     // Deal Owner
-    if (!displayLabels.dealOwner || isEditMode) {
-      const selectedDealOwner = dealOwners.find(o => o.value === formData.dealOwner);
-      if (selectedDealOwner) {
-        newLabels.dealOwner = selectedDealOwner.label;
-      }
+    const selectedDealOwner = dealOwners.find(o => o.value === formData.dealOwner);
+    if (selectedDealOwner) {
+      newLabels.dealOwner = selectedDealOwner.label;
     }
 
     setDisplayLabels(newLabels);
   };
 
-  // === 🔧 FIXED: Enhanced View Mode Loading ===
-  const loadBasicInformationForViewMode = async () => {
-    if (!runServerless || !context?.crm?.objectId) return;
+  const updateDisplayLabelsForViewMode = async () => {
+    if (isEditMode) return;
 
-    try {
-      const response = await runServerless({
-        name: "loadBasicInformation",
-        parameters: {
-          campaignDealId: context.crm.objectId
-        }
-      });
+    const newDisplayLabels = {};
 
-      if (response?.status === "SUCCESS" && response?.response?.data) {
-        const data = response.response.data;
-
-        // Populate form with loaded data (quietly, no state changes for save tracking)
-        Object.keys(data.formData).forEach(key => {
-          if (data.formData[key] !== formData[key]) {
-            onChange(key, data.formData[key]);
+    // For view mode, we need to fetch labels if we only have IDs
+    if (formData.commercialAgreement && !displayLabels.commercialAgreement) {
+      try {
+        const agreementResponse = await runServerless({
+          name: "searchCommercialAgreements",
+          parameters: {
+            selectedAgreementId: formData.commercialAgreement,
+            limit: 1
           }
         });
-
-        // 🔧 FIXED: Set display labels directly from association data with proper fallbacks
-        const newDisplayLabels = {};
         
-        // Commercial Agreement
-        if (data.associations?.commercialAgreement) {
-          newDisplayLabels.commercialAgreement = data.associations.commercialAgreement.label;
-        } else if (data.formData.commercialAgreement) {
-          // Try to fetch the specific agreement as fallback
-          try {
-            const agreementResponse = await runServerless({
-              name: "searchCommercialAgreements",
-              parameters: {
-                selectedAgreementId: data.formData.commercialAgreement,
-                limit: 1
-              }
-            });
-            
-            if (agreementResponse?.status === "SUCCESS" && agreementResponse?.response?.data) {
-              const foundAgreement = agreementResponse.response.data.options?.find(
-                opt => opt.value === data.formData.commercialAgreement
-              );
-              if (foundAgreement) {
-                newDisplayLabels.commercialAgreement = foundAgreement.label;
-              } else {
-                newDisplayLabels.commercialAgreement = `Agreement (${data.formData.commercialAgreement})`;
-              }
-            } else {
-              newDisplayLabels.commercialAgreement = `Agreement (${data.formData.commercialAgreement})`;
-            }
-          } catch (error) {
-            console.warn("Could not fetch agreement label:", error);
-            newDisplayLabels.commercialAgreement = `Agreement (${data.formData.commercialAgreement})`;
-          }
+        if (agreementResponse?.status === "SUCCESS" && agreementResponse?.response?.data) {
+          const foundAgreement = agreementResponse.response.data.options?.find(
+            opt => opt.value === formData.commercialAgreement
+          );
+          newDisplayLabels.commercialAgreement = foundAgreement?.label || `Agreement (${formData.commercialAgreement})`;
         } else {
-          newDisplayLabels.commercialAgreement = "";
+          newDisplayLabels.commercialAgreement = `Agreement (${formData.commercialAgreement})`;
         }
-        
-        // Advertiser
-        if (data.associations?.advertiser) {
-          newDisplayLabels.advertiser = data.associations.advertiser.label;
-        } else if (data.formData.advertiser) {
-          try {
-            const advertiserResponse = await runServerless({
-              name: "searchAdvertisers",
-              parameters: {
-                searchTerm: "",
-                limit: 100 // Load enough to potentially find it
-              }
-            });
-            
-            if (advertiserResponse?.status === "SUCCESS" && advertiserResponse?.response?.data) {
-              const foundAdvertiser = advertiserResponse.response.data.options?.find(
-                opt => opt.value === data.formData.advertiser
-              );
-              if (foundAdvertiser) {
-                newDisplayLabels.advertiser = foundAdvertiser.label;
-              } else {
-                newDisplayLabels.advertiser = `Advertiser (${data.formData.advertiser})`;
-              }
-            } else {
-              newDisplayLabels.advertiser = `Advertiser (${data.formData.advertiser})`;
-            }
-          } catch (error) {
-            console.warn("Could not fetch advertiser label:", error);
-            newDisplayLabels.advertiser = `Advertiser (${data.formData.advertiser})`;
-          }
-        } else {
-          newDisplayLabels.advertiser = "";
-        }
-        
-        // Deal Owner
-        if (data.associations?.dealOwner) {
-          newDisplayLabels.dealOwner = data.associations.dealOwner.label;
-        } else if (data.formData.dealOwner) {
-          try {
-            const ownerResponse = await runServerless({
-              name: "searchDealOwners",
-              parameters: {
-                searchTerm: "",
-                limit: 100
-              }
-            });
-            
-            if (ownerResponse?.status === "SUCCESS" && ownerResponse?.response?.data) {
-              const foundOwner = ownerResponse.response.data.options?.find(
-                opt => opt.value === data.formData.dealOwner
-              );
-              if (foundOwner) {
-                newDisplayLabels.dealOwner = foundOwner.label;
-              } else {
-                newDisplayLabels.dealOwner = `Owner (${data.formData.dealOwner})`;
-              }
-            } else {
-              newDisplayLabels.dealOwner = `Owner (${data.formData.dealOwner})`;
-            }
-          } catch (error) {
-            console.warn("Could not fetch deal owner label:", error);
-            newDisplayLabels.dealOwner = `Owner (${data.formData.dealOwner})`;
-          }
-        } else {
-          newDisplayLabels.dealOwner = "";
-        }
-        
-        // 🔧 CRITICAL: Set display labels directly, bypassing updateDisplayLabels
-        setDisplayLabels(newDisplayLabels);
-
-        console.log("✅ Basic information loaded for view mode with enhanced display labels:", newDisplayLabels);
+      } catch (error) {
+        newDisplayLabels.commercialAgreement = `Agreement (${formData.commercialAgreement})`;
       }
-    } catch (error) {
-      console.warn("Could not load basic information for view mode:", error);
     }
-  };
 
-  // === SAVE/LOAD FUNCTIONS ===
-  const loadBasicInformation = async () => {
-    if (!runServerless || !context?.crm?.objectId) return;
-
-    setSaveState(COMPONENT_SAVE_STATES.LOADING);
-    setSaveError("");
-
-    try {
-      const response = await runServerless({
-        name: "loadBasicInformation",
-        parameters: {
-          campaignDealId: context.crm.objectId
-        }
-      });
-
-      if (response?.status === "SUCCESS" && response?.response?.data) {
-        const data = response.response.data;
-
-        // Populate form with loaded data
-        Object.keys(data.formData).forEach(key => {
-          if (data.formData[key] !== formData[key]) {
-            onChange(key, data.formData[key]);
-          }
+    // Similar logic for advertiser and deal owner...
+    if (formData.advertiser && !displayLabels.advertiser) {
+      try {
+        const advertiserResponse = await runServerless({
+          name: "searchAdvertisers",
+          parameters: { searchTerm: "", limit: 100 }
         });
-
-        // Update display labels from association data
-        const newDisplayLabels = { ...displayLabels };
         
-        if (data.associations?.commercialAgreement) {
-          newDisplayLabels.commercialAgreement = data.associations.commercialAgreement.label;
-          setAgreementSearchTerm(data.associations.commercialAgreement.label);
+        if (advertiserResponse?.status === "SUCCESS" && advertiserResponse?.response?.data) {
+          const foundAdvertiser = advertiserResponse.response.data.options?.find(
+            opt => opt.value === formData.advertiser
+          );
+          newDisplayLabels.advertiser = foundAdvertiser?.label || `Advertiser (${formData.advertiser})`;
+        } else {
+          newDisplayLabels.advertiser = `Advertiser (${formData.advertiser})`;
         }
-        
-        if (data.associations?.advertiser) {
-          newDisplayLabels.advertiser = data.associations.advertiser.label;
-          setAdvertiserSearchTerm(data.associations.advertiser.label);
-        }
-        
-        if (data.associations?.dealOwner) {
-          newDisplayLabels.dealOwner = data.associations.dealOwner.label;
-          setDealOwnerSearchTerm(data.associations.dealOwner.label);
-        }
-        
-        setDisplayLabels(newDisplayLabels);
-
-        // Store initial form data for change tracking
-        setInitialFormData(data.formData);
-        setLastSaved(data.metadata?.lastSaved);
-        setSaveState(data.saveStatus === 'Saved' ? COMPONENT_SAVE_STATES.SAVED : COMPONENT_SAVE_STATES.NOT_SAVED);
-        setHasUnsavedChanges(false);
-
-        // Notify parent component
-        if (onSaveStatusChange) {
-          onSaveStatusChange({
-            status: data.saveStatus,
-            lastSaved: data.metadata?.lastSaved,
-            hasData: !!(data.formData.campaignName || data.formData.commercialAgreement)
-          });
-        }
-
-        console.log("✅ Basic information loaded successfully with display labels:", newDisplayLabels);
-      } else {
-        throw new Error(response?.response?.message || "Failed to load data");
+      } catch (error) {
+        newDisplayLabels.advertiser = `Advertiser (${formData.advertiser})`;
       }
-    } catch (error) {
-      console.error("❌ Error loading basic information:", error);
-      setSaveError(`Failed to load: ${error.message}`);
-      setSaveState(COMPONENT_SAVE_STATES.ERROR);
+    }
+
+    if (formData.dealOwner && !displayLabels.dealOwner) {
+      try {
+        const ownerResponse = await runServerless({
+          name: "searchDealOwners",
+          parameters: { searchTerm: "", limit: 100 }
+        });
+        
+        if (ownerResponse?.status === "SUCCESS" && ownerResponse?.response?.data) {
+          const foundOwner = ownerResponse.response.data.options?.find(
+            opt => opt.value === formData.dealOwner
+          );
+          newDisplayLabels.dealOwner = foundOwner?.label || `Owner (${formData.dealOwner})`;
+        } else {
+          newDisplayLabels.dealOwner = `Owner (${formData.dealOwner})`;
+        }
+      } catch (error) {
+        newDisplayLabels.dealOwner = `Owner (${formData.dealOwner})`;
+      }
+    }
+
+    if (Object.keys(newDisplayLabels).length > 0) {
+      setDisplayLabels(prev => ({ ...prev, ...newDisplayLabels }));
     }
   };
 
-  const saveBasicInformation = async () => {
-    if (!runServerless || !context?.crm?.objectId) return;
-
-    setSaveState(COMPONENT_SAVE_STATES.SAVING);
-    setSaveError("");
-
-    try {
-      const response = await runServerless({
-        name: "saveBasicInformation",
-        parameters: {
-          campaignDealId: context.crm.objectId,
-          campaignName: formData.campaignName,
-          commercialAgreement: formData.commercialAgreement,
-          advertiser: formData.advertiser,
-          dealOwner: formData.dealOwner,
-          createdBy: `${context?.user?.firstName || ''} ${context?.user?.lastName || ''}`.trim()
-        }
-      });
-
-      if (response?.status === "SUCCESS" && response?.response?.data) {
-        const data = response.response.data;
-
-        // Update company/currency from response
-        if (data.companyInfo) {
-          onChange('company', data.companyInfo.companyName);
-          onChange('currency', data.companyInfo.currency);
-        }
-
-        // Update tracking state
-        setInitialFormData({ ...formData });
-        setLastSaved(new Date().toISOString().split('T')[0]);
-        setSaveState(COMPONENT_SAVE_STATES.SAVED);
-        setHasUnsavedChanges(false);
-
-        // Notify parent component
-        if (onSaveStatusChange) {
-          onSaveStatusChange({
-            status: 'Saved',
-            lastSaved: data.savedAt,
-            hasData: true
-          });
-        }
-
-        console.log("✅ Basic information saved successfully");
-      } else {
-        throw new Error(response?.response?.message || "Failed to save data");
-      }
-    } catch (error) {
-      console.error("❌ Error saving basic information:", error);
-      setSaveError(`Failed to save: ${error.message}`);
-      setSaveState(COMPONENT_SAVE_STATES.ERROR);
-    }
-  };
-
-  // === COMMERCIAL AGREEMENTS SEARCH FUNCTIONS ===
+  // === SEARCH FUNCTIONS (keeping existing logic) ===
   const performAgreementSearch = async () => {
     if (!runServerless || !isEditMode || !agreementSearchTerm.trim()) return;
 
@@ -789,36 +555,6 @@ const BasicInformation = ({
     setLastDealOwnerSearchTerm("");
   };
 
-  // === UI HELPER FUNCTIONS ===
-  const getSaveStatusDisplay = () => {
-    const message = SAVE_STATUS_MESSAGES[saveState] || SAVE_STATUS_MESSAGES[COMPONENT_SAVE_STATES.NOT_SAVED];
-    const color = SAVE_STATUS_COLORS[saveState] || SAVE_STATUS_COLORS[COMPONENT_SAVE_STATES.NOT_SAVED];
-
-    let statusText = message;
-    if (saveState === COMPONENT_SAVE_STATES.SAVED && lastSaved) {
-      statusText = `${message} on ${lastSaved}`;
-    }
-
-    return { message: statusText, color };
-  };
-
-  const shouldShowSaveButton = () => {
-    return isEditMode && (
-      saveState === COMPONENT_SAVE_STATES.NOT_SAVED ||
-      saveState === COMPONENT_SAVE_STATES.MODIFIED ||
-      saveState === COMPONENT_SAVE_STATES.ERROR
-    );
-  };
-
-  const isSaveDisabled = () => {
-    return saveState === COMPONENT_SAVE_STATES.SAVING ||
-           saveState === COMPONENT_SAVE_STATES.LOADING ||
-           !formData.campaignName ||
-           !formData.commercialAgreement ||
-           !formData.advertiser ||
-           !formData.dealOwner;
-  };
-
   // === STATUS MESSAGES ===
   const getAgreementStatusMessage = () => {
     if (!isEditMode) return "";
@@ -865,26 +601,10 @@ const BasicInformation = ({
     return "";
   };
 
-  const statusDisplay = getSaveStatusDisplay();
-
   return (
     <Tile>
       <Flex justify="space-between" align="center">
         <Heading>Basic Information</Heading>
-
-        {/* Save Status Display - Only show in Edit Mode */}
-        {isEditMode && (
-          <Flex align="center" gap="small">
-            <Text
-              variant="microcopy"
-              format={{ color: statusDisplay.color }}
-            >
-              {statusDisplay.message}
-            </Text>
-            {saveState === COMPONENT_SAVE_STATES.SAVING && <LoadingSpinner size="xs" />}
-            {saveState === COMPONENT_SAVE_STATES.LOADING && <LoadingSpinner size="xs" />}
-          </Flex>
-        )}
 
         {/* VIEW MODE INDICATOR */}
         {!isEditMode && (
@@ -895,15 +615,6 @@ const BasicInformation = ({
       </Flex>
 
       <Divider />
-
-      {/* Save Error Alert - Only show in Edit Mode */}
-      {isEditMode && saveError && (
-        <Box marginTop="small" marginBottom="medium">
-          <Alert variant="error">
-            {saveError}
-          </Alert>
-        </Box>
-      )}
 
       <Box marginTop="medium">
         <Flex direction="row" gap="medium" wrap="wrap">
@@ -954,7 +665,7 @@ const BasicInformation = ({
             )}
 
             {/* View Mode: Simple Input Display */}
-            {!isEditMode && (
+            {!isEditMode ? (
               <Input
                 label="Commercial Agreement *"
                 name="commercialAgreement"
@@ -965,80 +676,82 @@ const BasicInformation = ({
                 }
                 readOnly={true}
               />
-            )}
-
-            {/* Edit Mode: Search or Select */}
-            {isEditMode && useAgreementSearchMode ? (
-              <Flex gap="small" direction="row" align="end">
-                <Box flex={1}>
-                  <Input
-                    label="Search Commercial Agreements *"
-                    name="searchAgreements"
-                    placeholder="Enter agreement name..."
-                    value={agreementSearchTerm}
-                    onChange={(value) => setAgreementSearchTerm(value)}
-                    disabled={isAgreementLoading || isAgreementSearching}
-                  />
-                </Box>
-                <Box>
-                  <Button 
-                    onClick={performAgreementSearch}
-                    disabled={!agreementSearchTerm.trim() || isAgreementSearching || isAgreementLoading}
-                  >
-                    {isAgreementSearching ? <LoadingSpinner size="xs" /> : "🔍"}
-                  </Button>
-                </Box>
-              </Flex>
-            ) : isEditMode ? (
-              <Select
-                label="Commercial Agreement *"
-                name="commercialAgreement"
-                options={agreements}
-                value={formData.commercialAgreement}
-                onChange={(value) => handleFieldChange("commercialAgreement", value)}
-                required
-                disabled={isAgreementLoading}
-              />
-            ) : null}
-
-            {/* Search Results Select - Only in Edit Mode */}
-            {isEditMode && useAgreementSearchMode && lastAgreementSearchTerm && agreements.length > 1 && (
-              <Box marginTop="small">
-                <Select
-                  label="Select from search results"
-                  name="searchResults"
-                  options={agreements}
-                  value={formData.commercialAgreement}
-                  onChange={(value) => handleFieldChange("commercialAgreement", value)}
-                  disabled={isAgreementSearching}
-                />
-              </Box>
-            )}
-
-            {/* Status Messages - Only in Edit Mode */}
-            {getAgreementStatusMessage() && (
-              <Text variant="microcopy" format={{ color: 'medium' }}>
-                {getAgreementStatusMessage()}
-              </Text>
-            )}
-
-            {/* Error Messages - Only in Edit Mode */}
-            {isEditMode && agreementErrorMessage && (
-              <Box marginTop="extra-small">
-                <Text variant="microcopy" format={{ color: 'error' }}>
-                  {agreementErrorMessage}
-                </Text>
-                <Box marginTop="extra-small">
-                  <Button
-                    variant="secondary"
-                    size="xs"
-                    onClick={() => loadDefaultAgreements(formData.commercialAgreement)}
+            ) : (
+              /* Edit Mode: Search or Select */
+              <>
+                {useAgreementSearchMode ? (
+                  <Flex gap="small" direction="row" align="end">
+                    <Box flex={1}>
+                      <Input
+                        label="Search Commercial Agreements *"
+                        name="searchAgreements"
+                        placeholder="Enter agreement name..."
+                        value={agreementSearchTerm}
+                        onChange={(value) => setAgreementSearchTerm(value)}
+                        disabled={isAgreementLoading || isAgreementSearching}
+                      />
+                    </Box>
+                    <Box>
+                      <Button 
+                        onClick={performAgreementSearch}
+                        disabled={!agreementSearchTerm.trim() || isAgreementSearching || isAgreementLoading}
+                      >
+                        {isAgreementSearching ? <LoadingSpinner size="xs" /> : "🔍"}
+                      </Button>
+                    </Box>
+                  </Flex>
+                ) : (
+                  <Select
+                    label="Commercial Agreement *"
+                    name="commercialAgreement"
+                    options={agreements}
+                    value={formData.commercialAgreement}
+                    onChange={(value) => handleFieldChange("commercialAgreement", value)}
+                    required
                     disabled={isAgreementLoading}
-                  >
-                    Retry
-                  </Button>
-                </Box>
-              </Box>
+                  />
+                )}
+
+                {/* Search Results Select */}
+                {useAgreementSearchMode && lastAgreementSearchTerm && agreements.length > 1 && (
+                  <Box marginTop="small">
+                    <Select
+                      label="Select from search results"
+                      name="searchResults"
+                      options={agreements}
+                      value={formData.commercialAgreement}
+                      onChange={(value) => handleFieldChange("commercialAgreement", value)}
+                      disabled={isAgreementSearching}
+                    />
+                  </Box>
+                )}
+
+                {/* Status Messages */}
+                {getAgreementStatusMessage() && (
+                  <Text variant="microcopy" format={{ color: 'medium' }}>
+                    {getAgreementStatusMessage()}
+                  </Text>
+                )}
+
+                {/* Error Messages */}
+                {agreementErrorMessage && (
+                  <Box marginTop="extra-small">
+                    <Text variant="microcopy" format={{ color: 'error' }}>
+                      {agreementErrorMessage}
+                    </Text>
+                    <Box marginTop="extra-small">
+                      <Button
+                        variant="secondary"
+                        size="xs"
+                        onClick={() => loadDefaultAgreements(formData.commercialAgreement)}
+                        disabled={isAgreementLoading}
+                      >
+                        Retry
+                      </Button>
+                    </Box>
+                  </Box>
+                )}
+              </>
             )}
           </Box>
         </Flex>
@@ -1104,7 +817,7 @@ const BasicInformation = ({
               )}
 
               {/* View Mode: Simple Input Display */}
-              {!isEditMode && (
+              {!isEditMode ? (
                 <Input
                   label="Advertiser *"
                   name="advertiser"
@@ -1115,80 +828,82 @@ const BasicInformation = ({
                   }
                   readOnly={true}
                 />
-              )}
-
-              {/* Edit Mode: Search or Select */}
-              {isEditMode && useAdvertiserSearchMode ? (
-                <Flex gap="small" direction="row" align="end">
-                  <Box flex={1}>
-                    <Input
-                      label="Search Advertisers *"
-                      name="searchAdvertisers"
-                      placeholder="Enter advertiser name..."
-                      value={advertiserSearchTerm}
-                      onChange={(value) => setAdvertiserSearchTerm(value)}
-                      disabled={isAdvertiserLoading || isAdvertiserSearching}
-                    />
-                  </Box>
-                  <Box>
-                    <Button 
-                      onClick={performAdvertiserSearch}
-                      disabled={!advertiserSearchTerm.trim() || isAdvertiserSearching || isAdvertiserLoading}
-                    >
-                      {isAdvertiserSearching ? <LoadingSpinner size="xs" /> : "🔍"}
-                    </Button>
-                  </Box>
-                </Flex>
-              ) : isEditMode ? (
-                <Select
-                  label="Advertiser *"
-                  name="advertiser"
-                  options={advertisers}
-                  value={formData.advertiser}
-                  onChange={(value) => handleFieldChange("advertiser", value)}
-                  required
-                  disabled={isAdvertiserLoading}
-                />
-              ) : null}
-
-              {/* Search Results - Only in Edit Mode */}
-              {isEditMode && useAdvertiserSearchMode && lastAdvertiserSearchTerm && advertisers.length > 1 && (
-                <Box marginTop="small">
-                  <Select
-                    label="Select from search results"
-                    name="advertiserSearchResults"
-                    options={advertisers}
-                    value={formData.advertiser}
-                    onChange={(value) => handleFieldChange("advertiser", value)}
-                    disabled={isAdvertiserSearching}
-                  />
-                </Box>
-              )}
-
-              {/* Status Messages - Only in Edit Mode */}
-              {getAdvertiserStatusMessage() && (
-                <Text variant="microcopy" format={{ color: 'medium' }}>
-                  {getAdvertiserStatusMessage()}
-                </Text>
-              )}
-
-              {/* Error Messages - Only in Edit Mode */}
-              {isEditMode && advertiserErrorMessage && (
-                <Box marginTop="extra-small">
-                  <Text variant="microcopy" format={{ color: 'error' }}>
-                    {advertiserErrorMessage}
-                  </Text>
-                  <Box marginTop="extra-small">
-                    <Button
-                      variant="secondary"
-                      size="xs"
-                      onClick={loadDefaultAdvertisers}
+              ) : (
+                /* Edit Mode: Search or Select */
+                <>
+                  {useAdvertiserSearchMode ? (
+                    <Flex gap="small" direction="row" align="end">
+                      <Box flex={1}>
+                        <Input
+                          label="Search Advertisers *"
+                          name="searchAdvertisers"
+                          placeholder="Enter advertiser name..."
+                          value={advertiserSearchTerm}
+                          onChange={(value) => setAdvertiserSearchTerm(value)}
+                          disabled={isAdvertiserLoading || isAdvertiserSearching}
+                        />
+                      </Box>
+                      <Box>
+                        <Button 
+                          onClick={performAdvertiserSearch}
+                          disabled={!advertiserSearchTerm.trim() || isAdvertiserSearching || isAdvertiserLoading}
+                        >
+                          {isAdvertiserSearching ? <LoadingSpinner size="xs" /> : "🔍"}
+                        </Button>
+                      </Box>
+                    </Flex>
+                  ) : (
+                    <Select
+                      label="Advertiser *"
+                      name="advertiser"
+                      options={advertisers}
+                      value={formData.advertiser}
+                      onChange={(value) => handleFieldChange("advertiser", value)}
+                      required
                       disabled={isAdvertiserLoading}
-                    >
-                      Retry
-                    </Button>
-                  </Box>
-                </Box>
+                    />
+                  )}
+
+                  {/* Search Results */}
+                  {useAdvertiserSearchMode && lastAdvertiserSearchTerm && advertisers.length > 1 && (
+                    <Box marginTop="small">
+                      <Select
+                        label="Select from search results"
+                        name="advertiserSearchResults"
+                        options={advertisers}
+                        value={formData.advertiser}
+                        onChange={(value) => handleFieldChange("advertiser", value)}
+                        disabled={isAdvertiserSearching}
+                      />
+                    </Box>
+                  )}
+
+                  {/* Status Messages */}
+                  {getAdvertiserStatusMessage() && (
+                    <Text variant="microcopy" format={{ color: 'medium' }}>
+                      {getAdvertiserStatusMessage()}
+                    </Text>
+                  )}
+
+                  {/* Error Messages */}
+                  {advertiserErrorMessage && (
+                    <Box marginTop="extra-small">
+                      <Text variant="microcopy" format={{ color: 'error' }}>
+                        {advertiserErrorMessage}
+                      </Text>
+                      <Box marginTop="extra-small">
+                        <Button
+                          variant="secondary"
+                          size="xs"
+                          onClick={loadDefaultAdvertisers}
+                          disabled={isAdvertiserLoading}
+                        >
+                          Retry
+                        </Button>
+                      </Box>
+                    </Box>
+                  )}
+                </>
               )}
             </Box>
           </Flex>
@@ -1230,7 +945,7 @@ const BasicInformation = ({
               )}
 
               {/* View Mode: Simple Input Display */}
-              {!isEditMode && (
+              {!isEditMode ? (
                 <Input
                   label="Deal Owner *"
                   name="dealOwner"
@@ -1241,80 +956,82 @@ const BasicInformation = ({
                   }
                   readOnly={true}
                 />
-              )}
-
-              {/* Edit Mode: Search or Select */}
-              {isEditMode && useDealOwnerSearchMode ? (
-                <Flex gap="small" direction="row" align="end">
-                  <Box flex={1}>
-                    <Input
-                      label="Search Deal Owners *"
-                      name="searchDealOwners"
-                      placeholder="Enter owner name..."
-                      value={dealOwnerSearchTerm}
-                      onChange={(value) => setDealOwnerSearchTerm(value)}
-                      disabled={isDealOwnerLoading || isDealOwnerSearching}
-                    />
-                  </Box>
-                  <Box>
-                    <Button 
-                      onClick={performDealOwnerSearch}
-                      disabled={!dealOwnerSearchTerm.trim() || isDealOwnerSearching || isDealOwnerLoading}
-                    >
-                      {isDealOwnerSearching ? <LoadingSpinner size="xs" /> : "🔍"}
-                    </Button>
-                  </Box>
-                </Flex>
-              ) : isEditMode ? (
-                <Select
-                  label="Deal Owner *"
-                  name="dealOwner"
-                  options={dealOwners}
-                  value={formData.dealOwner}
-                  onChange={(value) => handleFieldChange("dealOwner", value)}
-                  required
-                  disabled={isDealOwnerLoading}
-                />
-              ) : null}
-
-              {/* Search Results - Only in Edit Mode */}
-              {isEditMode && useDealOwnerSearchMode && lastDealOwnerSearchTerm && dealOwners.length > 1 && (
-                <Box marginTop="small">
-                  <Select
-                    label="Select from search results"
-                    name="dealOwnerSearchResults"
-                    options={dealOwners}
-                    value={formData.dealOwner}
-                    onChange={(value) => handleFieldChange("dealOwner", value)}
-                    disabled={isDealOwnerSearching}
-                  />
-                </Box>
-              )}
-
-              {/* Status Messages - Only in Edit Mode */}
-              {getDealOwnerStatusMessage() && (
-                <Text variant="microcopy" format={{ color: 'medium' }}>
-                  {getDealOwnerStatusMessage()}
-                </Text>
-              )}
-
-              {/* Error Messages - Only in Edit Mode */}
-              {isEditMode && dealOwnerErrorMessage && (
-                <Box marginTop="extra-small">
-                  <Text variant="microcopy" format={{ color: 'error' }}>
-                    {dealOwnerErrorMessage}
-                  </Text>
-                  <Box marginTop="extra-small">
-                    <Button
-                      variant="secondary"
-                      size="xs"
-                      onClick={loadDefaultDealOwners}
+              ) : (
+                /* Edit Mode: Search or Select */
+                <>
+                  {useDealOwnerSearchMode ? (
+                    <Flex gap="small" direction="row" align="end">
+                      <Box flex={1}>
+                        <Input
+                          label="Search Deal Owners *"
+                          name="searchDealOwners"
+                          placeholder="Enter owner name..."
+                          value={dealOwnerSearchTerm}
+                          onChange={(value) => setDealOwnerSearchTerm(value)}
+                          disabled={isDealOwnerLoading || isDealOwnerSearching}
+                        />
+                      </Box>
+                      <Box>
+                        <Button 
+                          onClick={performDealOwnerSearch}
+                          disabled={!dealOwnerSearchTerm.trim() || isDealOwnerSearching || isDealOwnerLoading}
+                        >
+                          {isDealOwnerSearching ? <LoadingSpinner size="xs" /> : "🔍"}
+                        </Button>
+                      </Box>
+                    </Flex>
+                  ) : (
+                    <Select
+                      label="Deal Owner *"
+                      name="dealOwner"
+                      options={dealOwners}
+                      value={formData.dealOwner}
+                      onChange={(value) => handleFieldChange("dealOwner", value)}
+                      required
                       disabled={isDealOwnerLoading}
-                    >
-                      Retry
-                    </Button>
-                  </Box>
-                </Box>
+                    />
+                  )}
+
+                  {/* Search Results */}
+                  {useDealOwnerSearchMode && lastDealOwnerSearchTerm && dealOwners.length > 1 && (
+                    <Box marginTop="small">
+                      <Select
+                        label="Select from search results"
+                        name="dealOwnerSearchResults"
+                        options={dealOwners}
+                        value={formData.dealOwner}
+                        onChange={(value) => handleFieldChange("dealOwner", value)}
+                        disabled={isDealOwnerSearching}
+                      />
+                    </Box>
+                  )}
+
+                  {/* Status Messages */}
+                  {getDealOwnerStatusMessage() && (
+                    <Text variant="microcopy" format={{ color: 'medium' }}>
+                      {getDealOwnerStatusMessage()}
+                    </Text>
+                  )}
+
+                  {/* Error Messages */}
+                  {dealOwnerErrorMessage && (
+                    <Box marginTop="extra-small">
+                      <Text variant="microcopy" format={{ color: 'error' }}>
+                        {dealOwnerErrorMessage}
+                      </Text>
+                      <Box marginTop="extra-small">
+                        <Button
+                          variant="secondary"
+                          size="xs"
+                          onClick={loadDefaultDealOwners}
+                          disabled={isDealOwnerLoading}
+                        >
+                          Retry
+                        </Button>
+                      </Box>
+                    </Box>
+                  )}
+                </>
               )}
             </Box>
 
@@ -1333,21 +1050,6 @@ const BasicInformation = ({
             </Box>
           </Flex>
         </Box>
-
-        {/* Save Button - Only show in Edit Mode */}
-        {shouldShowSaveButton() && (
-          <Box marginTop="medium">
-            <Flex justify="end">
-              <Button
-                variant="primary"
-                onClick={saveBasicInformation}
-                disabled={isSaveDisabled()}
-              >
-                {saveState === COMPONENT_SAVE_STATES.SAVING ? "Saving..." : "💾 Save Basic Information"}
-              </Button>
-            </Flex>
-          </Box>
-        )}
       </Box>
     </Tile>
   );
