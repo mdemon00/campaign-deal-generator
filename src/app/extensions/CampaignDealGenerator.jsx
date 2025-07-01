@@ -10,7 +10,8 @@ import {
   hubspot,
   Heading,
   Box,
-  Alert
+  Alert,
+  LoadingSpinner
 } from "@hubspot/ui-extensions";
 
 // Import components
@@ -81,6 +82,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
 
   // === ERROR STATE FOR UNIFIED SAVE ===
   const [saveErrors, setSaveErrors] = useState([]);
+  const [isSaving, setIsSaving] = useState(false);
 
   // === INITIAL DATA LOADING ===
   useEffect(() => {
@@ -220,7 +222,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
         return;
       }
     }
-    
+
     setIsEditMode(false);
     sendAlert({
       message: "Returned to View Mode - Changes cancelled",
@@ -286,6 +288,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
   // === UNIFIED SAVE HANDLER ===
   const handleUnifiedSave = async () => {
     setSaveErrors([]);
+    setIsSaving(true);
     let errors = [];
     if (basicInfoRef.current && basicInfoRef.current.save) {
       const err = await basicInfoRef.current.save();
@@ -300,6 +303,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
       if (err) errors.push(...(Array.isArray(err) ? err : [err]));
     }
     setSaveErrors(errors);
+    setIsSaving(false);
     // Optionally, switch out of edit mode if no errors
     if (errors.length === 0) {
       setIsEditMode(false);
@@ -478,12 +482,16 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
                 </Button>
               ) : (
                 <>
+
+                  {isSaving ? (<Flex gap="large" justify="center">
+                    <LoadingSpinner />
+                  </Flex>) : ("")}
                   <Button
                     variant="primary"
                     onClick={handleUnifiedSave}
-                    disabled={loading}
+                    disabled={loading || isSaving}
                   >
-                    Save
+                    {isSaving ? "Saving.." : "Save"}
                   </Button>
                   <Button
                     variant="secondary"
@@ -495,17 +503,16 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
                 </>
               )}
             </Flex>
-            {/* Show all errors under Save/Cancel */}
-            {isEditMode && saveErrors.length > 0 && (
-              <Box>
-                {saveErrors.map((err, idx) => (
-                  <Alert key={idx} variant="error">{err}</Alert>
-                ))}
-              </Box>
-            )}
-            <Divider />
           </Box>
 
+          {/* Show all errors under Save/Cancel */}
+          {isEditMode && saveErrors.length > 0 && (
+            <Box>
+              {saveErrors.map((err, idx) => (
+                <Alert key={idx} variant="error">{err}</Alert>
+              ))}
+            </Box>
+          )}
           {/* GLOBAL ACTIONS - EDIT MODE ONLY */}
           {isEditMode && (
             <Box>
@@ -522,7 +529,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
                     </Text>
                   )}
                 </Box>
-              
+
               </Flex>
             </Box>
           )}
