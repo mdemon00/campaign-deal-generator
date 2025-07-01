@@ -1,5 +1,5 @@
 // src/app/extensions/components/LineItems.jsx
-// Phase 1: Removed progressive saving infrastructure
+// Corrected version with NO HTML elements - only HubSpot UI components
 
 import React, { useState, useEffect } from "react";
 import {
@@ -20,12 +20,16 @@ import {
   TableHeader,
   TableBody,
   TableCell,
-  Alert
+  Alert,
+  LoadingSpinner
 } from "@hubspot/ui-extensions";
 
 import {
   COUNTRY_OPTIONS,
-  LINE_ITEM_TYPE_OPTIONS
+  LINE_ITEM_TYPE_OPTIONS,
+  COMPONENT_SAVE_STATES,
+  SAVE_STATUS_MESSAGES,
+  SAVE_STATUS_COLORS
 } from '../utils/constants.js';
 
 import { calculateLineItemTotals } from '../utils/calculations.js';
@@ -37,6 +41,7 @@ const LineItems = ({
   onAlert,
   runServerless,
   context,
+  onSaveStatusChange,
   isEditMode = false,
   currency = "MXN"
 }) => {
@@ -82,14 +87,39 @@ const LineItems = ({
     mediaTypes: []
   });
 
+  // === SAVE/LOAD STATE ===
+  const [saveState, setSaveState] = useState(COMPONENT_SAVE_STATES.NOT_SAVED);
+  const [lastSaved, setLastSaved] = useState(null);
+  const [saveError, setSaveError] = useState("");
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [initialLineItems, setInitialLineItems] = useState([]);
+
   // === COMPONENT INITIALIZATION ===
 
-  // Load product catalog on component mount
+  // Load product catalog and saved line items on component mount
   useEffect(() => {
     if (runServerless && isEditMode) {
       loadProductCatalog();
+      if (context?.crm?.objectId) {
+        loadLineItems();
+      }
     }
-  }, [runServerless, isEditMode, currency]);
+  }, [runServerless, isEditMode, context?.crm?.objectId, currency]);
+
+  // Track line items changes (only in edit mode)
+  useEffect(() => {
+    if (initialLineItems.length > 0 && saveState === COMPONENT_SAVE_STATES.SAVED && isEditMode) {
+      const hasChanges = JSON.stringify(lineItems) !== JSON.stringify(initialLineItems);
+
+      if (hasChanges && !hasUnsavedChanges) {
+        setHasUnsavedChanges(true);
+        setSaveState(COMPONENT_SAVE_STATES.MODIFIED);
+      } else if (!hasChanges && hasUnsavedChanges) {
+        setHasUnsavedChanges(false);
+        setSaveState(COMPONENT_SAVE_STATES.SAVED);
+      }
+    }
+  }, [lineItems, initialLineItems, saveState, hasUnsavedChanges, isEditMode]);
 
   // === PRODUCT CATALOG FUNCTIONS ===
   
@@ -190,7 +220,7 @@ const LineItems = ({
       ...prev,
       productId: productId,
       selectedProduct: selectedProduct,
-      price: selectedProduct.hasStandardPricing ? selectedProduct.price : 0, // Only auto-fill for standard pricing
+      price: selectedProduct.hasStandardPricing ? selectedProduct.price : 0, // ✅ Only auto-fill for standard pricing
       buyingModel: selectedProduct.buyingModel,
       units: selectedProduct.units,
       category: selectedProduct.category,
@@ -227,7 +257,7 @@ const LineItems = ({
       return;
     }
 
-    // Allow custom pricing products, just validate price is entered
+    // ✅ FIXED: Allow custom pricing products, just validate price is entered
     if (!newLineItem.selectedProduct?.hasStandardPricing && newLineItem.price <= 0) {
       onAlert({
         message: "Please enter a price for this custom pricing product",
@@ -291,16 +321,126 @@ const LineItems = ({
     });
   };
 
-  const removeLineItem = (index) => {
-    if (!isEditMode) return;
+  // === EXISTING FUNCTIONS ===
+  
+  const loadLineItems = async () => {
+    if (!runServerless || !context?.crm?.objectId) return;
 
-    const updatedItems = lineItems.filter((_, i) => i !== index);
-    onLineItemsChange(updatedItems);
+    setSaveState(COMPONENT_SAVE_STATES.LOADING);
+    setSaveError("");
 
-    onAlert({
-      message: "Line item removed successfully!",
-      variant: "success"
-    });
+    try {
+      const response = await runServerless({
+        name: "loadLineItems",
+        parameters: {
+          campaignDealId: context.crm.objectId
+        }
+      });
+
+      if (response?.status === "SUCCESS" && response?.response?.data) {
+        const data = response.response.data;
+
+        onLineItemsChange(data.lineItems || []);
+        const maxId = Math.max(0, ...data.lineItems.map(item => item.id || 0));
+        setLineItemCounter(maxId);
+        setInitialLineItems(data.lineItems || []);
+        setLastSaved(data.metadata?.lastSaved);
+        setSaveState(data.saveStatus === 'Saved' ? COMPONENT_SAVE_STATES.SAVED : COMPONENT_SAVE_STATES.NOT_SAVED);
+        setHasUnsavedChanges(false);
+
+        if (onSaveStatusChange) {
+          onSaveStatusChange({
+            status: data.saveStatus,
+            lastSaved: data.metadata?.lastSaved,
+            hasData: data.lineItems && data.lineItems.length > 0
+          });
+        }
+
+        console.log("✅ Line items loaded successfully");
+      } else {
+        throw new Error(response?.response?.message || "Failed to load line items");
+      }
+    } catch (error) {
+      console.error("❌ Error loading line items:", error);
+      setSaveError(`Failed to load: ${error.message}`);
+      setSaveState(COMPONENT_SAVE_STATES.ERROR);
+    }
+  };
+
+  const saveLineItems = async () => {
+    if (!runServerless || !context?.crm?.objectId) return;
+
+    setSaveState(COMPONENT_SAVE_STATES.SAVING);
+    setSaveError("");
+
+    try {
+      const response = await runServerless({
+        name: "saveLineItems",
+        parameters: {
+          campaignDealId: context.crm.objectId,
+          lineItems: lineItems,
+          createdBy: `${context?.user?.firstName || ''} ${context?.user?.lastName || ''}`.trim()
+        }
+      });
+
+      if (response?.status === "SUCCESS" && response?.response?.data) {
+        const data = response.response.data;
+
+        setInitialLineItems([...lineItems]);
+        setLastSaved(new Date().toISOString().split('T')[0]);
+        setSaveState(COMPONENT_SAVE_STATES.SAVED);
+        setHasUnsavedChanges(false);
+
+        if (onSaveStatusChange) {
+          onSaveStatusChange({
+            status: 'Saved',
+            lastSaved: data.savedAt,
+            hasData: lineItems.length > 0
+          });
+        }
+
+        onAlert({
+          message: "✅ Line items saved successfully!",
+          variant: "success"
+        });
+
+        console.log("✅ Line items saved successfully");
+      } else {
+        throw new Error(response?.response?.message || "Failed to save line items");
+      }
+    } catch (error) {
+      console.error("❌ Error saving line items:", error);
+      setSaveError(`Failed to save: ${error.message}`);
+      setSaveState(COMPONENT_SAVE_STATES.ERROR);
+    }
+  };
+
+  // === UI HELPER FUNCTIONS ===
+  
+  const getSaveStatusDisplay = () => {
+    const message = SAVE_STATUS_MESSAGES[saveState] || SAVE_STATUS_MESSAGES[COMPONENT_SAVE_STATES.NOT_SAVED];
+    const color = SAVE_STATUS_COLORS[saveState] || SAVE_STATUS_COLORS[COMPONENT_SAVE_STATES.NOT_SAVED];
+
+    let statusText = message;
+    if (saveState === COMPONENT_SAVE_STATES.SAVED && lastSaved) {
+      statusText = `${message} on ${lastSaved}`;
+    }
+
+    return { message: statusText, color };
+  };
+
+  const shouldShowSaveButton = () => {
+    return isEditMode && (
+      saveState === COMPONENT_SAVE_STATES.NOT_SAVED ||
+      saveState === COMPONENT_SAVE_STATES.MODIFIED ||
+      saveState === COMPONENT_SAVE_STATES.ERROR
+    );
+  };
+
+  const isSaveDisabled = () => {
+    return saveState === COMPONENT_SAVE_STATES.SAVING ||
+      saveState === COMPONENT_SAVE_STATES.LOADING ||
+      lineItems.length === 0;
   };
 
   // === RENDER FUNCTIONS ===
@@ -381,10 +521,38 @@ const LineItems = ({
     );
   };
 
+  const removeLineItem = (index) => {
+    if (!isEditMode) return;
+
+    const updatedItems = lineItems.filter((_, i) => i !== index);
+    onLineItemsChange(updatedItems);
+
+    onAlert({
+      message: "Line item removed successfully!",
+      variant: "success"
+    });
+  };
+
+  const statusDisplay = getSaveStatusDisplay();
+
   return (
     <Tile>
       <Flex justify="space-between" align="center">
         <Heading>Line Items</Heading>
+
+        {/* Save Status Display - Only show in Edit Mode */}
+        {isEditMode && (
+          <Flex align="center" gap="small">
+            <Text
+              variant="microcopy"
+              format={{ color: statusDisplay.color }}
+            >
+              {statusDisplay.message}
+            </Text>
+            {saveState === COMPONENT_SAVE_STATES.SAVING && <LoadingSpinner size="xs" />}
+            {saveState === COMPONENT_SAVE_STATES.LOADING && <LoadingSpinner size="xs" />}
+          </Flex>
+        )}
 
         {/* VIEW MODE INDICATOR */}
         {!isEditMode && (
@@ -395,6 +563,15 @@ const LineItems = ({
       </Flex>
 
       <Divider />
+
+      {/* Save Error Alert - Only show in Edit Mode */}
+      {isEditMode && saveError && (
+        <Box marginTop="small" marginBottom="medium">
+          <Alert variant="error">
+            {saveError}
+          </Alert>
+        </Box>
+      )}
 
       {/* PRODUCT CATALOG & ADD NEW LINE ITEM FORM - Only show in Edit Mode */}
       {isEditMode && (
@@ -424,7 +601,7 @@ const LineItems = ({
                   onClick={handleProductSearch}
                   disabled={isProductsLoading}
                 >
-                  {isProductsLoading ? "Loading..." : "🔍 Search"}
+                  {isProductsLoading ? <LoadingSpinner size="xs" /> : "🔍 Search"}
                 </Button>
               </Box>
             </Flex>
@@ -622,7 +799,7 @@ const LineItems = ({
         </Tile>
       )}
 
-      {/* LINE ITEMS TABLE */}
+      {/* ENHANCED LINE ITEMS TABLE */}
       {lineItems.length > 0 ? (
         <Box marginTop="medium">
           <Table>
@@ -657,6 +834,21 @@ const LineItems = ({
               : "📋 No line items have been added to this campaign deal yet."
             }
           </Alert>
+        </Box>
+      )}
+
+      {/* Save Button - Only show in Edit Mode */}
+      {shouldShowSaveButton() && (
+        <Box marginTop="medium">
+          <Flex justify="end">
+            <Button
+              variant="primary"
+              onClick={saveLineItems}
+              disabled={isSaveDisabled()}
+            >
+              {saveState === COMPONENT_SAVE_STATES.SAVING ? "Saving..." : "💾 Save Line Items"}
+            </Button>
+          </Flex>
         </Box>
       )}
     </Tile>
