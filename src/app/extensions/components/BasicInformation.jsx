@@ -1,7 +1,7 @@
 // src/app/extensions/components/BasicInformation.jsx
 // Complete Fixed Version - Resolves View Mode ID Display Issues
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import {
   Input,
   Select,
@@ -25,14 +25,14 @@ import {
   SAVE_STATUS_COLORS
 } from '../utils/constants.js';
 
-const BasicInformation = ({
+const BasicInformation = forwardRef(({
   formData,
   onChange,
   runServerless,
   context,
   onSaveStatusChange,
   isEditMode = false
-}) => {
+}, ref) => {
 
   // === SAVE/LOAD STATE ===
   const [saveState, setSaveState] = useState(COMPONENT_SAVE_STATES.NOT_SAVED);
@@ -867,6 +867,20 @@ const BasicInformation = ({
 
   const statusDisplay = getSaveStatusDisplay();
 
+  // Expose save method to parent
+  useImperativeHandle(ref, () => ({
+    save: async () => {
+      // Validate required fields
+      if (!formData.campaignName || !formData.commercialAgreement || !formData.advertiser || !formData.dealOwner) {
+        return "Please fill all required fields in Basic Information.";
+      }
+      await saveBasicInformation();
+      if (saveError) return saveError;
+      if (saveState === COMPONENT_SAVE_STATES.ERROR) return "Failed to save Basic Information.";
+      return null;
+    }
+  }));
+
   return (
     <Tile>
       <Flex justify="space-between" align="center">
@@ -1335,22 +1349,10 @@ const BasicInformation = ({
         </Box>
 
         {/* Save Button - Only show in Edit Mode */}
-        {shouldShowSaveButton() && (
-          <Box marginTop="medium">
-            <Flex justify="end">
-              <Button
-                variant="primary"
-                onClick={saveBasicInformation}
-                disabled={isSaveDisabled()}
-              >
-                {saveState === COMPONENT_SAVE_STATES.SAVING ? "Saving..." : "💾 Save Basic Information"}
-              </Button>
-            </Flex>
-          </Box>
-        )}
+        {/* REMOVED: Unified save button is now in parent */}
       </Box>
     </Tile>
   );
-};
+});
 
 export default BasicInformation;

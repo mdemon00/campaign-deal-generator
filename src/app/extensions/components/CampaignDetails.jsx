@@ -1,6 +1,6 @@
 // src/app/extensions/components/CampaignDetails.jsx
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import {
   Input,
   Select,
@@ -23,14 +23,14 @@ import {
   SAVE_STATUS_COLORS
 } from '../utils/constants.js';
 
-const CampaignDetails = ({
+const CampaignDetails = forwardRef(({
   formData,
   onChange,
   runServerless,
   context,
   onSaveStatusChange,
   isEditMode = false
-}) => {
+}, ref) => {
   const [saveState, setSaveState] = useState(COMPONENT_SAVE_STATES.NOT_SAVED);
   const [lastSaved, setLastSaved] = useState(null);
   const [saveError, setSaveError] = useState("");
@@ -287,6 +287,20 @@ const CampaignDetails = ({
 
   const statusDisplay = getSaveStatusDisplay();
 
+  // Expose save method to parent
+  useImperativeHandle(ref, () => ({
+    save: async () => {
+      // Validate required fields
+      if (!formData.campaignType || !formData.taxId || !formData.businessName || !formData.dealCS) {
+        return "Please fill all required fields in Campaign Details.";
+      }
+      await saveCampaignDetails();
+      if (saveError) return saveError;
+      if (saveState === COMPONENT_SAVE_STATES.ERROR) return "Failed to save Campaign Details.";
+      return null;
+    }
+  }));
+
   return (
     <Tile>
       <Flex justify="space-between" align="center">
@@ -412,23 +426,9 @@ const CampaignDetails = ({
             </Box>
           </Flex>
         </Box>
-
-        {shouldShowSaveButton() && (
-          <Box marginTop="medium">
-            <Flex justify="end">
-              <Button
-                variant="primary"
-                onClick={saveCampaignDetails}
-                disabled={isSaveDisabled()}
-              >
-                {saveState === COMPONENT_SAVE_STATES.SAVING ? "Saving..." : "💾 Save Campaign Details"}
-              </Button>
-            </Flex>
-          </Box>
-        )}
       </Box>
     </Tile>
   );
-};
+});
 
 export default CampaignDetails;

@@ -1,7 +1,7 @@
 // src/app/extensions/components/LineItems.jsx
 // Corrected version with NO HTML elements - only HubSpot UI components
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import {
   Input,
   Select,
@@ -35,7 +35,7 @@ import {
 import { calculateLineItemTotals } from '../utils/calculations.js';
 import { validateLineItem } from '../utils/validation.js';
 
-const LineItems = ({
+const LineItems = forwardRef(({
   lineItems,
   onLineItemsChange,
   onAlert,
@@ -44,7 +44,7 @@ const LineItems = ({
   onSaveStatusChange,
   isEditMode = false,
   currency = "MXN"
-}) => {
+}, ref) => {
 
   // === LINE ITEM FORM STATE ===
   const [newLineItem, setNewLineItem] = useState({
@@ -120,6 +120,19 @@ const LineItems = ({
       }
     }
   }, [lineItems, initialLineItems, saveState, hasUnsavedChanges, isEditMode]);
+
+  // Expose save method to parent
+  useImperativeHandle(ref, () => ({
+    save: async () => {
+      if (!lineItems || lineItems.length === 0) {
+        return "Please add at least one line item.";
+      }
+      await saveLineItems();
+      if (saveError) return saveError;
+      if (saveState === COMPONENT_SAVE_STATES.ERROR) return "Failed to save Line Items.";
+      return null;
+    }
+  }));
 
   // === PRODUCT CATALOG FUNCTIONS ===
   
@@ -836,23 +849,8 @@ const LineItems = ({
           </Alert>
         </Box>
       )}
-
-      {/* Save Button - Only show in Edit Mode */}
-      {shouldShowSaveButton() && (
-        <Box marginTop="medium">
-          <Flex justify="end">
-            <Button
-              variant="primary"
-              onClick={saveLineItems}
-              disabled={isSaveDisabled()}
-            >
-              {saveState === COMPONENT_SAVE_STATES.SAVING ? "Saving..." : "💾 Save Line Items"}
-            </Button>
-          </Flex>
-        </Box>
-      )}
     </Tile>
   );
-};
+});
 
 export default LineItems;

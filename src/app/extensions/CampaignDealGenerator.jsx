@@ -1,7 +1,7 @@
 // src/app/extensions/CampaignDealGenerator.jsx
 // Phase 1: UI/UX Improvements - Button Restructuring & Emoji Removal - Summary Removed
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Divider,
   Button,
@@ -73,6 +73,14 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
     lastSaved: null,
     hasData: false
   });
+
+  // === CHILD COMPONENT REFS FOR SAVE ===
+  const basicInfoRef = useRef();
+  const campaignDetailsRef = useRef();
+  const lineItemsRef = useRef();
+
+  // === ERROR STATE FOR UNIFIED SAVE ===
+  const [saveErrors, setSaveErrors] = useState([]);
 
   // === INITIAL DATA LOADING ===
   useEffect(() => {
@@ -275,6 +283,30 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
     }
   };
 
+  // === UNIFIED SAVE HANDLER ===
+  const handleUnifiedSave = async () => {
+    setSaveErrors([]);
+    let errors = [];
+    if (basicInfoRef.current && basicInfoRef.current.save) {
+      const err = await basicInfoRef.current.save();
+      if (err) errors.push(...(Array.isArray(err) ? err : [err]));
+    }
+    if (campaignDetailsRef.current && campaignDetailsRef.current.save) {
+      const err = await campaignDetailsRef.current.save();
+      if (err) errors.push(...(Array.isArray(err) ? err : [err]));
+    }
+    if (lineItemsRef.current && lineItemsRef.current.save) {
+      const err = await lineItemsRef.current.save();
+      if (err) errors.push(...(Array.isArray(err) ? err : [err]));
+    }
+    setSaveErrors(errors);
+    // Optionally, switch out of edit mode if no errors
+    if (errors.length === 0) {
+      setIsEditMode(false);
+      sendAlert({ message: "All sections saved successfully", variant: "success" });
+    }
+  };
+
   // === UTILITY FUNCTIONS ===
   const handleClearForm = () => {
     if (!isEditMode) {
@@ -366,6 +398,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
           {/* BASIC INFORMATION */}
           <Box>
             <BasicInformation
+              ref={basicInfoRef}
               formData={formData}
               onChange={handleFormChange}
               runServerless={runServerless}
@@ -387,6 +420,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
           {/* CAMPAIGN DETAILS */}
           <Box>
             <CampaignDetails
+              ref={campaignDetailsRef}
               formData={formData}
               onChange={handleFormChange}
               runServerless={runServerless}
@@ -408,6 +442,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
           {/* ENHANCED LINE ITEMS SECTION */}
           <Box>
             <LineItems
+              ref={lineItemsRef}
               lineItems={lineItems}
               onLineItemsChange={handleLineItemsChange}
               onAlert={handleAlert}
@@ -442,16 +477,32 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
                   Edit
                 </Button>
               ) : (
-                /* EDIT MODE - Cancel Button */
-                <Button
-                  variant="secondary"
-                  onClick={handleCancelEdit}
-                  disabled={loading}
-                >
-                  Cancel
-                </Button>
+                <>
+                  <Button
+                    variant="primary"
+                    onClick={handleUnifiedSave}
+                    disabled={loading}
+                  >
+                    Save
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={handleCancelEdit}
+                    disabled={loading}
+                  >
+                    Cancel
+                  </Button>
+                </>
               )}
             </Flex>
+            {/* Show all errors under Save/Cancel */}
+            {isEditMode && saveErrors.length > 0 && (
+              <Box>
+                {saveErrors.map((err, idx) => (
+                  <Alert key={idx} variant="error">{err}</Alert>
+                ))}
+              </Box>
+            )}
             <Divider />
           </Box>
 
