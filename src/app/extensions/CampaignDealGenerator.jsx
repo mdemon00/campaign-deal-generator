@@ -1,5 +1,5 @@
-// src/app/extensions/CampaignDealGeneratorFixed.jsx
-// Corrected version with NO HTML elements - only HubSpot UI components
+// src/app/extensions/CampaignDealGenerator.jsx
+// Phase 1: Removed Campaign Summary component and section
 
 import React, { useState, useEffect } from "react";
 import {
@@ -13,12 +13,11 @@ import {
   Alert
 } from "@hubspot/ui-extensions";
 
-// Import components
+// Import components (CampaignSummary removed)
 import TestConnection from './components/TestConnection.jsx';
 import BasicInformation from './components/BasicInformation.jsx';
 import CampaignDetails from './components/CampaignDetails.jsx';
 import LineItems from './components/LineItems.jsx';
-import CampaignSummary from './components/CampaignSummary.jsx';
 
 // Import utilities
 import {
@@ -488,15 +487,8 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
             </Box>
           )}
 
-          {/* CAMPAIGN SUMMARY SECTION */}
-          <Box>
-            <CampaignSummary 
-              lineItems={lineItems}
-              currency={formData.currency}
-              formData={formData}
-              isEditMode={isEditMode}
-            />
-          </Box>
+          {/* CAMPAIGN SUMMARY SECTION - REMOVED */}
+          {/* This section has been completely removed as requested */}
 
           {/* GLOBAL ACTIONS */}
           <Box>
