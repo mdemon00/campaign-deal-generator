@@ -64,29 +64,35 @@ export const COMMERCIAL_AGREEMENT_MAPPING = {
 export const HUBSPOT_OBJECT_IDS = {
   COMMERCIAL_AGREEMENTS: "2-39552013",
   ADVERTISERS: "2-40333244",
-  CAMPAIGN_DEALS: "2-45275187" // ✅ Your Campaign Deal Object ID
+  CAMPAIGN_DEALS: "2-45275187", // ✅ Your Campaign Deal Object ID
+  CONTACTS: "134130492272" // ✅ Contact Object ID
 };
 
 // Form field validation rules
 export const VALIDATION_RULES = {
-  REQUIRED_BASIC_FIELDS: ['campaignName', 'commercialAgreement', 'advertiser', 'dealOwner'],
+  REQUIRED_BASIC_FIELDS: ['campaignName', 'advertiser', 'dealOwner', 'assignedCustomerService', 'contact', 'campaignType'], // ✅ Updated
   REQUIRED_LINE_ITEM_FIELDS: ['name', 'startDate', 'endDate'],
-  REQUIRED_CAMPAIGN_DETAILS_FIELDS: ['campaignType', 'taxId', 'businessName', 'dealCS'], // ✅ Added
+  REQUIRED_CAMPAIGN_DETAILS_FIELDS: ['taxId', 'businessName'], // ✅ Updated - removed moved fields
+  REQUIRED_COMMERCIAL_AGREEMENT_FIELDS: ['commercialAgreement'], // ✅ New section
   MIN_LINE_ITEMS: 1
 };
 
 // Initial form state
 export const INITIAL_FORM_STATE = {
   campaignName: "",
-  commercialAgreement: "",
-  company: "",
   advertiser: "",
+  advertiserCountry: "", // ✅ New field
+  advertiserCompany: "", // ✅ New field
   dealOwner: "",
-  currency: "",
-  campaignType: "",
-  taxId: "",
-  businessName: "",
-  dealCS: ""
+  assignedCustomerService: "", // ✅ Moved from Campaign Details (was dealCS)
+  contact: "", // ✅ New field
+  campaignType: "", // ✅ Moved from Campaign Details
+  linkToGoogleDrive: "", // ✅ New field
+  commercialAgreement: "", // ✅ Moved to Commercial Agreement section
+  company: "", // ✅ Moved to Commercial Agreement section
+  currency: "", // ✅ Moved to Commercial Agreement section
+  taxId: "", // ✅ Remains in Campaign Details
+  businessName: "" // ✅ Remains in Campaign Details
 };
 
 // Initial campaign details state

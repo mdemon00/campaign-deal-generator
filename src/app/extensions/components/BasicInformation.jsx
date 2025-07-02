@@ -1,5 +1,5 @@
 // src/app/extensions/components/BasicInformation.jsx
-// Complete Fixed Version - Resolves View Mode ID Display Issues
+// Restructured Version - Removed Commercial Agreement fields, Added new fields
 
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import {
@@ -17,10 +17,9 @@ import {
 } from "@hubspot/ui-extensions";
 
 import {
-  COMMERCIAL_AGREEMENTS,
   DEAL_OWNER_OPTIONS,
+  CAMPAIGN_TYPE_OPTIONS,
   COMPONENT_SAVE_STATES,
-  SAVE_STATUS,
   SAVE_STATUS_MESSAGES,
   SAVE_STATUS_COLORS
 } from '../utils/constants.js';
@@ -40,17 +39,6 @@ const BasicInformation = forwardRef(({
   const [saveError, setSaveError] = useState("");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [initialFormData, setInitialFormData] = useState(null);
-
-  // === COMMERCIAL AGREEMENTS STATE ===
-  const [agreements, setAgreements] = useState(COMMERCIAL_AGREEMENTS);
-  const [agreementSearchTerm, setAgreementSearchTerm] = useState("");
-  const [isAgreementLoading, setIsAgreementLoading] = useState(false);
-  const [isAgreementSearching, setIsAgreementSearching] = useState(false);
-  const [agreementErrorMessage, setAgreementErrorMessage] = useState("");
-  const [useAgreementSearchMode, setUseAgreementSearchMode] = useState(false);
-  const [agreementHasMore, setAgreementHasMore] = useState(false);
-  const [lastAgreementSearchTerm, setLastAgreementSearchTerm] = useState("");
-  const [companyStatus, setCompanyStatus] = useState("");
 
   // === ADVERTISERS STATE ===
   const [advertisers, setAdvertisers] = useState([{ label: "Select Advertiser", value: "" }]);
@@ -74,11 +62,35 @@ const BasicInformation = forwardRef(({
   const [dealOwnerHasMore, setDealOwnerHasMore] = useState(false);
   const [lastDealOwnerSearchTerm, setLastDealOwnerSearchTerm] = useState("");
 
+  // === ASSIGNED CUSTOMER SERVICE STATE ===
+  const [customerServices, setCustomerServices] = useState([{ label: "Select CS Representative", value: "" }]);
+  const [customerServiceSearchTerm, setCustomerServiceSearchTerm] = useState("");
+  const [isCustomerServiceLoading, setIsCustomerServiceLoading] = useState(false);
+  const [isCustomerServiceSearching, setIsCustomerServiceSearching] = useState(false);
+  const [hasCustomerServiceLoaded, setHasCustomerServiceLoaded] = useState(false);
+  const [customerServiceErrorMessage, setCustomerServiceErrorMessage] = useState("");
+  const [useCustomerServiceSearchMode, setUseCustomerServiceSearchMode] = useState(false);
+  const [customerServiceHasMore, setCustomerServiceHasMore] = useState(false);
+  const [lastCustomerServiceSearchTerm, setLastCustomerServiceSearchTerm] = useState("");
+
+  // === CONTACTS STATE ===
+  const [contacts, setContacts] = useState([{ label: "Select Contact", value: "" }]);
+  const [contactSearchTerm, setContactSearchTerm] = useState("");
+  const [isContactLoading, setIsContactLoading] = useState(false);
+  const [isContactSearching, setIsContactSearching] = useState(false);
+  const [hasContactLoaded, setHasContactLoaded] = useState(false);
+  const [contactErrorMessage, setContactErrorMessage] = useState("");
+  const [useContactSearchMode, setUseContactSearchMode] = useState(false);
+  const [contactHasMore, setContactHasMore] = useState(false);
+  const [lastContactSearchTerm, setLastContactSearchTerm] = useState("");
+
   // === VIEW MODE DISPLAY LABELS ===
   const [displayLabels, setDisplayLabels] = useState({
-    commercialAgreement: "",
     advertiser: "",
-    dealOwner: ""
+    dealOwner: "",
+    assignedCustomerService: "",
+    contact: "",
+    campaignType: ""
   });
 
   // === COMPONENT INITIALIZATION ===
@@ -100,27 +112,33 @@ const BasicInformation = forwardRef(({
   // Load default data for all search components (only in edit mode)
   useEffect(() => {
     if (runServerless && isEditMode) {
-      loadDefaultAgreements(formData.commercialAgreement);
       if (!hasAdvertiserLoaded) {
         loadDefaultAdvertisers();
       }
       if (!hasDealOwnerLoaded) {
         loadDefaultDealOwners();
       }
+      if (!hasCustomerServiceLoaded) {
+        loadDefaultCustomerServices();
+      }
+      if (!hasContactLoaded) {
+        loadDefaultContacts();
+      }
     }
-  }, [runServerless, isEditMode, formData.commercialAgreement, hasAdvertiserLoaded, hasDealOwnerLoaded]);
+  }, [runServerless, isEditMode, hasAdvertiserLoaded, hasDealOwnerLoaded, hasCustomerServiceLoaded, hasContactLoaded]);
 
-  // 🔧 FIXED: Only update display labels in edit mode when arrays are populated
+  // Update display labels in edit mode when arrays are populated
   useEffect(() => {
     if (isEditMode) {
       updateDisplayLabels();
     }
-  }, [formData, agreements, advertisers, dealOwners, isEditMode]);
+  }, [formData, advertisers, dealOwners, customerServices, contacts, isEditMode]);
 
   // Track form changes (only in edit mode)
   useEffect(() => {
     if (initialFormData && saveState === COMPONENT_SAVE_STATES.SAVED && isEditMode) {
-      const hasChanges = Object.keys(initialFormData).some(key =>
+      const basicFields = ['campaignName', 'advertiser', 'advertiserCountry', 'advertiserCompany', 'dealOwner', 'assignedCustomerService', 'contact', 'campaignType', 'linkToGoogleDrive'];
+      const hasChanges = basicFields.some(key =>
         formData[key] !== initialFormData[key]
       );
 
@@ -138,17 +156,6 @@ const BasicInformation = forwardRef(({
   const updateDisplayLabels = () => {
     const newLabels = { ...displayLabels };
 
-    // 🔧 FIXED: Don't overwrite existing labels in view mode
-    // Only update labels when in edit mode and arrays are populated
-
-    // Commercial Agreement
-    if (!displayLabels.commercialAgreement || isEditMode) {
-      const selectedAgreement = agreements.find(a => a.value === formData.commercialAgreement);
-      if (selectedAgreement) {
-        newLabels.commercialAgreement = selectedAgreement.label;
-      }
-    }
-
     // Advertiser
     if (!displayLabels.advertiser || isEditMode) {
       const selectedAdvertiser = advertisers.find(a => a.value === formData.advertiser);
@@ -165,10 +172,34 @@ const BasicInformation = forwardRef(({
       }
     }
 
+    // Assigned Customer Service
+    if (!displayLabels.assignedCustomerService || isEditMode) {
+      const selectedCS = customerServices.find(cs => cs.value === formData.assignedCustomerService);
+      if (selectedCS) {
+        newLabels.assignedCustomerService = selectedCS.label;
+      }
+    }
+
+    // Contact
+    if (!displayLabels.contact || isEditMode) {
+      const selectedContact = contacts.find(c => c.value === formData.contact);
+      if (selectedContact) {
+        newLabels.contact = selectedContact.label;
+      }
+    }
+
+    // Campaign Type
+    if (!displayLabels.campaignType || isEditMode) {
+      const selectedType = CAMPAIGN_TYPE_OPTIONS.find(t => t.value === formData.campaignType);
+      if (selectedType) {
+        newLabels.campaignType = selectedType.label;
+      }
+    }
+
     setDisplayLabels(newLabels);
   };
 
-  // === 🔧 FIXED: Enhanced View Mode Loading ===
+  // === VIEW MODE LOADING ===
   const loadBasicInformationForViewMode = async () => {
     if (!runServerless || !context?.crm?.objectId) return;
 
@@ -183,79 +214,22 @@ const BasicInformation = forwardRef(({
       if (response?.status === "SUCCESS" && response?.response?.data) {
         const data = response.response.data;
 
-        // Populate form with loaded data (quietly, no state changes for save tracking)
-        Object.keys(data.formData).forEach(key => {
+        // Populate form with loaded data (quietly)
+        const basicFields = ['campaignName', 'advertiser', 'advertiserCountry', 'advertiserCompany', 'dealOwner', 'assignedCustomerService', 'contact', 'campaignType', 'linkToGoogleDrive'];
+        basicFields.forEach(key => {
           if (data.formData[key] !== formData[key]) {
             onChange(key, data.formData[key]);
           }
         });
 
-        // 🔧 FIXED: Set display labels directly from association data with proper fallbacks
+        // Set display labels from association data with proper fallbacks
         const newDisplayLabels = {};
-        
-        // Commercial Agreement
-        if (data.associations?.commercialAgreement) {
-          newDisplayLabels.commercialAgreement = data.associations.commercialAgreement.label;
-        } else if (data.formData.commercialAgreement) {
-          // Try to fetch the specific agreement as fallback
-          try {
-            const agreementResponse = await runServerless({
-              name: "searchCommercialAgreements",
-              parameters: {
-                selectedAgreementId: data.formData.commercialAgreement,
-                limit: 1
-              }
-            });
-            
-            if (agreementResponse?.status === "SUCCESS" && agreementResponse?.response?.data) {
-              const foundAgreement = agreementResponse.response.data.options?.find(
-                opt => opt.value === data.formData.commercialAgreement
-              );
-              if (foundAgreement) {
-                newDisplayLabels.commercialAgreement = foundAgreement.label;
-              } else {
-                newDisplayLabels.commercialAgreement = `Agreement (${data.formData.commercialAgreement})`;
-              }
-            } else {
-              newDisplayLabels.commercialAgreement = `Agreement (${data.formData.commercialAgreement})`;
-            }
-          } catch (error) {
-            console.warn("Could not fetch agreement label:", error);
-            newDisplayLabels.commercialAgreement = `Agreement (${data.formData.commercialAgreement})`;
-          }
-        } else {
-          newDisplayLabels.commercialAgreement = "";
-        }
         
         // Advertiser
         if (data.associations?.advertiser) {
           newDisplayLabels.advertiser = data.associations.advertiser.label;
         } else if (data.formData.advertiser) {
-          try {
-            const advertiserResponse = await runServerless({
-              name: "searchAdvertisers",
-              parameters: {
-                searchTerm: "",
-                limit: 100 // Load enough to potentially find it
-              }
-            });
-            
-            if (advertiserResponse?.status === "SUCCESS" && advertiserResponse?.response?.data) {
-              const foundAdvertiser = advertiserResponse.response.data.options?.find(
-                opt => opt.value === data.formData.advertiser
-              );
-              if (foundAdvertiser) {
-                newDisplayLabels.advertiser = foundAdvertiser.label;
-              } else {
-                newDisplayLabels.advertiser = `Advertiser (${data.formData.advertiser})`;
-              }
-            } else {
-              newDisplayLabels.advertiser = `Advertiser (${data.formData.advertiser})`;
-            }
-          } catch (error) {
-            console.warn("Could not fetch advertiser label:", error);
-            newDisplayLabels.advertiser = `Advertiser (${data.formData.advertiser})`;
-          }
+          newDisplayLabels.advertiser = `Advertiser (${data.formData.advertiser})`;
         } else {
           newDisplayLabels.advertiser = "";
         }
@@ -264,39 +238,37 @@ const BasicInformation = forwardRef(({
         if (data.associations?.dealOwner) {
           newDisplayLabels.dealOwner = data.associations.dealOwner.label;
         } else if (data.formData.dealOwner) {
-          try {
-            const ownerResponse = await runServerless({
-              name: "searchDealOwners",
-              parameters: {
-                searchTerm: "",
-                limit: 100
-              }
-            });
-            
-            if (ownerResponse?.status === "SUCCESS" && ownerResponse?.response?.data) {
-              const foundOwner = ownerResponse.response.data.options?.find(
-                opt => opt.value === data.formData.dealOwner
-              );
-              if (foundOwner) {
-                newDisplayLabels.dealOwner = foundOwner.label;
-              } else {
-                newDisplayLabels.dealOwner = `Owner (${data.formData.dealOwner})`;
-              }
-            } else {
-              newDisplayLabels.dealOwner = `Owner (${data.formData.dealOwner})`;
-            }
-          } catch (error) {
-            console.warn("Could not fetch deal owner label:", error);
-            newDisplayLabels.dealOwner = `Owner (${data.formData.dealOwner})`;
-          }
+          newDisplayLabels.dealOwner = `Owner (${data.formData.dealOwner})`;
         } else {
           newDisplayLabels.dealOwner = "";
         }
+
+        // Assigned Customer Service
+        if (data.associations?.assignedCustomerService) {
+          newDisplayLabels.assignedCustomerService = data.associations.assignedCustomerService.label;
+        } else if (data.formData.assignedCustomerService) {
+          newDisplayLabels.assignedCustomerService = `CS Rep (${data.formData.assignedCustomerService})`;
+        } else {
+          newDisplayLabels.assignedCustomerService = "";
+        }
+
+        // Contact
+        if (data.associations?.contact) {
+          newDisplayLabels.contact = data.associations.contact.label;
+        } else if (data.formData.contact) {
+          newDisplayLabels.contact = `Contact (${data.formData.contact})`;
+        } else {
+          newDisplayLabels.contact = "";
+        }
+
+        // Campaign Type
+        const selectedType = CAMPAIGN_TYPE_OPTIONS.find(t => t.value === data.formData.campaignType);
+        newDisplayLabels.campaignType = selectedType?.label || data.formData.campaignType || "";
         
-        // 🔧 CRITICAL: Set display labels directly, bypassing updateDisplayLabels
+        // Set display labels directly
         setDisplayLabels(newDisplayLabels);
 
-        console.log("✅ Basic information loaded for view mode with enhanced display labels:", newDisplayLabels);
+        console.log("✅ Basic information loaded for view mode");
       }
     } catch (error) {
       console.warn("Could not load basic information for view mode:", error);
@@ -322,19 +294,15 @@ const BasicInformation = forwardRef(({
         const data = response.response.data;
 
         // Populate form with loaded data
-        Object.keys(data.formData).forEach(key => {
+        const basicFields = ['campaignName', 'advertiser', 'advertiserCountry', 'advertiserCompany', 'dealOwner', 'assignedCustomerService', 'contact', 'campaignType', 'linkToGoogleDrive'];
+        basicFields.forEach(key => {
           if (data.formData[key] !== formData[key]) {
             onChange(key, data.formData[key]);
           }
         });
 
-        // Update display labels from association data
+        // Update display labels and search terms from association data
         const newDisplayLabels = { ...displayLabels };
-        
-        if (data.associations?.commercialAgreement) {
-          newDisplayLabels.commercialAgreement = data.associations.commercialAgreement.label;
-          setAgreementSearchTerm(data.associations.commercialAgreement.label);
-        }
         
         if (data.associations?.advertiser) {
           newDisplayLabels.advertiser = data.associations.advertiser.label;
@@ -345,11 +313,28 @@ const BasicInformation = forwardRef(({
           newDisplayLabels.dealOwner = data.associations.dealOwner.label;
           setDealOwnerSearchTerm(data.associations.dealOwner.label);
         }
+
+        if (data.associations?.assignedCustomerService) {
+          newDisplayLabels.assignedCustomerService = data.associations.assignedCustomerService.label;
+          setCustomerServiceSearchTerm(data.associations.assignedCustomerService.label);
+        }
+
+        if (data.associations?.contact) {
+          newDisplayLabels.contact = data.associations.contact.label;
+          setContactSearchTerm(data.associations.contact.label);
+        }
+
+        const selectedType = CAMPAIGN_TYPE_OPTIONS.find(t => t.value === data.formData.campaignType);
+        newDisplayLabels.campaignType = selectedType?.label || data.formData.campaignType || "";
         
         setDisplayLabels(newDisplayLabels);
 
         // Store initial form data for change tracking
-        setInitialFormData(data.formData);
+        const basicFormData = {};
+        basicFields.forEach(key => {
+          basicFormData[key] = data.formData[key];
+        });
+        setInitialFormData(basicFormData);
         setLastSaved(data.metadata?.lastSaved);
         setSaveState(data.saveStatus === 'Saved' ? COMPONENT_SAVE_STATES.SAVED : COMPONENT_SAVE_STATES.NOT_SAVED);
         setHasUnsavedChanges(false);
@@ -359,11 +344,11 @@ const BasicInformation = forwardRef(({
           onSaveStatusChange({
             status: data.saveStatus,
             lastSaved: data.metadata?.lastSaved,
-            hasData: !!(data.formData.campaignName || data.formData.commercialAgreement)
+            hasData: !!(data.formData.campaignName || data.formData.advertiser)
           });
         }
 
-        console.log("✅ Basic information loaded successfully with display labels:", newDisplayLabels);
+        console.log("✅ Basic information loaded successfully");
       } else {
         throw new Error(response?.response?.message || "Failed to load data");
       }
@@ -382,13 +367,18 @@ const BasicInformation = forwardRef(({
 
     try {
       const response = await runServerless({
-        name: "saveBasicInformation",
+        name: "saveBasicInformation", // Will need to be updated to handle new fields
         parameters: {
           campaignDealId: context.crm.objectId,
           campaignName: formData.campaignName,
-          commercialAgreement: formData.commercialAgreement,
           advertiser: formData.advertiser,
+          advertiserCountry: formData.advertiserCountry,
+          advertiserCompany: formData.advertiserCompany,
           dealOwner: formData.dealOwner,
+          assignedCustomerService: formData.assignedCustomerService,
+          contact: formData.contact,
+          campaignType: formData.campaignType,
+          linkToGoogleDrive: formData.linkToGoogleDrive,
           createdBy: `${context?.user?.firstName || ''} ${context?.user?.lastName || ''}`.trim()
         }
       });
@@ -396,14 +386,23 @@ const BasicInformation = forwardRef(({
       if (response?.status === "SUCCESS" && response?.response?.data) {
         const data = response.response.data;
 
-        // Update company/currency from response
-        if (data.companyInfo) {
-          onChange('company', data.companyInfo.companyName);
-          onChange('currency', data.companyInfo.currency);
+        // Update advertiser country and company from response if auto-populated
+        if (data.advertiserInfo) {
+          if (data.advertiserInfo.country) {
+            onChange('advertiserCountry', data.advertiserInfo.country);
+          }
+          if (data.advertiserInfo.company) {
+            onChange('advertiserCompany', data.advertiserInfo.company);
+          }
         }
 
         // Update tracking state
-        setInitialFormData({ ...formData });
+        const basicFields = ['campaignName', 'advertiser', 'advertiserCountry', 'advertiserCompany', 'dealOwner', 'assignedCustomerService', 'contact', 'campaignType', 'linkToGoogleDrive'];
+        const basicFormData = {};
+        basicFields.forEach(key => {
+          basicFormData[key] = formData[key];
+        });
+        setInitialFormData(basicFormData);
         setLastSaved(new Date().toISOString().split('T')[0]);
         setSaveState(COMPONENT_SAVE_STATES.SAVED);
         setHasUnsavedChanges(false);
@@ -428,77 +427,7 @@ const BasicInformation = forwardRef(({
     }
   };
 
-  // === COMMERCIAL AGREEMENTS SEARCH FUNCTIONS ===
-  const performAgreementSearch = async () => {
-    if (!runServerless || !isEditMode || !agreementSearchTerm.trim()) return;
-
-    setIsAgreementSearching(true);
-    setAgreementErrorMessage("");
-
-    try {
-      const searchTerm = agreementSearchTerm.trim();
-      
-      const response = await runServerless({
-        name: "searchCommercialAgreements",
-        parameters: {
-          searchTerm: searchTerm,
-          page: 1,
-          limit: 50
-        }
-      });
-
-      if (response && response.status === "SUCCESS" && response.response && response.response.data) {
-        const data = response.response.data;
-        setAgreements(data.options || COMMERCIAL_AGREEMENTS);
-        setAgreementHasMore(data.hasMore || false);
-        setUseAgreementSearchMode(true);
-        setLastAgreementSearchTerm(searchTerm);
-        
-        console.log(`✅ Agreement search completed: ${data.totalCount} results for "${searchTerm}"`);
-      } else {
-        throw new Error("Invalid search response");
-      }
-    } catch (error) {
-      console.error("Agreement search error:", error);
-      setAgreementErrorMessage(`Search failed: ${error.message}`);
-    } finally {
-      setIsAgreementSearching(false);
-    }
-  };
-
-  const loadDefaultAgreements = async (initialSelectedAgreementId = "") => {
-    if (!runServerless || !isEditMode) return;
-
-    setIsAgreementLoading(true);
-    setAgreementErrorMessage("");
-
-    try {
-      const response = await runServerless({
-        name: "searchCommercialAgreements",
-        parameters: {
-          loadAll: false,
-          limit: 20,
-          selectedAgreementId: initialSelectedAgreementId
-        }
-      });
-
-      if (response && response.status === "SUCCESS" && response.response && response.response.data) {
-        const data = response.response.data;
-        setAgreements(data.options || COMMERCIAL_AGREEMENTS);
-        setAgreementHasMore(data.hasMore || false);
-      } else {
-        throw new Error("Invalid response from server");
-      }
-    } catch (error) {
-      console.error("Error loading agreements:", error);
-      setAgreementErrorMessage(`Error: ${error.message}`);
-      setAgreements(COMMERCIAL_AGREEMENTS);
-    } finally {
-      setIsAgreementLoading(false);
-    }
-  };
-
-  // === ADVERTISERS SEARCH FUNCTIONS ===
+  // === ADVERTISER SEARCH FUNCTIONS ===
   const performAdvertiserSearch = async () => {
     if (!runServerless || !isEditMode || !advertiserSearchTerm.trim()) return;
 
@@ -517,6 +446,7 @@ const BasicInformation = forwardRef(({
         }
       });
 
+      console.log(response);
       if (response && response.status === "SUCCESS" && response.response && response.response.data) {
         const data = response.response.data;
         setAdvertisers(data.options || [{ label: "Select Advertiser", value: "" }]);
@@ -645,37 +575,164 @@ const BasicInformation = forwardRef(({
     }
   };
 
-  // === EVENT HANDLERS ===
-  const handleCommercialAgreementChange = (value) => {
-    if (!isEditMode) return;
+  // === CUSTOMER SERVICE SEARCH FUNCTIONS ===
+  const performCustomerServiceSearch = async () => {
+    if (!runServerless || !isEditMode || !customerServiceSearchTerm.trim()) return;
 
-    const selectedAgreement = agreements.find(agreement => agreement.value === value);
+    setIsCustomerServiceSearching(true);
+    setCustomerServiceErrorMessage("");
 
-    onChange('commercialAgreement', value);
+    try {
+      const searchTerm = customerServiceSearchTerm.trim();
+      
+      const response = await runServerless({
+        name: "searchDealOwners", // Reuse deal owners for customer service
+        parameters: {
+          searchTerm: searchTerm,
+          page: 1,
+          limit: 50,
+          includeInactive: false
+        }
+      });
 
-    if (selectedAgreement && selectedAgreement.value !== "") {
-      setAgreementSearchTerm(selectedAgreement.label);
-      setUseAgreementSearchMode(false);
-
-      if (selectedAgreement.hasCompany === false) {
-        onChange('company', 'No company found');
-        onChange('currency', '');
-      } else if (selectedAgreement.company && selectedAgreement.company !== 'No company found') {
-        onChange('company', selectedAgreement.company);
-        onChange('currency', selectedAgreement.currency || '');
+      if (response && response.status === "SUCCESS" && response.response && response.response.data) {
+        const data = response.response.data;
+        // Update labels to reflect CS role
+        const options = data.options.map(option => ({
+          ...option,
+          label: option.label === "Select Deal Owner" ? "Select CS Representative" : option.label
+        }));
+        setCustomerServices(options);
+        setCustomerServiceHasMore(data.hasMore || false);
+        setUseCustomerServiceSearchMode(true);
+        setLastCustomerServiceSearchTerm(searchTerm);
+        
+        console.log(`✅ Customer service search completed: ${data.totalCount} results for "${searchTerm}"`);
       } else {
-        onChange('company', 'Loading company...');
-        setCompanyStatus("🔄 Fetching company information...");
-        onChange('currency', '');
+        throw new Error("Invalid customer service search response");
       }
-    } else {
-      onChange('company', '');
-      onChange('currency', '');
-      setCompanyStatus("");
+    } catch (error) {
+      console.error("Customer service search error:", error);
+      setCustomerServiceErrorMessage(`Search failed: ${error.message}`);
+    } finally {
+      setIsCustomerServiceSearching(false);
     }
   };
 
-  const handleAdvertiserChange = (value) => {
+  const loadDefaultCustomerServices = async () => {
+    if (!runServerless || !isEditMode) return;
+
+    setIsCustomerServiceLoading(true);
+    setCustomerServiceErrorMessage("");
+
+    try {
+      const response = await runServerless({
+        name: "searchDealOwners", // Reuse deal owners for customer service
+        parameters: {
+          loadAll: false,
+          limit: 20,
+          includeInactive: false
+        }
+      });
+
+      if (response && response.status === "SUCCESS" && response.response && response.response.data) {
+        const data = response.response.data;
+        // Update labels to reflect CS role
+        const options = data.options.map(option => ({
+          ...option,
+          label: option.label === "Select Deal Owner" ? "Select CS Representative" : option.label
+        }));
+        setCustomerServices(options);
+        setCustomerServiceHasMore(data.hasMore || false);
+        console.log(`✅ Loaded ${data.totalCount} default customer services`);
+      } else {
+        throw new Error("Invalid response from customer service server");
+      }
+    } catch (error) {
+      console.error("Error loading customer services:", error);
+      setCustomerServiceErrorMessage(`Error: ${error.message}`);
+      setCustomerServices([{ label: "Select CS Representative", value: "" }]);
+    } finally {
+      setIsCustomerServiceLoading(false);
+      setHasCustomerServiceLoaded(true);
+    }
+  };
+
+  // === CONTACT SEARCH FUNCTIONS ===
+  const performContactSearch = async () => {
+    if (!runServerless || !isEditMode || !contactSearchTerm.trim()) return;
+
+    setIsContactSearching(true);
+    setContactErrorMessage("");
+
+    try {
+      const searchTerm = contactSearchTerm.trim();
+      
+      const response = await runServerless({
+        name: "searchContacts",
+        parameters: {
+          searchTerm: searchTerm,
+          page: 1,
+          limit: 50,
+          includeInactive: false
+        }
+      });
+
+      if (response && response.status === "SUCCESS" && response.response && response.response.data) {
+        const data = response.response.data;
+        setContacts(data.options || [{ label: "Select Contact", value: "" }]);
+        setContactHasMore(data.hasMore || false);
+        setUseContactSearchMode(true);
+        setLastContactSearchTerm(searchTerm);
+        
+        console.log(`✅ Contact search completed: ${data.totalCount} results for "${searchTerm}"`);
+      } else {
+        throw new Error("Invalid contact search response");
+      }
+    } catch (error) {
+      console.error("Contact search error:", error);
+      setContactErrorMessage(`Search failed: ${error.message}`);
+    } finally {
+      setIsContactSearching(false);
+    }
+  };
+
+  const loadDefaultContacts = async () => {
+    if (!runServerless || !isEditMode) return;
+
+    setIsContactLoading(true);
+    setContactErrorMessage("");
+
+    try {
+      const response = await runServerless({
+        name: "searchContacts",
+        parameters: {
+          loadAll: false,
+          limit: 20,
+          includeInactive: false
+        }
+      });
+
+      if (response && response.status === "SUCCESS" && response.response && response.response.data) {
+        const data = response.response.data;
+        setContacts(data.options || [{ label: "Select Contact", value: "" }]);
+        setContactHasMore(data.hasMore || false);
+        console.log(`✅ Loaded ${data.totalCount} default contacts`);
+      } else {
+        throw new Error("Invalid response from contact server");
+      }
+    } catch (error) {
+      console.error("Error loading contacts:", error);
+      setContactErrorMessage(`Error: ${error.message}`);
+      setContacts([{ label: "Select Contact", value: "" }]);
+    } finally {
+      setIsContactLoading(false);
+      setHasContactLoaded(true);
+    }
+  };
+
+  // === EVENT HANDLERS ===
+  const handleAdvertiserChange = async (value) => {
     if (!isEditMode) return;
 
     const selectedAdvertiser = advertisers.find(advertiser => advertiser.value === value);
@@ -685,6 +742,40 @@ const BasicInformation = forwardRef(({
     if (selectedAdvertiser && selectedAdvertiser.value !== "" && selectedAdvertiser.value !== "new") {
       setAdvertiserSearchTerm(selectedAdvertiser.label);
       setUseAdvertiserSearchMode(false);
+
+      // Auto-populate advertiser country and company
+      if (selectedAdvertiser.country) {
+        onChange('advertiserCountry', selectedAdvertiser.country);
+      }
+      if (selectedAdvertiser.companyName) {
+        onChange('advertiserCompany', selectedAdvertiser.companyName);
+      } else if (selectedAdvertiser.companyId) {
+        // Fetch company details if we have an ID but not the name
+        try {
+          onChange('advertiserCompany', 'Loading company...');
+          const companyResponse = await runServerless({
+            name: "searchAdvertisers", // Will need a specific function for company lookup
+            parameters: {
+              fetchCompany: true,
+              companyId: selectedAdvertiser.companyId
+            }
+          });
+          if (companyResponse?.status === "SUCCESS" && companyResponse?.response?.data?.companyName) {
+            onChange('advertiserCompany', companyResponse.response.data.companyName);
+          } else {
+            onChange('advertiserCompany', 'Company not found');
+          }
+        } catch (error) {
+          console.warn("Could not fetch company:", error);
+          onChange('advertiserCompany', 'Error loading company');
+        }
+      } else {
+        onChange('advertiserCompany', '');
+      }
+    } else {
+      // Clear auto-populated fields
+      onChange('advertiserCountry', '');
+      onChange('advertiserCompany', '');
     }
   };
 
@@ -701,30 +792,49 @@ const BasicInformation = forwardRef(({
     }
   };
 
+  const handleCustomerServiceChange = (value) => {
+    if (!isEditMode) return;
+
+    const selectedCS = customerServices.find(cs => cs.value === value);
+
+    onChange('assignedCustomerService', value);
+
+    if (selectedCS && selectedCS.value !== "") {
+      setCustomerServiceSearchTerm(selectedCS.label);
+      setUseCustomerServiceSearchMode(false);
+    }
+  };
+
+  const handleContactChange = (value) => {
+    if (!isEditMode) return;
+
+    const selectedContact = contacts.find(contact => contact.value === value);
+
+    onChange('contact', value);
+
+    if (selectedContact && selectedContact.value !== "") {
+      setContactSearchTerm(selectedContact.label);
+      setUseContactSearchMode(false);
+    }
+  };
+
   const handleFieldChange = (field, value) => {
     if (!isEditMode) return;
 
-    if (field === 'commercialAgreement') {
-      handleCommercialAgreementChange(value);
-    } else if (field === 'advertiser') {
+    if (field === 'advertiser') {
       handleAdvertiserChange(value);
     } else if (field === 'dealOwner') {
       handleDealOwnerChange(value);
+    } else if (field === 'assignedCustomerService') {
+      handleCustomerServiceChange(value);
+    } else if (field === 'contact') {
+      handleContactChange(value);
     } else {
       onChange(field, value);
     }
   };
 
   // === CLEAR SEARCH FUNCTIONS ===
-  const clearAgreementSearch = () => {
-    if (!isEditMode) return;
-    setAgreementSearchTerm("");
-    setUseAgreementSearchMode(false);
-    setAgreementErrorMessage("");
-    setLastAgreementSearchTerm("");
-    loadDefaultAgreements(formData.commercialAgreement);
-  };
-
   const clearAdvertiserSearch = () => {
     if (!isEditMode) return;
     setAdvertiserSearchTerm("");
@@ -743,22 +853,25 @@ const BasicInformation = forwardRef(({
     loadDefaultDealOwners();
   };
 
+  const clearCustomerServiceSearch = () => {
+    if (!isEditMode) return;
+    setCustomerServiceSearchTerm("");
+    setUseCustomerServiceSearchMode(false);
+    setCustomerServiceErrorMessage("");
+    setLastCustomerServiceSearchTerm("");
+    loadDefaultCustomerServices();
+  };
+
+  const clearContactSearch = () => {
+    if (!isEditMode) return;
+    setContactSearchTerm("");
+    setUseContactSearchMode(false);
+    setContactErrorMessage("");
+    setLastContactSearchTerm("");
+    loadDefaultContacts();
+  };
+
   // === MODE CONTROL FUNCTIONS ===
-  const switchAgreementToBrowseMode = () => {
-    if (!isEditMode) return;
-    setUseAgreementSearchMode(false);
-    setAgreementSearchTerm("");
-    setLastAgreementSearchTerm("");
-    loadDefaultAgreements(formData.commercialAgreement);
-  };
-
-  const switchAgreementToSearchMode = () => {
-    if (!isEditMode) return;
-    setUseAgreementSearchMode(true);
-    setAgreementSearchTerm("");
-    setLastAgreementSearchTerm("");
-  };
-
   const switchAdvertiserToBrowseMode = () => {
     if (!isEditMode) return;
     setUseAdvertiserSearchMode(false);
@@ -789,6 +902,36 @@ const BasicInformation = forwardRef(({
     setLastDealOwnerSearchTerm("");
   };
 
+  const switchCustomerServiceToBrowseMode = () => {
+    if (!isEditMode) return;
+    setUseCustomerServiceSearchMode(false);
+    setCustomerServiceSearchTerm("");
+    setLastCustomerServiceSearchTerm("");
+    loadDefaultCustomerServices();
+  };
+
+  const switchCustomerServiceToSearchMode = () => {
+    if (!isEditMode) return;
+    setUseCustomerServiceSearchMode(true);
+    setCustomerServiceSearchTerm("");
+    setLastCustomerServiceSearchTerm("");
+  };
+
+  const switchContactToBrowseMode = () => {
+    if (!isEditMode) return;
+    setUseContactSearchMode(false);
+    setContactSearchTerm("");
+    setLastContactSearchTerm("");
+    loadDefaultContacts();
+  };
+
+  const switchContactToSearchMode = () => {
+    if (!isEditMode) return;
+    setUseContactSearchMode(true);
+    setContactSearchTerm("");
+    setLastContactSearchTerm("");
+  };
+
   // === UI HELPER FUNCTIONS ===
   const getSaveStatusDisplay = () => {
     const message = SAVE_STATUS_MESSAGES[saveState] || SAVE_STATUS_MESSAGES[COMPONENT_SAVE_STATES.NOT_SAVED];
@@ -814,27 +957,14 @@ const BasicInformation = forwardRef(({
     return saveState === COMPONENT_SAVE_STATES.SAVING ||
            saveState === COMPONENT_SAVE_STATES.LOADING ||
            !formData.campaignName ||
-           !formData.commercialAgreement ||
            !formData.advertiser ||
-           !formData.dealOwner;
+           !formData.dealOwner ||
+           !formData.assignedCustomerService ||
+           !formData.contact ||
+           !formData.campaignType;
   };
 
   // === STATUS MESSAGES ===
-  const getAgreementStatusMessage = () => {
-    if (!isEditMode) return "";
-    if (isAgreementSearching) return "Searching agreements...";
-    if (isAgreementLoading) return "Loading agreements...";
-    if (useAgreementSearchMode && lastAgreementSearchTerm) {
-      const count = agreements.length > 1 ? agreements.length - 1 : 0;
-      return `${count} results for "${lastAgreementSearchTerm}"`;
-    }
-    if (agreements.length > 1) {
-      const count = agreements.length - 1;
-      return `${count} agreements available${agreementHasMore ? ' (load more below)' : ''}`;
-    }
-    return "";
-  };
-
   const getAdvertiserStatusMessage = () => {
     if (!isEditMode) return "";
     if (isAdvertiserSearching) return "Searching advertisers...";
@@ -865,15 +995,49 @@ const BasicInformation = forwardRef(({
     return "";
   };
 
+  const getCustomerServiceStatusMessage = () => {
+    if (!isEditMode) return "";
+    if (isCustomerServiceSearching) return "Searching CS representatives...";
+    if (isCustomerServiceLoading) return "Loading CS representatives...";
+    if (useCustomerServiceSearchMode && lastCustomerServiceSearchTerm) {
+      const count = customerServices.length > 1 ? customerServices.length - 1 : 0;
+      return `${count} results for "${lastCustomerServiceSearchTerm}"`;
+    }
+    if (customerServices.length > 1) {
+      const count = customerServices.length - 1;
+      return `${count} CS representatives available${customerServiceHasMore ? ' (load more below)' : ''}`;
+    }
+    return "";
+  };
+
+  const getContactStatusMessage = () => {
+    if (!isEditMode) return "";
+    if (isContactSearching) return "Searching contacts...";
+    if (isContactLoading) return "Loading contacts...";
+    if (useContactSearchMode && lastContactSearchTerm) {
+      const count = contacts.length > 1 ? contacts.length - 1 : 0;
+      return `${count} results for "${lastContactSearchTerm}"`;
+    }
+    if (contacts.length > 1) {
+      const count = contacts.length - 1;
+      return `${count} contacts available${contactHasMore ? ' (load more below)' : ''}`;
+    }
+    return "";
+  };
+
   const statusDisplay = getSaveStatusDisplay();
 
   // Expose save method to parent
   useImperativeHandle(ref, () => ({
     save: async () => {
       // Validate required fields
-      if (!formData.campaignName || !formData.commercialAgreement || !formData.advertiser || !formData.dealOwner) {
-        return "Please fill all required fields in Basic Information.";
+      const requiredFields = ['campaignName', 'advertiser', 'dealOwner', 'assignedCustomerService', 'contact', 'campaignType'];
+      const missingFields = requiredFields.filter(field => !formData[field]);
+      
+      if (missingFields.length > 0) {
+        return `Please fill all required fields in Basic Information: ${missingFields.join(', ')}.`;
       }
+      
       await saveBasicInformation();
       if (saveError) return saveError;
       if (saveState === COMPONENT_SAVE_STATES.ERROR) return "Failed to save Basic Information.";
@@ -920,6 +1084,7 @@ const BasicInformation = forwardRef(({
       )}
 
       <Box marginTop="medium">
+        {/* ROW 1: Campaign Name, Advertiser */}
         <Flex direction="row" gap="medium" wrap="wrap">
           {/* CAMPAIGN NAME - VIEW/EDIT MODE */}
           <Box flex={1} minWidth="250px">
@@ -934,32 +1099,32 @@ const BasicInformation = forwardRef(({
             />
           </Box>
 
-          {/* COMMERCIAL AGREEMENTS - VIEW/EDIT MODE */}
+          {/* ADVERTISERS - VIEW/EDIT MODE */}
           <Box flex={1} minWidth="250px">
             {/* Mode Controls - Only show in Edit Mode */}
             {isEditMode && (
               <Flex gap="small" marginBottom="small" wrap="wrap">
                 <Button
-                  variant={!useAgreementSearchMode ? "primary" : "secondary"}
+                  variant={!useAdvertiserSearchMode ? "primary" : "secondary"}
                   size="xs"
-                  onClick={switchAgreementToBrowseMode}
-                  disabled={isAgreementLoading}
+                  onClick={switchAdvertiserToBrowseMode}
+                  disabled={isAdvertiserLoading}
                 >
                   📋 Browse
                 </Button>
                 <Button
-                  variant={useAgreementSearchMode ? "primary" : "secondary"}
+                  variant={useAdvertiserSearchMode ? "primary" : "secondary"}
                   size="xs"
-                  onClick={switchAgreementToSearchMode}
-                  disabled={isAgreementLoading}
+                  onClick={switchAdvertiserToSearchMode}
+                  disabled={isAdvertiserLoading}
                 >
                   🔍 Search
                 </Button>
-                {useAgreementSearchMode && (
+                {useAdvertiserSearchMode && (
                   <Button
                     variant="secondary"
                     size="xs"
-                    onClick={clearAgreementSearch}
+                    onClick={clearAdvertiserSearch}
                   >
                     ✕ Clear
                   </Button>
@@ -970,84 +1135,84 @@ const BasicInformation = forwardRef(({
             {/* View Mode: Simple Input Display */}
             {!isEditMode && (
               <Input
-                label="Commercial Agreement *"
-                name="commercialAgreement"
-                placeholder="No commercial agreement selected"
+                label="Advertiser *"
+                name="advertiser"
+                placeholder="No advertiser selected"
                 value={
-                  displayLabels.commercialAgreement || 
-                  (formData.commercialAgreement ? `Agreement (${formData.commercialAgreement})` : "")
+                  displayLabels.advertiser || 
+                  (formData.advertiser ? `Advertiser (${formData.advertiser})` : "")
                 }
                 readOnly={true}
               />
             )}
 
             {/* Edit Mode: Search or Select */}
-            {isEditMode && useAgreementSearchMode ? (
+            {isEditMode && useAdvertiserSearchMode ? (
               <Flex gap="small" direction="row" align="end">
                 <Box flex={1}>
                   <Input
-                    label="Search Commercial Agreements *"
-                    name="searchAgreements"
-                    placeholder="Enter agreement name..."
-                    value={agreementSearchTerm}
-                    onChange={(value) => setAgreementSearchTerm(value)}
-                    disabled={isAgreementLoading || isAgreementSearching}
+                    label="Search Advertisers *"
+                    name="searchAdvertisers"
+                    placeholder="Enter advertiser name..."
+                    value={advertiserSearchTerm}
+                    onChange={(value) => setAdvertiserSearchTerm(value)}
+                    disabled={isAdvertiserLoading || isAdvertiserSearching}
                   />
                 </Box>
                 <Box>
                   <Button 
-                    onClick={performAgreementSearch}
-                    disabled={!agreementSearchTerm.trim() || isAgreementSearching || isAgreementLoading}
+                    onClick={performAdvertiserSearch}
+                    disabled={!advertiserSearchTerm.trim() || isAdvertiserSearching || isAdvertiserLoading}
                   >
-                    {isAgreementSearching ? <LoadingSpinner size="xs" /> : "🔍"}
+                    {isAdvertiserSearching ? <LoadingSpinner size="xs" /> : "🔍"}
                   </Button>
                 </Box>
               </Flex>
             ) : isEditMode ? (
               <Select
-                label="Commercial Agreement *"
-                name="commercialAgreement"
-                options={agreements}
-                value={formData.commercialAgreement}
-                onChange={(value) => handleFieldChange("commercialAgreement", value)}
+                label="Advertiser *"
+                name="advertiser"
+                options={advertisers}
+                value={formData.advertiser}
+                onChange={(value) => handleFieldChange("advertiser", value)}
                 required
-                disabled={isAgreementLoading}
+                disabled={isAdvertiserLoading}
               />
             ) : null}
 
-            {/* Search Results Select - Only in Edit Mode */}
-            {isEditMode && useAgreementSearchMode && lastAgreementSearchTerm && agreements.length > 1 && (
+            {/* Search Results - Only in Edit Mode */}
+            {isEditMode && useAdvertiserSearchMode && lastAdvertiserSearchTerm && advertisers.length > 1 && (
               <Box marginTop="small">
                 <Select
                   label="Select from search results"
-                  name="searchResults"
-                  options={agreements}
-                  value={formData.commercialAgreement}
-                  onChange={(value) => handleFieldChange("commercialAgreement", value)}
-                  disabled={isAgreementSearching}
+                  name="advertiserSearchResults"
+                  options={advertisers}
+                  value={formData.advertiser}
+                  onChange={(value) => handleFieldChange("advertiser", value)}
+                  disabled={isAdvertiserSearching}
                 />
               </Box>
             )}
 
             {/* Status Messages - Only in Edit Mode */}
-            {getAgreementStatusMessage() && (
+            {getAdvertiserStatusMessage() && (
               <Text variant="microcopy" format={{ color: 'medium' }}>
-                {getAgreementStatusMessage()}
+                {getAdvertiserStatusMessage()}
               </Text>
             )}
 
             {/* Error Messages - Only in Edit Mode */}
-            {isEditMode && agreementErrorMessage && (
+            {isEditMode && advertiserErrorMessage && (
               <Box marginTop="extra-small">
                 <Text variant="microcopy" format={{ color: 'error' }}>
-                  {agreementErrorMessage}
+                  {advertiserErrorMessage}
                 </Text>
                 <Box marginTop="extra-small">
                   <Button
                     variant="secondary"
                     size="xs"
-                    onClick={() => loadDefaultAgreements(formData.commercialAgreement)}
-                    disabled={isAgreementLoading}
+                    onClick={loadDefaultAdvertisers}
+                    disabled={isAdvertiserLoading}
                   >
                     Retry
                   </Button>
@@ -1057,157 +1222,32 @@ const BasicInformation = forwardRef(({
           </Box>
         </Flex>
 
+        {/* ROW 2: Advertiser Country, Advertiser Company */}
         <Box marginTop="medium">
           <Flex direction="row" gap="medium" wrap="wrap">
-            {/* COMPANY - VIEW/EDIT MODE */}
             <Box flex={1} minWidth="250px">
               <Input
-                label="Company"
-                name="company"
-                placeholder={isEditMode ? "Auto-populated from agreement" : "No company information"}
-                value={formData.company}
+                label="Advertiser Country"
+                name="advertiserCountry"
+                placeholder={isEditMode ? "Auto-populated from advertiser" : "No country information"}
+                value={formData.advertiserCountry}
                 readOnly={true}
               />
-
-              {companyStatus && (
-                <Box marginTop="extra-small">
-                  <Text
-                    variant="microcopy"
-                    format={{
-                      color: companyStatus.includes('No company') ? 'error' :
-                             companyStatus.includes('Company:') ? 'success' : 'medium'
-                    }}
-                  >
-                    {companyStatus}
-                  </Text>
-                </Box>
-              )}
             </Box>
 
-            {/* ADVERTISERS - VIEW/EDIT MODE */}
             <Box flex={1} minWidth="250px">
-              {/* Mode Controls - Only show in Edit Mode */}
-              {isEditMode && (
-                <Flex gap="small" marginBottom="small" wrap="wrap">
-                  <Button
-                    variant={!useAdvertiserSearchMode ? "primary" : "secondary"}
-                    size="xs"
-                    onClick={switchAdvertiserToBrowseMode}
-                    disabled={isAdvertiserLoading}
-                  >
-                    📋 Browse
-                  </Button>
-                  <Button
-                    variant={useAdvertiserSearchMode ? "primary" : "secondary"}
-                    size="xs"
-                    onClick={switchAdvertiserToSearchMode}
-                    disabled={isAdvertiserLoading}
-                  >
-                    🔍 Search
-                  </Button>
-                  {useAdvertiserSearchMode && (
-                    <Button
-                      variant="secondary"
-                      size="xs"
-                      onClick={clearAdvertiserSearch}
-                    >
-                      ✕ Clear
-                    </Button>
-                  )}
-                </Flex>
-              )}
-
-              {/* View Mode: Simple Input Display */}
-              {!isEditMode && (
-                <Input
-                  label="Advertiser *"
-                  name="advertiser"
-                  placeholder="No advertiser selected"
-                  value={
-                    displayLabels.advertiser || 
-                    (formData.advertiser ? `Advertiser (${formData.advertiser})` : "")
-                  }
-                  readOnly={true}
-                />
-              )}
-
-              {/* Edit Mode: Search or Select */}
-              {isEditMode && useAdvertiserSearchMode ? (
-                <Flex gap="small" direction="row" align="end">
-                  <Box flex={1}>
-                    <Input
-                      label="Search Advertisers *"
-                      name="searchAdvertisers"
-                      placeholder="Enter advertiser name..."
-                      value={advertiserSearchTerm}
-                      onChange={(value) => setAdvertiserSearchTerm(value)}
-                      disabled={isAdvertiserLoading || isAdvertiserSearching}
-                    />
-                  </Box>
-                  <Box>
-                    <Button 
-                      onClick={performAdvertiserSearch}
-                      disabled={!advertiserSearchTerm.trim() || isAdvertiserSearching || isAdvertiserLoading}
-                    >
-                      {isAdvertiserSearching ? <LoadingSpinner size="xs" /> : "🔍"}
-                    </Button>
-                  </Box>
-                </Flex>
-              ) : isEditMode ? (
-                <Select
-                  label="Advertiser *"
-                  name="advertiser"
-                  options={advertisers}
-                  value={formData.advertiser}
-                  onChange={(value) => handleFieldChange("advertiser", value)}
-                  required
-                  disabled={isAdvertiserLoading}
-                />
-              ) : null}
-
-              {/* Search Results - Only in Edit Mode */}
-              {isEditMode && useAdvertiserSearchMode && lastAdvertiserSearchTerm && advertisers.length > 1 && (
-                <Box marginTop="small">
-                  <Select
-                    label="Select from search results"
-                    name="advertiserSearchResults"
-                    options={advertisers}
-                    value={formData.advertiser}
-                    onChange={(value) => handleFieldChange("advertiser", value)}
-                    disabled={isAdvertiserSearching}
-                  />
-                </Box>
-              )}
-
-              {/* Status Messages - Only in Edit Mode */}
-              {getAdvertiserStatusMessage() && (
-                <Text variant="microcopy" format={{ color: 'medium' }}>
-                  {getAdvertiserStatusMessage()}
-                </Text>
-              )}
-
-              {/* Error Messages - Only in Edit Mode */}
-              {isEditMode && advertiserErrorMessage && (
-                <Box marginTop="extra-small">
-                  <Text variant="microcopy" format={{ color: 'error' }}>
-                    {advertiserErrorMessage}
-                  </Text>
-                  <Box marginTop="extra-small">
-                    <Button
-                      variant="secondary"
-                      size="xs"
-                      onClick={loadDefaultAdvertisers}
-                      disabled={isAdvertiserLoading}
-                    >
-                      Retry
-                    </Button>
-                  </Box>
-                </Box>
-              )}
+              <Input
+                label="Advertiser Company"
+                name="advertiserCompany"
+                placeholder={isEditMode ? "Auto-populated from advertiser" : "No company information"}
+                value={formData.advertiserCompany}
+                readOnly={true}
+              />
             </Box>
           </Flex>
         </Box>
 
+        {/* ROW 3: Deal Owner, Assigned Customer Service */}
         <Box marginTop="medium">
           <Flex direction="row" gap="medium" wrap="wrap">
             {/* DEAL OWNERS - VIEW/EDIT MODE */}
@@ -1332,24 +1372,297 @@ const BasicInformation = forwardRef(({
               )}
             </Box>
 
-            {/* CURRENCY - VIEW/EDIT MODE */}
+            {/* ASSIGNED CUSTOMER SERVICE - VIEW/EDIT MODE */}
             <Box flex={1} minWidth="250px">
-              <Input
-                label="Currency"
-                name="currency"
-                value={formData.currency}
-                placeholder={
-                  !isEditMode ? "No currency information" :
-                  formData.company === 'No company found' ? 'No currency available' : 'Auto-populated'
-                }
-                readOnly={true}
-              />
+              {/* Mode Controls - Only show in Edit Mode */}
+              {isEditMode && (
+                <Flex gap="small" marginBottom="small" wrap="wrap">
+                  <Button
+                    variant={!useCustomerServiceSearchMode ? "primary" : "secondary"}
+                    size="xs"
+                    onClick={switchCustomerServiceToBrowseMode}
+                    disabled={isCustomerServiceLoading}
+                  >
+                    📋 Browse
+                  </Button>
+                  <Button
+                    variant={useCustomerServiceSearchMode ? "primary" : "secondary"}
+                    size="xs"
+                    onClick={switchCustomerServiceToSearchMode}
+                    disabled={isCustomerServiceLoading}
+                  >
+                    🔍 Search
+                  </Button>
+                  {useCustomerServiceSearchMode && (
+                    <Button
+                      variant="secondary"
+                      size="xs"
+                      onClick={clearCustomerServiceSearch}
+                    >
+                      ✕ Clear
+                    </Button>
+                  )}
+                </Flex>
+              )}
+
+              {/* View Mode: Simple Input Display */}
+              {!isEditMode && (
+                <Input
+                  label="Assigned Customer Service *"
+                  name="assignedCustomerService"
+                  placeholder="No CS representative selected"
+                  value={
+                    displayLabels.assignedCustomerService || 
+                    (formData.assignedCustomerService ? `CS Rep (${formData.assignedCustomerService})` : "")
+                  }
+                  readOnly={true}
+                />
+              )}
+
+              {/* Edit Mode: Search or Select */}
+              {isEditMode && useCustomerServiceSearchMode ? (
+                <Flex gap="small" direction="row" align="end">
+                  <Box flex={1}>
+                    <Input
+                      label="Search CS Representatives *"
+                      name="searchCustomerService"
+                      placeholder="Enter CS rep name..."
+                      value={customerServiceSearchTerm}
+                      onChange={(value) => setCustomerServiceSearchTerm(value)}
+                      disabled={isCustomerServiceLoading || isCustomerServiceSearching}
+                    />
+                  </Box>
+                  <Box>
+                    <Button 
+                      onClick={performCustomerServiceSearch}
+                      disabled={!customerServiceSearchTerm.trim() || isCustomerServiceSearching || isCustomerServiceLoading}
+                    >
+                      {isCustomerServiceSearching ? <LoadingSpinner size="xs" /> : "🔍"}
+                    </Button>
+                  </Box>
+                </Flex>
+              ) : isEditMode ? (
+                <Select
+                  label="Assigned Customer Service *"
+                  name="assignedCustomerService"
+                  options={customerServices}
+                  value={formData.assignedCustomerService}
+                  onChange={(value) => handleFieldChange("assignedCustomerService", value)}
+                  required
+                  disabled={isCustomerServiceLoading}
+                />
+              ) : null}
+
+              {/* Search Results - Only in Edit Mode */}
+              {isEditMode && useCustomerServiceSearchMode && lastCustomerServiceSearchTerm && customerServices.length > 1 && (
+                <Box marginTop="small">
+                  <Select
+                    label="Select from search results"
+                    name="customerServiceSearchResults"
+                    options={customerServices}
+                    value={formData.assignedCustomerService}
+                    onChange={(value) => handleFieldChange("assignedCustomerService", value)}
+                    disabled={isCustomerServiceSearching}
+                  />
+                </Box>
+              )}
+
+              {/* Status Messages - Only in Edit Mode */}
+              {getCustomerServiceStatusMessage() && (
+                <Text variant="microcopy" format={{ color: 'medium' }}>
+                  {getCustomerServiceStatusMessage()}
+                </Text>
+              )}
+
+              {/* Error Messages - Only in Edit Mode */}
+              {isEditMode && customerServiceErrorMessage && (
+                <Box marginTop="extra-small">
+                  <Text variant="microcopy" format={{ color: 'error' }}>
+                    {customerServiceErrorMessage}
+                  </Text>
+                  <Box marginTop="extra-small">
+                    <Button
+                      variant="secondary"
+                      size="xs"
+                      onClick={loadDefaultCustomerServices}
+                      disabled={isCustomerServiceLoading}
+                    >
+                      Retry
+                    </Button>
+                  </Box>
+                </Box>
+              )}
             </Box>
           </Flex>
         </Box>
 
-        {/* Save Button - Only show in Edit Mode */}
-        {/* REMOVED: Unified save button is now in parent */}
+        {/* ROW 4: Contact, Campaign Type */}
+        <Box marginTop="medium">
+          <Flex direction="row" gap="medium" wrap="wrap">
+            {/* CONTACTS - VIEW/EDIT MODE */}
+            <Box flex={1} minWidth="250px">
+              {/* Mode Controls - Only show in Edit Mode */}
+              {isEditMode && (
+                <Flex gap="small" marginBottom="small" wrap="wrap">
+                  <Button
+                    variant={!useContactSearchMode ? "primary" : "secondary"}
+                    size="xs"
+                    onClick={switchContactToBrowseMode}
+                    disabled={isContactLoading}
+                  >
+                    📋 Browse
+                  </Button>
+                  <Button
+                    variant={useContactSearchMode ? "primary" : "secondary"}
+                    size="xs"
+                    onClick={switchContactToSearchMode}
+                    disabled={isContactLoading}
+                  >
+                    🔍 Search
+                  </Button>
+                  {useContactSearchMode && (
+                    <Button
+                      variant="secondary"
+                      size="xs"
+                      onClick={clearContactSearch}
+                    >
+                      ✕ Clear
+                    </Button>
+                  )}
+                </Flex>
+              )}
+
+              {/* View Mode: Simple Input Display */}
+              {!isEditMode && (
+                <Input
+                  label="Contact *"
+                  name="contact"
+                  placeholder="No contact selected"
+                  value={
+                    displayLabels.contact || 
+                    (formData.contact ? `Contact (${formData.contact})` : "")
+                  }
+                  readOnly={true}
+                />
+              )}
+
+              {/* Edit Mode: Search or Select */}
+              {isEditMode && useContactSearchMode ? (
+                <Flex gap="small" direction="row" align="end">
+                  <Box flex={1}>
+                    <Input
+                      label="Search Contacts *"
+                      name="searchContacts"
+                      placeholder="Enter contact name..."
+                      value={contactSearchTerm}
+                      onChange={(value) => setContactSearchTerm(value)}
+                      disabled={isContactLoading || isContactSearching}
+                    />
+                  </Box>
+                  <Box>
+                    <Button 
+                      onClick={performContactSearch}
+                      disabled={!contactSearchTerm.trim() || isContactSearching || isContactLoading}
+                    >
+                      {isContactSearching ? <LoadingSpinner size="xs" /> : "🔍"}
+                    </Button>
+                  </Box>
+                </Flex>
+              ) : isEditMode ? (
+                <Select
+                  label="Contact *"
+                  name="contact"
+                  options={contacts}
+                  value={formData.contact}
+                  onChange={(value) => handleFieldChange("contact", value)}
+                  required
+                  disabled={isContactLoading}
+                />
+              ) : null}
+
+              {/* Search Results - Only in Edit Mode */}
+              {isEditMode && useContactSearchMode && lastContactSearchTerm && contacts.length > 1 && (
+                <Box marginTop="small">
+                  <Select
+                    label="Select from search results"
+                    name="contactSearchResults"
+                    options={contacts}
+                    value={formData.contact}
+                    onChange={(value) => handleFieldChange("contact", value)}
+                    disabled={isContactSearching}
+                  />
+                </Box>
+              )}
+
+              {/* Status Messages - Only in Edit Mode */}
+              {getContactStatusMessage() && (
+                <Text variant="microcopy" format={{ color: 'medium' }}>
+                  {getContactStatusMessage()}
+                </Text>
+              )}
+
+              {/* Error Messages - Only in Edit Mode */}
+              {isEditMode && contactErrorMessage && (
+                <Box marginTop="extra-small">
+                  <Text variant="microcopy" format={{ color: 'error' }}>
+                    {contactErrorMessage}
+                  </Text>
+                  <Box marginTop="extra-small">
+                    <Button
+                      variant="secondary"
+                      size="xs"
+                      onClick={loadDefaultContacts}
+                      disabled={isContactLoading}
+                    >
+                      Retry
+                    </Button>
+                  </Box>
+                </Box>
+              )}
+            </Box>
+
+            {/* CAMPAIGN TYPE - VIEW/EDIT MODE */}
+            <Box flex={1} minWidth="250px">
+              {!isEditMode ? (
+                <Input
+                  label="Campaign Type *"
+                  name="campaignType"
+                  placeholder="No campaign type selected"
+                  value={
+                    displayLabels.campaignType ||
+                    (formData.campaignType ? `Campaign Type (${formData.campaignType})` : "")
+                  }
+                  readOnly
+                />
+              ) : (
+                <Select
+                  label="Campaign Type *"
+                  name="campaignType"
+                  options={CAMPAIGN_TYPE_OPTIONS}
+                  value={formData.campaignType}
+                  onChange={(value) => handleFieldChange("campaignType", value)}
+                  required
+                />
+              )}
+            </Box>
+          </Flex>
+        </Box>
+
+        {/* ROW 5: Link to Google Drive */}
+        <Box marginTop="medium">
+          <Flex direction="row" gap="medium" wrap="wrap">
+            <Box flex={1} minWidth="250px">
+              <Input
+                label="Link to Google Drive"
+                name="linkToGoogleDrive"
+                placeholder={isEditMode ? "Enter Google Drive link" : "No Google Drive link"}
+                value={formData.linkToGoogleDrive}
+                onChange={isEditMode ? (value) => handleFieldChange("linkToGoogleDrive", value) : undefined}
+                readOnly={!isEditMode}
+              />
+            </Box>
+          </Flex>
+        </Box>
       </Box>
     </Tile>
   );

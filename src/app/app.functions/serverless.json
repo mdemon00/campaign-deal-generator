@@ -20,6 +20,10 @@
       "file": "searchDealOwners.js",
       "secrets": []
     },
+    "searchContacts": {
+      "file": "searchContacts.js",
+      "secrets": []
+    },
     "saveBasicInformation": {
       "file": "saveBasicInformation.js",
       "secrets": []
