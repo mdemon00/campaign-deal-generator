@@ -1,5 +1,5 @@
 // src/app/extensions/components/BasicInformation.jsx
-// Restructured Version - Removed Commercial Agreement fields, Added new fields
+// Restructured Version - Fixed layout for Browse/Search fields
 
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import {
@@ -1084,146 +1084,143 @@ const BasicInformation = forwardRef(({
       )}
 
       <Box marginTop="medium">
-        {/* ROW 1: Campaign Name, Advertiser */}
-        <Flex direction="row" gap="medium" wrap="wrap">
-          {/* CAMPAIGN NAME - VIEW/EDIT MODE */}
-          <Box flex={1} minWidth="250px">
+        {/* ROW 1: Campaign Name (Full Row) */}
+        <Box marginBottom="extra-large">
+          <Input
+            label="Campaign Name *"
+            name="campaignName"
+            placeholder={isEditMode ? "Enter campaign name" : "No campaign name"}
+            value={formData.campaignName}
+            onChange={isEditMode ? (value) => handleFieldChange("campaignName", value) : undefined}
+            readOnly={!isEditMode}
+            required={isEditMode}
+          />
+        </Box>
+
+        {/* ROW 2: Advertiser (Full Row - Has Browse/Search) */}
+        <Box marginBottom="extra-large">
+          {/* Mode Controls - Only show in Edit Mode */}
+          {isEditMode && (
+            <Flex gap="small" marginBottom="small" wrap="wrap">
+              <Button
+                variant={!useAdvertiserSearchMode ? "primary" : "secondary"}
+                size="xs"
+                onClick={switchAdvertiserToBrowseMode}
+                disabled={isAdvertiserLoading}
+              >
+                📋 Browse
+              </Button>
+              <Button
+                variant={useAdvertiserSearchMode ? "primary" : "secondary"}
+                size="xs"
+                onClick={switchAdvertiserToSearchMode}
+                disabled={isAdvertiserLoading}
+              >
+                🔍 Search
+              </Button>
+              {useAdvertiserSearchMode && (
+                <Button
+                  variant="secondary"
+                  size="xs"
+                  onClick={clearAdvertiserSearch}
+                >
+                  ✕ Clear
+                </Button>
+              )}
+            </Flex>
+          )}
+
+          {/* View Mode: Simple Input Display */}
+          {!isEditMode && (
             <Input
-              label="Campaign Name *"
-              name="campaignName"
-              placeholder={isEditMode ? "Enter campaign name" : "No campaign name"}
-              value={formData.campaignName}
-              onChange={isEditMode ? (value) => handleFieldChange("campaignName", value) : undefined}
-              readOnly={!isEditMode}
-              required={isEditMode}
+              label="Advertiser *"
+              name="advertiser"
+              placeholder="No advertiser selected"
+              value={
+                displayLabels.advertiser || 
+                (formData.advertiser ? `Advertiser (${formData.advertiser})` : "")
+              }
+              readOnly={true}
             />
-          </Box>
+          )}
 
-          {/* ADVERTISERS - VIEW/EDIT MODE */}
-          <Box flex={1} minWidth="250px">
-            {/* Mode Controls - Only show in Edit Mode */}
-            {isEditMode && (
-              <Flex gap="small" marginBottom="small" wrap="wrap">
-                <Button
-                  variant={!useAdvertiserSearchMode ? "primary" : "secondary"}
-                  size="xs"
-                  onClick={switchAdvertiserToBrowseMode}
-                  disabled={isAdvertiserLoading}
+          {/* Edit Mode: Search or Select */}
+          {isEditMode && useAdvertiserSearchMode ? (
+            <Flex gap="small" direction="row" align="end">
+              <Box flex={1}>
+                <Input
+                  label="Search Advertisers *"
+                  name="searchAdvertisers"
+                  placeholder="Enter advertiser name..."
+                  value={advertiserSearchTerm}
+                  onChange={(value) => setAdvertiserSearchTerm(value)}
+                  disabled={isAdvertiserLoading || isAdvertiserSearching}
+                />
+              </Box>
+              <Box>
+                <Button 
+                  onClick={performAdvertiserSearch}
+                  disabled={!advertiserSearchTerm.trim() || isAdvertiserSearching || isAdvertiserLoading}
                 >
-                  📋 Browse
+                  {isAdvertiserSearching ? <LoadingSpinner size="xs" /> : "🔍"}
                 </Button>
-                <Button
-                  variant={useAdvertiserSearchMode ? "primary" : "secondary"}
-                  size="xs"
-                  onClick={switchAdvertiserToSearchMode}
-                  disabled={isAdvertiserLoading}
-                >
-                  🔍 Search
-                </Button>
-                {useAdvertiserSearchMode && (
-                  <Button
-                    variant="secondary"
-                    size="xs"
-                    onClick={clearAdvertiserSearch}
-                  >
-                    ✕ Clear
-                  </Button>
-                )}
-              </Flex>
-            )}
+              </Box>
+            </Flex>
+          ) : isEditMode ? (
+            <Select
+              label="Advertiser *"
+              name="advertiser"
+              options={advertisers}
+              value={formData.advertiser}
+              onChange={(value) => handleFieldChange("advertiser", value)}
+              required
+              disabled={isAdvertiserLoading}
+            />
+          ) : null}
 
-            {/* View Mode: Simple Input Display */}
-            {!isEditMode && (
-              <Input
-                label="Advertiser *"
-                name="advertiser"
-                placeholder="No advertiser selected"
-                value={
-                  displayLabels.advertiser || 
-                  (formData.advertiser ? `Advertiser (${formData.advertiser})` : "")
-                }
-                readOnly={true}
-              />
-            )}
-
-            {/* Edit Mode: Search or Select */}
-            {isEditMode && useAdvertiserSearchMode ? (
-              <Flex gap="small" direction="row" align="end">
-                <Box flex={1}>
-                  <Input
-                    label="Search Advertisers *"
-                    name="searchAdvertisers"
-                    placeholder="Enter advertiser name..."
-                    value={advertiserSearchTerm}
-                    onChange={(value) => setAdvertiserSearchTerm(value)}
-                    disabled={isAdvertiserLoading || isAdvertiserSearching}
-                  />
-                </Box>
-                <Box>
-                  <Button 
-                    onClick={performAdvertiserSearch}
-                    disabled={!advertiserSearchTerm.trim() || isAdvertiserSearching || isAdvertiserLoading}
-                  >
-                    {isAdvertiserSearching ? <LoadingSpinner size="xs" /> : "🔍"}
-                  </Button>
-                </Box>
-              </Flex>
-            ) : isEditMode ? (
+          {/* Search Results - Only in Edit Mode */}
+          {isEditMode && useAdvertiserSearchMode && lastAdvertiserSearchTerm && advertisers.length > 1 && (
+            <Box marginTop="small">
               <Select
-                label="Advertiser *"
-                name="advertiser"
+                label="Select from search results"
+                name="advertiserSearchResults"
                 options={advertisers}
                 value={formData.advertiser}
                 onChange={(value) => handleFieldChange("advertiser", value)}
-                required
-                disabled={isAdvertiserLoading}
+                disabled={isAdvertiserSearching}
               />
-            ) : null}
+            </Box>
+          )}
 
-            {/* Search Results - Only in Edit Mode */}
-            {isEditMode && useAdvertiserSearchMode && lastAdvertiserSearchTerm && advertisers.length > 1 && (
-              <Box marginTop="small">
-                <Select
-                  label="Select from search results"
-                  name="advertiserSearchResults"
-                  options={advertisers}
-                  value={formData.advertiser}
-                  onChange={(value) => handleFieldChange("advertiser", value)}
-                  disabled={isAdvertiserSearching}
-                />
-              </Box>
-            )}
+          {/* Status Messages - Only in Edit Mode */}
+          {getAdvertiserStatusMessage() && (
+            <Text variant="microcopy" format={{ color: 'medium' }}>
+              {getAdvertiserStatusMessage()}
+            </Text>
+          )}
 
-            {/* Status Messages - Only in Edit Mode */}
-            {getAdvertiserStatusMessage() && (
-              <Text variant="microcopy" format={{ color: 'medium' }}>
-                {getAdvertiserStatusMessage()}
+          {/* Error Messages - Only in Edit Mode */}
+          {isEditMode && advertiserErrorMessage && (
+            <Box marginTop="extra-small">
+              <Text variant="microcopy" format={{ color: 'error' }}>
+                {advertiserErrorMessage}
               </Text>
-            )}
-
-            {/* Error Messages - Only in Edit Mode */}
-            {isEditMode && advertiserErrorMessage && (
               <Box marginTop="extra-small">
-                <Text variant="microcopy" format={{ color: 'error' }}>
-                  {advertiserErrorMessage}
-                </Text>
-                <Box marginTop="extra-small">
-                  <Button
-                    variant="secondary"
-                    size="xs"
-                    onClick={loadDefaultAdvertisers}
-                    disabled={isAdvertiserLoading}
-                  >
-                    Retry
-                  </Button>
-                </Box>
+                <Button
+                  variant="secondary"
+                  size="xs"
+                  onClick={loadDefaultAdvertisers}
+                  disabled={isAdvertiserLoading}
+                >
+                  Retry
+                </Button>
               </Box>
-            )}
-          </Box>
-        </Flex>
+            </Box>
+          )}
+        </Box>
 
-        {/* ROW 2: Advertiser Country, Advertiser Company */}
-        <Box marginTop="medium">
+        {/* ROW 3: Advertiser Country + Advertiser Company */}
+        <Box marginBottom="extra-large">
           <Flex direction="row" gap="medium" wrap="wrap">
             <Box flex={1} minWidth="250px">
               <Input
@@ -1247,380 +1244,375 @@ const BasicInformation = forwardRef(({
           </Flex>
         </Box>
 
-        {/* ROW 3: Deal Owner, Assigned Customer Service */}
-        <Box marginTop="medium">
-          <Flex direction="row" gap="medium" wrap="wrap">
-            {/* DEAL OWNERS - VIEW/EDIT MODE */}
-            <Box flex={1} minWidth="250px">
-              {/* Mode Controls - Only show in Edit Mode */}
-              {isEditMode && (
-                <Flex gap="small" marginBottom="small" wrap="wrap">
-                  <Button
-                    variant={!useDealOwnerSearchMode ? "primary" : "secondary"}
-                    size="xs"
-                    onClick={switchDealOwnerToBrowseMode}
-                    disabled={isDealOwnerLoading}
-                  >
-                    📋 Browse
-                  </Button>
-                  <Button
-                    variant={useDealOwnerSearchMode ? "primary" : "secondary"}
-                    size="xs"
-                    onClick={switchDealOwnerToSearchMode}
-                    disabled={isDealOwnerLoading}
-                  >
-                    🔍 Search
-                  </Button>
-                  {useDealOwnerSearchMode && (
-                    <Button
-                      variant="secondary"
-                      size="xs"
-                      onClick={clearDealOwnerSearch}
-                    >
-                      ✕ Clear
-                    </Button>
-                  )}
-                </Flex>
+        {/* ROW 4: Deal Owner (Full Row - Has Browse/Search) */}
+        <Box marginBottom="extra-large">
+          {/* Mode Controls - Only show in Edit Mode */}
+          {isEditMode && (
+            <Flex gap="small" marginBottom="small" wrap="wrap">
+              <Button
+                variant={!useDealOwnerSearchMode ? "primary" : "secondary"}
+                size="xs"
+                onClick={switchDealOwnerToBrowseMode}
+                disabled={isDealOwnerLoading}
+              >
+                📋 Browse
+              </Button>
+              <Button
+                variant={useDealOwnerSearchMode ? "primary" : "secondary"}
+                size="xs"
+                onClick={switchDealOwnerToSearchMode}
+                disabled={isDealOwnerLoading}
+              >
+                🔍 Search
+              </Button>
+              {useDealOwnerSearchMode && (
+                <Button
+                  variant="secondary"
+                  size="xs"
+                  onClick={clearDealOwnerSearch}
+                >
+                  ✕ Clear
+                </Button>
               )}
+            </Flex>
+          )}
 
-              {/* View Mode: Simple Input Display */}
-              {!isEditMode && (
+          {/* View Mode: Simple Input Display */}
+          {!isEditMode && (
+            <Input
+              label="Deal Owner *"
+              name="dealOwner"
+              placeholder="No deal owner selected"
+              value={
+                displayLabels.dealOwner || 
+                (formData.dealOwner ? `Owner (${formData.dealOwner})` : "")
+              }
+              readOnly={true}
+            />
+          )}
+
+          {/* Edit Mode: Search or Select */}
+          {isEditMode && useDealOwnerSearchMode ? (
+            <Flex gap="small" direction="row" align="end">
+              <Box flex={1}>
                 <Input
-                  label="Deal Owner *"
-                  name="dealOwner"
-                  placeholder="No deal owner selected"
-                  value={
-                    displayLabels.dealOwner || 
-                    (formData.dealOwner ? `Owner (${formData.dealOwner})` : "")
-                  }
-                  readOnly={true}
+                  label="Search Deal Owners *"
+                  name="searchDealOwners"
+                  placeholder="Enter owner name..."
+                  value={dealOwnerSearchTerm}
+                  onChange={(value) => setDealOwnerSearchTerm(value)}
+                  disabled={isDealOwnerLoading || isDealOwnerSearching}
                 />
-              )}
+              </Box>
+              <Box>
+                <Button 
+                  onClick={performDealOwnerSearch}
+                  disabled={!dealOwnerSearchTerm.trim() || isDealOwnerSearching || isDealOwnerLoading}
+                >
+                  {isDealOwnerSearching ? <LoadingSpinner size="xs" /> : "🔍"}
+                </Button>
+              </Box>
+            </Flex>
+          ) : isEditMode ? (
+            <Select
+              label="Deal Owner *"
+              name="dealOwner"
+              options={dealOwners}
+              value={formData.dealOwner}
+              onChange={(value) => handleFieldChange("dealOwner", value)}
+              required
+              disabled={isDealOwnerLoading}
+            />
+          ) : null}
 
-              {/* Edit Mode: Search or Select */}
-              {isEditMode && useDealOwnerSearchMode ? (
-                <Flex gap="small" direction="row" align="end">
-                  <Box flex={1}>
-                    <Input
-                      label="Search Deal Owners *"
-                      name="searchDealOwners"
-                      placeholder="Enter owner name..."
-                      value={dealOwnerSearchTerm}
-                      onChange={(value) => setDealOwnerSearchTerm(value)}
-                      disabled={isDealOwnerLoading || isDealOwnerSearching}
-                    />
-                  </Box>
-                  <Box>
-                    <Button 
-                      onClick={performDealOwnerSearch}
-                      disabled={!dealOwnerSearchTerm.trim() || isDealOwnerSearching || isDealOwnerLoading}
-                    >
-                      {isDealOwnerSearching ? <LoadingSpinner size="xs" /> : "🔍"}
-                    </Button>
-                  </Box>
-                </Flex>
-              ) : isEditMode ? (
-                <Select
-                  label="Deal Owner *"
-                  name="dealOwner"
-                  options={dealOwners}
-                  value={formData.dealOwner}
-                  onChange={(value) => handleFieldChange("dealOwner", value)}
-                  required
+          {/* Search Results - Only in Edit Mode */}
+          {isEditMode && useDealOwnerSearchMode && lastDealOwnerSearchTerm && dealOwners.length > 1 && (
+            <Box marginTop="small">
+              <Select
+                label="Select from search results"
+                name="dealOwnerSearchResults"
+                options={dealOwners}
+                value={formData.dealOwner}
+                onChange={(value) => handleFieldChange("dealOwner", value)}
+                disabled={isDealOwnerSearching}
+              />
+            </Box>
+          )}
+
+          {/* Status Messages - Only in Edit Mode */}
+          {getDealOwnerStatusMessage() && (
+            <Text variant="microcopy" format={{ color: 'medium' }}>
+              {getDealOwnerStatusMessage()}
+            </Text>
+          )}
+
+          {/* Error Messages - Only in Edit Mode */}
+          {isEditMode && dealOwnerErrorMessage && (
+            <Box marginTop="extra-small">
+              <Text variant="microcopy" format={{ color: 'error' }}>
+                {dealOwnerErrorMessage}
+              </Text>
+              <Box marginTop="extra-small">
+                <Button
+                  variant="secondary"
+                  size="xs"
+                  onClick={loadDefaultDealOwners}
                   disabled={isDealOwnerLoading}
-                />
-              ) : null}
-
-              {/* Search Results - Only in Edit Mode */}
-              {isEditMode && useDealOwnerSearchMode && lastDealOwnerSearchTerm && dealOwners.length > 1 && (
-                <Box marginTop="small">
-                  <Select
-                    label="Select from search results"
-                    name="dealOwnerSearchResults"
-                    options={dealOwners}
-                    value={formData.dealOwner}
-                    onChange={(value) => handleFieldChange("dealOwner", value)}
-                    disabled={isDealOwnerSearching}
-                  />
-                </Box>
-              )}
-
-              {/* Status Messages - Only in Edit Mode */}
-              {getDealOwnerStatusMessage() && (
-                <Text variant="microcopy" format={{ color: 'medium' }}>
-                  {getDealOwnerStatusMessage()}
-                </Text>
-              )}
-
-              {/* Error Messages - Only in Edit Mode */}
-              {isEditMode && dealOwnerErrorMessage && (
-                <Box marginTop="extra-small">
-                  <Text variant="microcopy" format={{ color: 'error' }}>
-                    {dealOwnerErrorMessage}
-                  </Text>
-                  <Box marginTop="extra-small">
-                    <Button
-                      variant="secondary"
-                      size="xs"
-                      onClick={loadDefaultDealOwners}
-                      disabled={isDealOwnerLoading}
-                    >
-                      Retry
-                    </Button>
-                  </Box>
-                </Box>
-              )}
+                >
+                  Retry
+                </Button>
+              </Box>
             </Box>
-
-            {/* ASSIGNED CUSTOMER SERVICE - VIEW/EDIT MODE */}
-            <Box flex={1} minWidth="250px">
-              {/* Mode Controls - Only show in Edit Mode */}
-              {isEditMode && (
-                <Flex gap="small" marginBottom="small" wrap="wrap">
-                  <Button
-                    variant={!useCustomerServiceSearchMode ? "primary" : "secondary"}
-                    size="xs"
-                    onClick={switchCustomerServiceToBrowseMode}
-                    disabled={isCustomerServiceLoading}
-                  >
-                    📋 Browse
-                  </Button>
-                  <Button
-                    variant={useCustomerServiceSearchMode ? "primary" : "secondary"}
-                    size="xs"
-                    onClick={switchCustomerServiceToSearchMode}
-                    disabled={isCustomerServiceLoading}
-                  >
-                    🔍 Search
-                  </Button>
-                  {useCustomerServiceSearchMode && (
-                    <Button
-                      variant="secondary"
-                      size="xs"
-                      onClick={clearCustomerServiceSearch}
-                    >
-                      ✕ Clear
-                    </Button>
-                  )}
-                </Flex>
-              )}
-
-              {/* View Mode: Simple Input Display */}
-              {!isEditMode && (
-                <Input
-                  label="Assigned Customer Service *"
-                  name="assignedCustomerService"
-                  placeholder="No CS representative selected"
-                  value={
-                    displayLabels.assignedCustomerService || 
-                    (formData.assignedCustomerService ? `CS Rep (${formData.assignedCustomerService})` : "")
-                  }
-                  readOnly={true}
-                />
-              )}
-
-              {/* Edit Mode: Search or Select */}
-              {isEditMode && useCustomerServiceSearchMode ? (
-                <Flex gap="small" direction="row" align="end">
-                  <Box flex={1}>
-                    <Input
-                      label="Search CS Representatives *"
-                      name="searchCustomerService"
-                      placeholder="Enter CS rep name..."
-                      value={customerServiceSearchTerm}
-                      onChange={(value) => setCustomerServiceSearchTerm(value)}
-                      disabled={isCustomerServiceLoading || isCustomerServiceSearching}
-                    />
-                  </Box>
-                  <Box>
-                    <Button 
-                      onClick={performCustomerServiceSearch}
-                      disabled={!customerServiceSearchTerm.trim() || isCustomerServiceSearching || isCustomerServiceLoading}
-                    >
-                      {isCustomerServiceSearching ? <LoadingSpinner size="xs" /> : "🔍"}
-                    </Button>
-                  </Box>
-                </Flex>
-              ) : isEditMode ? (
-                <Select
-                  label="Assigned Customer Service *"
-                  name="assignedCustomerService"
-                  options={customerServices}
-                  value={formData.assignedCustomerService}
-                  onChange={(value) => handleFieldChange("assignedCustomerService", value)}
-                  required
-                  disabled={isCustomerServiceLoading}
-                />
-              ) : null}
-
-              {/* Search Results - Only in Edit Mode */}
-              {isEditMode && useCustomerServiceSearchMode && lastCustomerServiceSearchTerm && customerServices.length > 1 && (
-                <Box marginTop="small">
-                  <Select
-                    label="Select from search results"
-                    name="customerServiceSearchResults"
-                    options={customerServices}
-                    value={formData.assignedCustomerService}
-                    onChange={(value) => handleFieldChange("assignedCustomerService", value)}
-                    disabled={isCustomerServiceSearching}
-                  />
-                </Box>
-              )}
-
-              {/* Status Messages - Only in Edit Mode */}
-              {getCustomerServiceStatusMessage() && (
-                <Text variant="microcopy" format={{ color: 'medium' }}>
-                  {getCustomerServiceStatusMessage()}
-                </Text>
-              )}
-
-              {/* Error Messages - Only in Edit Mode */}
-              {isEditMode && customerServiceErrorMessage && (
-                <Box marginTop="extra-small">
-                  <Text variant="microcopy" format={{ color: 'error' }}>
-                    {customerServiceErrorMessage}
-                  </Text>
-                  <Box marginTop="extra-small">
-                    <Button
-                      variant="secondary"
-                      size="xs"
-                      onClick={loadDefaultCustomerServices}
-                      disabled={isCustomerServiceLoading}
-                    >
-                      Retry
-                    </Button>
-                  </Box>
-                </Box>
-              )}
-            </Box>
-          </Flex>
+          )}
         </Box>
 
-        {/* ROW 4: Contact, Campaign Type */}
-        <Box marginTop="medium">
-          <Flex direction="row" gap="medium" wrap="wrap">
-            {/* CONTACTS - VIEW/EDIT MODE */}
-            <Box flex={1} minWidth="250px">
-              {/* Mode Controls - Only show in Edit Mode */}
-              {isEditMode && (
-                <Flex gap="small" marginBottom="small" wrap="wrap">
-                  <Button
-                    variant={!useContactSearchMode ? "primary" : "secondary"}
-                    size="xs"
-                    onClick={switchContactToBrowseMode}
-                    disabled={isContactLoading}
-                  >
-                    📋 Browse
-                  </Button>
-                  <Button
-                    variant={useContactSearchMode ? "primary" : "secondary"}
-                    size="xs"
-                    onClick={switchContactToSearchMode}
-                    disabled={isContactLoading}
-                  >
-                    🔍 Search
-                  </Button>
-                  {useContactSearchMode && (
-                    <Button
-                      variant="secondary"
-                      size="xs"
-                      onClick={clearContactSearch}
-                    >
-                      ✕ Clear
-                    </Button>
-                  )}
-                </Flex>
+        {/* ROW 5: Assigned Customer Service (Full Row - Has Browse/Search) */}
+        <Box marginBottom="extra-large">
+          {/* Mode Controls - Only show in Edit Mode */}
+          {isEditMode && (
+            <Flex gap="small" marginBottom="small" wrap="wrap">
+              <Button
+                variant={!useCustomerServiceSearchMode ? "primary" : "secondary"}
+                size="xs"
+                onClick={switchCustomerServiceToBrowseMode}
+                disabled={isCustomerServiceLoading}
+              >
+                📋 Browse
+              </Button>
+              <Button
+                variant={useCustomerServiceSearchMode ? "primary" : "secondary"}
+                size="xs"
+                onClick={switchCustomerServiceToSearchMode}
+                disabled={isCustomerServiceLoading}
+              >
+                🔍 Search
+              </Button>
+              {useCustomerServiceSearchMode && (
+                <Button
+                  variant="secondary"
+                  size="xs"
+                  onClick={clearCustomerServiceSearch}
+                >
+                  ✕ Clear
+                </Button>
               )}
+            </Flex>
+          )}
 
-              {/* View Mode: Simple Input Display */}
-              {!isEditMode && (
+          {/* View Mode: Simple Input Display */}
+          {!isEditMode && (
+            <Input
+              label="Assigned Customer Service *"
+              name="assignedCustomerService"
+              placeholder="No CS representative selected"
+              value={
+                displayLabels.assignedCustomerService || 
+                (formData.assignedCustomerService ? `CS Rep (${formData.assignedCustomerService})` : "")
+              }
+              readOnly={true}
+            />
+          )}
+
+          {/* Edit Mode: Search or Select */}
+          {isEditMode && useCustomerServiceSearchMode ? (
+            <Flex gap="small" direction="row" align="end">
+              <Box flex={1}>
                 <Input
-                  label="Contact *"
-                  name="contact"
-                  placeholder="No contact selected"
-                  value={
-                    displayLabels.contact || 
-                    (formData.contact ? `Contact (${formData.contact})` : "")
-                  }
-                  readOnly={true}
+                  label="Search CS Representatives *"
+                  name="searchCustomerService"
+                  placeholder="Enter CS rep name..."
+                  value={customerServiceSearchTerm}
+                  onChange={(value) => setCustomerServiceSearchTerm(value)}
+                  disabled={isCustomerServiceLoading || isCustomerServiceSearching}
                 />
-              )}
+              </Box>
+              <Box>
+                <Button 
+                  onClick={performCustomerServiceSearch}
+                  disabled={!customerServiceSearchTerm.trim() || isCustomerServiceSearching || isCustomerServiceLoading}
+                >
+                  {isCustomerServiceSearching ? <LoadingSpinner size="xs" /> : "🔍"}
+                </Button>
+              </Box>
+            </Flex>
+          ) : isEditMode ? (
+            <Select
+              label="Assigned Customer Service *"
+              name="assignedCustomerService"
+              options={customerServices}
+              value={formData.assignedCustomerService}
+              onChange={(value) => handleFieldChange("assignedCustomerService", value)}
+              required
+              disabled={isCustomerServiceLoading}
+            />
+          ) : null}
 
-              {/* Edit Mode: Search or Select */}
-              {isEditMode && useContactSearchMode ? (
-                <Flex gap="small" direction="row" align="end">
-                  <Box flex={1}>
-                    <Input
-                      label="Search Contacts *"
-                      name="searchContacts"
-                      placeholder="Enter contact name..."
-                      value={contactSearchTerm}
-                      onChange={(value) => setContactSearchTerm(value)}
-                      disabled={isContactLoading || isContactSearching}
-                    />
-                  </Box>
-                  <Box>
-                    <Button 
-                      onClick={performContactSearch}
-                      disabled={!contactSearchTerm.trim() || isContactSearching || isContactLoading}
-                    >
-                      {isContactSearching ? <LoadingSpinner size="xs" /> : "🔍"}
-                    </Button>
-                  </Box>
-                </Flex>
-              ) : isEditMode ? (
-                <Select
-                  label="Contact *"
-                  name="contact"
-                  options={contacts}
-                  value={formData.contact}
-                  onChange={(value) => handleFieldChange("contact", value)}
-                  required
-                  disabled={isContactLoading}
-                />
-              ) : null}
-
-              {/* Search Results - Only in Edit Mode */}
-              {isEditMode && useContactSearchMode && lastContactSearchTerm && contacts.length > 1 && (
-                <Box marginTop="small">
-                  <Select
-                    label="Select from search results"
-                    name="contactSearchResults"
-                    options={contacts}
-                    value={formData.contact}
-                    onChange={(value) => handleFieldChange("contact", value)}
-                    disabled={isContactSearching}
-                  />
-                </Box>
-              )}
-
-              {/* Status Messages - Only in Edit Mode */}
-              {getContactStatusMessage() && (
-                <Text variant="microcopy" format={{ color: 'medium' }}>
-                  {getContactStatusMessage()}
-                </Text>
-              )}
-
-              {/* Error Messages - Only in Edit Mode */}
-              {isEditMode && contactErrorMessage && (
-                <Box marginTop="extra-small">
-                  <Text variant="microcopy" format={{ color: 'error' }}>
-                    {contactErrorMessage}
-                  </Text>
-                  <Box marginTop="extra-small">
-                    <Button
-                      variant="secondary"
-                      size="xs"
-                      onClick={loadDefaultContacts}
-                      disabled={isContactLoading}
-                    >
-                      Retry
-                    </Button>
-                  </Box>
-                </Box>
-              )}
+          {/* Search Results - Only in Edit Mode */}
+          {isEditMode && useCustomerServiceSearchMode && lastCustomerServiceSearchTerm && customerServices.length > 1 && (
+            <Box marginTop="small">
+              <Select
+                label="Select from search results"
+                name="customerServiceSearchResults"
+                options={customerServices}
+                value={formData.assignedCustomerService}
+                onChange={(value) => handleFieldChange("assignedCustomerService", value)}
+                disabled={isCustomerServiceSearching}
+              />
             </Box>
+          )}
 
+          {/* Status Messages - Only in Edit Mode */}
+          {getCustomerServiceStatusMessage() && (
+            <Text variant="microcopy" format={{ color: 'medium' }}>
+              {getCustomerServiceStatusMessage()}
+            </Text>
+          )}
+
+          {/* Error Messages - Only in Edit Mode */}
+          {isEditMode && customerServiceErrorMessage && (
+            <Box marginTop="extra-small">
+              <Text variant="microcopy" format={{ color: 'error' }}>
+                {customerServiceErrorMessage}
+              </Text>
+              <Box marginTop="extra-small">
+                <Button
+                  variant="secondary"
+                  size="xs"
+                  onClick={loadDefaultCustomerServices}
+                  disabled={isCustomerServiceLoading}
+                >
+                  Retry
+                </Button>
+              </Box>
+            </Box>
+          )}
+        </Box>
+
+        {/* ROW 6: Contact (Full Row - Has Browse/Search) */}
+        <Box marginBottom="extra-large">
+          {/* Mode Controls - Only show in Edit Mode */}
+          {isEditMode && (
+            <Flex gap="small" marginBottom="small" wrap="wrap">
+              <Button
+                variant={!useContactSearchMode ? "primary" : "secondary"}
+                size="xs"
+                onClick={switchContactToBrowseMode}
+                disabled={isContactLoading}
+              >
+                📋 Browse
+              </Button>
+              <Button
+                variant={useContactSearchMode ? "primary" : "secondary"}
+                size="xs"
+                onClick={switchContactToSearchMode}
+                disabled={isContactLoading}
+              >
+                🔍 Search
+              </Button>
+              {useContactSearchMode && (
+                <Button
+                  variant="secondary"
+                  size="xs"
+                  onClick={clearContactSearch}
+                >
+                  ✕ Clear
+                </Button>
+              )}
+            </Flex>
+          )}
+
+          {/* View Mode: Simple Input Display */}
+          {!isEditMode && (
+            <Input
+              label="Contact *"
+              name="contact"
+              placeholder="No contact selected"
+              value={
+                displayLabels.contact || 
+                (formData.contact ? `Contact (${formData.contact})` : "")
+              }
+              readOnly={true}
+            />
+          )}
+
+          {/* Edit Mode: Search or Select */}
+          {isEditMode && useContactSearchMode ? (
+            <Flex gap="small" direction="row" align="end">
+              <Box flex={1}>
+                <Input
+                  label="Search Contacts *"
+                  name="searchContacts"
+                  placeholder="Enter contact name..."
+                  value={contactSearchTerm}
+                  onChange={(value) => setContactSearchTerm(value)}
+                  disabled={isContactLoading || isContactSearching}
+                />
+              </Box>
+              <Box>
+                <Button 
+                  onClick={performContactSearch}
+                  disabled={!contactSearchTerm.trim() || isContactSearching || isContactLoading}
+                >
+                  {isContactSearching ? <LoadingSpinner size="xs" /> : "🔍"}
+                </Button>
+              </Box>
+            </Flex>
+          ) : isEditMode ? (
+            <Select
+              label="Contact *"
+              name="contact"
+              options={contacts}
+              value={formData.contact}
+              onChange={(value) => handleFieldChange("contact", value)}
+              required
+              disabled={isContactLoading}
+            />
+          ) : null}
+
+          {/* Search Results - Only in Edit Mode */}
+          {isEditMode && useContactSearchMode && lastContactSearchTerm && contacts.length > 1 && (
+            <Box marginTop="small">
+              <Select
+                label="Select from search results"
+                name="contactSearchResults"
+                options={contacts}
+                value={formData.contact}
+                onChange={(value) => handleFieldChange("contact", value)}
+                disabled={isContactSearching}
+              />
+            </Box>
+          )}
+
+          {/* Status Messages - Only in Edit Mode */}
+          {getContactStatusMessage() && (
+            <Text variant="microcopy" format={{ color: 'medium' }}>
+              {getContactStatusMessage()}
+            </Text>
+          )}
+
+          {/* Error Messages - Only in Edit Mode */}
+          {isEditMode && contactErrorMessage && (
+            <Box marginTop="extra-small">
+              <Text variant="microcopy" format={{ color: 'error' }}>
+                {contactErrorMessage}
+              </Text>
+              <Box marginTop="extra-small">
+                <Button
+                  variant="secondary"
+                  size="xs"
+                  onClick={loadDefaultContacts}
+                  disabled={isContactLoading}
+                >
+                  Retry
+                </Button>
+              </Box>
+            </Box>
+          )}
+        </Box>
+
+        {/* ROW 7: Campaign Type + Link to Google Drive */}
+        <Box>
+          <Flex direction="row" gap="medium" wrap="wrap">
             {/* CAMPAIGN TYPE - VIEW/EDIT MODE */}
             <Box flex={1} minWidth="250px">
               {!isEditMode ? (
@@ -1645,12 +1637,8 @@ const BasicInformation = forwardRef(({
                 />
               )}
             </Box>
-          </Flex>
-        </Box>
 
-        {/* ROW 5: Link to Google Drive */}
-        <Box marginTop="medium">
-          <Flex direction="row" gap="medium" wrap="wrap">
+            {/* LINK TO GOOGLE DRIVE */}
             <Box flex={1} minWidth="250px">
               <Input
                 label="Link to Google Drive"
