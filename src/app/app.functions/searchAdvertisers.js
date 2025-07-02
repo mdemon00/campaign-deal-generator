@@ -44,6 +44,9 @@ async function fetchAssociatedCompany(hubspotClient, advertiserId) {
       "companies"
     );
 
+    console.log("fetchAssociatedCompany associations"); 
+    console.log(associations); 
+
     if (associations.results && associations.results.length > 0) {
       const companyId = associations.results[0].toObjectId;
       
@@ -132,6 +135,9 @@ async function searchAdvertisers(hubspotClient, objectId, searchTerm) {
       availableProperties.length > 0 ? availableProperties : undefined
     );
 
+    console.log("availableProperties"); 
+    console.log(advertisers); 
+
     if (!advertisers.results || advertisers.results.length === 0) {
       return {
         status: "SUCCESS",
@@ -214,6 +220,9 @@ async function getPaginatedAdvertisers(hubspotClient, objectId, page, limit) {
       availableProperties.length > 0 ? availableProperties : undefined
     );
 
+     console.log("getPaginatedAdvertisers advertisers"); 
+     console.log(advertisers); 
+
     const paginatedResults = advertisers.results.slice(offset, offset + limit);
 
     const processedAdvertisers = await Promise.all(
@@ -262,6 +271,9 @@ async function getDefaultAdvertisers(hubspotClient, objectId, limit) {
       undefined,
       availableProperties.length > 0 ? availableProperties : undefined
     );
+
+    console.log("getDefaultAdvertisers advertisers");
+    console.log(advertisers);
 
     if (!advertisers.results || advertisers.results.length === 0) {
       return {
