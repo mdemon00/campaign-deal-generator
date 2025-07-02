@@ -42,7 +42,7 @@ exports.main = async (context) => {
       }
     });
 
-    console.log('🔄 Updating Campaign Deal properties:', updateProperties);
+    // console.log($2
 
     // Update the Campaign Deal object with the new properties
     const CAMPAIGN_DEAL_OBJECT_ID = "2-45275187"; // ✅ Your Campaign Deal Object ID
@@ -53,21 +53,21 @@ exports.main = async (context) => {
       { properties: updateProperties }
     );
 
-    console.log('✅ Campaign Deal properties updated successfully');
+    // console.log($2
 
     // Step 2: Fetch Deal CS details (for immediate return) - Reuse Deal Owner function
     let dealCSInfo = { name: '', email: '' };
     
     if (dealCS) {
       try {
-        console.log('👤 Fetching Deal CS info...');
+        // console.log($2
         dealCSInfo = await fetchDealOwnerInfo(hubspotClient, dealCS); // ✅ Reuse existing function
       } catch (error) {
         console.warn('⚠️ Could not fetch deal CS info:', error.message);
       }
     }
 
-    console.log('🎉 Campaign Details saved successfully!');
+    // console.log($2
 
     return {
       status: "SUCCESS",

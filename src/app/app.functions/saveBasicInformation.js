@@ -43,7 +43,7 @@ exports.main = async (context) => {
       }
     });
 
-    console.log('🔄 Updating Campaign Deal properties:', updateProperties);
+    // console.log($2
 
     // Update the Campaign Deal object with the new properties
     const CAMPAIGN_DEAL_OBJECT_ID = "2-45275187"; // ✅ Your Campaign Deal Object ID
@@ -54,12 +54,12 @@ exports.main = async (context) => {
       { properties: updateProperties }
     );
 
-    console.log('✅ Campaign Deal properties updated successfully');
+    // console.log($2
 
     // Step 2: Create/Update Association to Commercial Agreement
     if (commercialAgreement) {
       try {
-        console.log('🔗 Creating association to Commercial Agreement:', commercialAgreement);
+        // console.log($2
         
         await hubspotClient.crm.associations.v4.basicApi.create(
           CAMPAIGN_DEAL_OBJECT_ID,
@@ -69,7 +69,7 @@ exports.main = async (context) => {
           [{ associationCategory: "HUBSPOT_DEFINED", associationTypeId: 1 }]
         );
         
-        console.log('✅ Commercial Agreement association created');
+        // console.log($2
       } catch (assocError) {
         console.warn('⚠️ Commercial Agreement association error (may already exist):', assocError.message);
       }
@@ -78,7 +78,7 @@ exports.main = async (context) => {
     // Step 3: Create/Update Association to Advertiser
     if (advertiser) {
       try {
-        console.log('🔗 Creating association to Advertiser:', advertiser);
+        // console.log($2
         
         await hubspotClient.crm.associations.v4.basicApi.create(
           CAMPAIGN_DEAL_OBJECT_ID,
@@ -88,7 +88,7 @@ exports.main = async (context) => {
           [{ associationCategory: "HUBSPOT_DEFINED", associationTypeId: 1 }]
         );
         
-        console.log('✅ Advertiser association created');
+        // console.log($2
       } catch (assocError) {
         console.warn('⚠️ Advertiser association error (may already exist):', assocError.message);
       }
@@ -99,7 +99,7 @@ exports.main = async (context) => {
     
     if (commercialAgreement) {
       try {
-        console.log('🏢 Fetching company info from Commercial Agreement...');
+        // console.log($2
         companyInfo = await fetchCompanyFromAgreement(hubspotClient, commercialAgreement);
       } catch (error) {
         console.warn('⚠️ Could not fetch company info:', error.message);
@@ -111,14 +111,14 @@ exports.main = async (context) => {
     
     if (dealOwner) {
       try {
-        console.log('👤 Fetching Deal Owner info...');
+        // console.log($2
         dealOwnerInfo = await fetchDealOwnerInfo(hubspotClient, dealOwner);
       } catch (error) {
         console.warn('⚠️ Could not fetch deal owner info:', error.message);
       }
     }
 
-    console.log('🎉 Basic Information saved successfully!');
+    // console.log($2
 
     return {
       status: "SUCCESS",

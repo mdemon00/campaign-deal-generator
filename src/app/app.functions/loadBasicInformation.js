@@ -7,7 +7,7 @@ exports.main = async (context) => {
   try {
     const { campaignDealId } = context.parameters;
 
-    console.log('📖 Loading Basic Information for Campaign Deal:', campaignDealId);
+    // console.log($2
 
     // Step 1: Fetch Campaign Deal properties
     const CAMPAIGN_DEAL_OBJECT_ID = "2-45275187"; // ✅ Your Campaign Deal Object ID
@@ -44,7 +44,7 @@ exports.main = async (context) => {
     
     if (properties.commercial_agreement_id) {
       try {
-        console.log('🔍 Loading Commercial Agreement details...');
+        // console.log($2
         
         // Get the agreement details
         const agreement = await hubspotClient.crm.objects.basicApi.getById(
@@ -62,8 +62,8 @@ exports.main = async (context) => {
         // Fetch company info from Commercial Agreement
         companyInfo = await fetchCompanyFromAgreement(hubspotClient, properties.commercial_agreement_id);
         
-        console.log('✅ Commercial Agreement loaded:', commercialAgreementInfo);
-        console.log('🏢 Company info loaded:', companyInfo);
+        // console.log($2
+        // console.log($2
         
       } catch (error) {
         console.warn('⚠️ Could not load Commercial Agreement details:', error.message);
@@ -80,7 +80,7 @@ exports.main = async (context) => {
     
     if (properties.advertiser_id) {
       try {
-        console.log('🔍 Loading Advertiser details...');
+        // console.log($2
         
         // Get advertiser details - try common property names
         const advertiser = await hubspotClient.crm.objects.basicApi.getById(
@@ -101,7 +101,7 @@ exports.main = async (context) => {
           value: properties.advertiser_id
         };
         
-        console.log('✅ Advertiser loaded:', advertiserInfo);
+        // console.log($2
         
       } catch (error) {
         console.warn('⚠️ Could not load Advertiser details:', error.message);
@@ -118,7 +118,7 @@ exports.main = async (context) => {
     
     if (properties.deal_owner_id) {
       try {
-        console.log('🔍 Loading Deal Owner details...');
+        // console.log($2
         
         // Fetch owner details using HubSpot Owners API
         const response = await hubspotClient.apiRequest({
@@ -158,7 +158,7 @@ exports.main = async (context) => {
           email: email
         };
         
-        console.log('✅ Deal Owner loaded:', dealOwnerInfo);
+        // console.log($2
         
       } catch (error) {
         console.warn('⚠️ Could not load Deal Owner details:', error.message);
@@ -185,7 +185,7 @@ exports.main = async (context) => {
       lastModified: properties.last_modified_date || null
     };
 
-    console.log('🎉 Basic Information loaded successfully!');
+    // console.log($2
 
     return {
       status: "SUCCESS",

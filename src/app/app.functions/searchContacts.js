@@ -13,7 +13,7 @@ exports.main = async (context) => {
       includeInactive = false
     } = context.parameters;
 
-    console.log('🔍 Contact Search Parameters:', { searchTerm, page, limit, loadAll, includeInactive });
+    // console.log($2
 
     // Determine search strategy
     if (searchTerm && searchTerm.trim() !== "") {
@@ -78,7 +78,7 @@ function processContactData(contact, index) {
     ? `${fullDisplayName} - ${company}`
     : fullDisplayName;
 
-  console.log(`✅ [DEBUG] Contact ${contact.id} processed: "${finalDisplayName}"`);
+  // console.log($2
 
   return {
     label: finalDisplayName,
@@ -97,7 +97,7 @@ function processContactData(contact, index) {
  * Fetch contacts using standard Contacts API
  */
 async function fetchContacts(hubspotClient, limit = 20, after = undefined, includeInactive = false) {
-  console.log(`🔍 [API] Fetching contacts using standard Contacts API`);
+  // console.log($2
   
   try {
     const properties = ['firstname', 'lastname', 'email', 'company', 'phone'];
@@ -112,7 +112,7 @@ async function fetchContacts(hubspotClient, limit = 20, after = undefined, inclu
       !includeInactive // archived - false means get active contacts
     );
 
-    console.log(`🔍 [API] Retrieved ${contacts.results?.length || 0} contacts`);
+    // console.log($2
 
     return contacts;
   } catch (error) {
@@ -125,7 +125,7 @@ async function fetchContacts(hubspotClient, limit = 20, after = undefined, inclu
  * Search contacts by term
  */
 async function searchContacts(hubspotClient, searchTerm, includeInactive) {
-  console.log(`🔍 [SEARCH] Starting contact search for: "${searchTerm}"`);
+  // console.log($2
 
   try {
     // Fetch contacts using standard contacts API
@@ -146,7 +146,7 @@ async function searchContacts(hubspotClient, searchTerm, includeInactive) {
       };
     }
 
-    console.log(`🔍 [SEARCH] Found ${contactsData.results.length} total contacts, filtering by "${searchTerm}"`);
+    // console.log($2
 
     // Filter contacts by search term (case-insensitive)
     const filteredContacts = contactsData.results.filter((contact, index) => {
@@ -164,13 +164,13 @@ async function searchContacts(hubspotClient, searchTerm, includeInactive) {
       );
 
       if (matches) {
-        console.log(`✅ [SEARCH] Contact ${contact.id} MATCHES search term "${searchTerm}"`);
+        // console.log($2
       }
 
       return matches;
     });
 
-    console.log(`🔍 [SEARCH] Filtered to ${filteredContacts.length} matching contacts`);
+    // console.log($2
 
     // Process each contact
     const processedContacts = filteredContacts.map((contact, index) => {
@@ -185,7 +185,7 @@ async function searchContacts(hubspotClient, searchTerm, includeInactive) {
       ...processedContacts
     ];
 
-    console.log(`✅ [SEARCH] Final search results for "${searchTerm}": ${processedContacts.length} matches`);
+    // console.log($2
 
     return {
       status: "SUCCESS",
@@ -209,7 +209,7 @@ async function searchContacts(hubspotClient, searchTerm, includeInactive) {
  * Get paginated contacts for browsing
  */
 async function getPaginatedContacts(hubspotClient, page, limit, includeInactive) {
-  console.log(`📄 [PAGINATE] Getting contact page ${page} with limit ${limit}`);
+  // console.log($2
 
   try {
     const fetchLimit = Math.min(page * limit, 100);
@@ -234,7 +234,7 @@ async function getPaginatedContacts(hubspotClient, page, limit, includeInactive)
     // Calculate pagination slice
     const offset = (page - 1) * limit;
     const paginatedResults = contactsData.results.slice(offset, offset + limit);
-    console.log(`📄 [PAGINATE] Sliced to ${paginatedResults.length} results for page ${page}`);
+    // console.log($2
 
     // Process each contact
     const processedContacts = paginatedResults.map((contact, index) => {
@@ -250,7 +250,7 @@ async function getPaginatedContacts(hubspotClient, page, limit, includeInactive)
 
     const hasMore = contactsData.results.length > (offset + limit);
 
-    console.log(`✅ [PAGINATE] Returned page ${page}: ${processedContacts.length} contacts, hasMore: ${hasMore}`);
+    // console.log($2
 
     return {
       status: "SUCCESS",
@@ -274,7 +274,7 @@ async function getPaginatedContacts(hubspotClient, page, limit, includeInactive)
  * Get default contacts
  */
 async function getDefaultContacts(hubspotClient, limit, includeInactive) {
-  console.log(`🏠 [DEFAULT] Getting default contacts (limit: ${limit})`);
+  // console.log($2
 
   try {
     // Fetch contacts using standard contacts API
@@ -296,7 +296,7 @@ async function getDefaultContacts(hubspotClient, limit, includeInactive) {
       };
     }
 
-    console.log(`🏠 [DEFAULT] Retrieved ${contactsData.results.length} default contacts`);
+    // console.log($2
 
     // Process each contact
     const processedContacts = contactsData.results.map((contact, index) => {
@@ -313,8 +313,8 @@ async function getDefaultContacts(hubspotClient, limit, includeInactive) {
     // Check if there might be more contacts
     const hasMore = contactsData.results.length >= limit;
 
-    console.log(`✅ [DEFAULT] Loaded ${processedContacts.length} default contacts, hasMore: ${hasMore}`);
-    console.log(`🎯 [DEFAULT] Final processed contacts:`, processedContacts.map(c => ({ id: c.value, label: c.label })));
+    // console.log($2
+    // console.log($2
 
     return {
       status: "SUCCESS",

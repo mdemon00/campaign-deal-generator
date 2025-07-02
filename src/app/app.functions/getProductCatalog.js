@@ -13,7 +13,7 @@ exports.main = async (context) => {
       limit = 50 
     } = context.parameters;
 
-    console.log('📦 Product Catalog Request:', { searchTerm, category, buyingModel, media, currency });
+    // console.log($2
 
     // Static pricing table (in production, this could be stored in HubSpot or external DB)
     const pricingTable = [
@@ -112,7 +112,7 @@ exports.main = async (context) => {
     const buyingModels = [...new Set(pricingTable.map(p => p.buyingModel))].sort();
     const mediaTypes = [...new Set(pricingTable.map(p => p.media))].sort();
 
-    console.log(`✅ Product catalog: ${formattedProducts.length} products found`);
+    // console.log($2
 
     return {
       status: "SUCCESS",

@@ -268,7 +268,7 @@ const BasicInformation = forwardRef(({
         // Set display labels directly
         setDisplayLabels(newDisplayLabels);
 
-        console.log("✅ Basic information loaded for view mode");
+        // console.log($2
       }
     } catch (error) {
       console.warn("Could not load basic information for view mode:", error);
@@ -348,7 +348,7 @@ const BasicInformation = forwardRef(({
           });
         }
 
-        console.log("✅ Basic information loaded successfully");
+        // console.log($2
       } else {
         throw new Error(response?.response?.message || "Failed to load data");
       }
@@ -416,7 +416,7 @@ const BasicInformation = forwardRef(({
           });
         }
 
-        console.log("✅ Basic information saved successfully");
+        // console.log($2
       } else {
         throw new Error(response?.response?.message || "Failed to save data");
       }
@@ -446,7 +446,7 @@ const BasicInformation = forwardRef(({
         }
       });
 
-      console.log(response);
+      // console.log($2
       if (response && response.status === "SUCCESS" && response.response && response.response.data) {
         const data = response.response.data;
         setAdvertisers(data.options || [{ label: "Select Advertiser", value: "" }]);
@@ -454,7 +454,7 @@ const BasicInformation = forwardRef(({
         setUseAdvertiserSearchMode(true);
         setLastAdvertiserSearchTerm(searchTerm);
         
-        console.log(`✅ Advertiser search completed: ${data.totalCount} results for "${searchTerm}"`);
+        // console.log($2
       } else {
         throw new Error("Invalid advertiser search response");
       }
@@ -529,7 +529,7 @@ const BasicInformation = forwardRef(({
         setUseDealOwnerSearchMode(true);
         setLastDealOwnerSearchTerm(searchTerm);
         
-        console.log(`✅ Deal owner search completed: ${data.totalCount} results for "${searchTerm}"`);
+        // console.log($2
       } else {
         throw new Error("Invalid deal owner search response");
       }
@@ -561,7 +561,7 @@ const BasicInformation = forwardRef(({
         const data = response.response.data;
         setDealOwners(data.options || DEAL_OWNER_OPTIONS);
         setDealOwnerHasMore(data.hasMore || false);
-        console.log(`✅ Loaded ${data.totalCount} default deal owners`);
+        // console.log($2
       } else {
         throw new Error("Invalid response from deal owner server");
       }
@@ -607,7 +607,7 @@ const BasicInformation = forwardRef(({
         setUseCustomerServiceSearchMode(true);
         setLastCustomerServiceSearchTerm(searchTerm);
         
-        console.log(`✅ Customer service search completed: ${data.totalCount} results for "${searchTerm}"`);
+        // console.log($2
       } else {
         throw new Error("Invalid customer service search response");
       }
@@ -644,7 +644,7 @@ const BasicInformation = forwardRef(({
         }));
         setCustomerServices(options);
         setCustomerServiceHasMore(data.hasMore || false);
-        console.log(`✅ Loaded ${data.totalCount} default customer services`);
+        // console.log($2
       } else {
         throw new Error("Invalid response from customer service server");
       }
@@ -685,7 +685,7 @@ const BasicInformation = forwardRef(({
         setUseContactSearchMode(true);
         setLastContactSearchTerm(searchTerm);
         
-        console.log(`✅ Contact search completed: ${data.totalCount} results for "${searchTerm}"`);
+        // console.log($2
       } else {
         throw new Error("Invalid contact search response");
       }
@@ -717,7 +717,7 @@ const BasicInformation = forwardRef(({
         const data = response.response.data;
         setContacts(data.options || [{ label: "Select Contact", value: "" }]);
         setContactHasMore(data.hasMore || false);
-        console.log(`✅ Loaded ${data.totalCount} default contacts`);
+        // console.log($2
       } else {
         throw new Error("Invalid response from contact server");
       }

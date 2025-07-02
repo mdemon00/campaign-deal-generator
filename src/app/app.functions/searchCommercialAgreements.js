@@ -13,7 +13,7 @@ exports.main = async (context) => {
       selectedAgreementId = ""
     } = context.parameters;
 
-    console.log('🔍 Search Parameters:', { searchTerm, page, limit, loadAll, selectedAgreementId });
+    // console.log($2
 
     const COMMERCIAL_AGREEMENTS_OBJECT_ID = "2-39552013";
 
@@ -41,7 +41,7 @@ exports.main = async (context) => {
  * 🆕 FIXED: Use Search API for recently created records first
  */
 async function searchAgreementsWithAPI(hubspotClient, objectId, searchTerm) {
-  console.log(`🔍 [SEARCH API] Searching for: "${searchTerm}"`);
+  // console.log($2
 
   try {
     // 🔧 FIX: Use Search API with sorting to get recent records
@@ -67,7 +67,7 @@ async function searchAgreementsWithAPI(hubspotClient, objectId, searchTerm) {
       ]
     };
 
-    console.log(`🔍 [SEARCH API] Request:`, JSON.stringify(searchRequest, null, 2));
+    // console.log($2
 
     // Use Search API endpoint
     const searchResponse = await hubspotClient.apiRequest({
@@ -77,7 +77,7 @@ async function searchAgreementsWithAPI(hubspotClient, objectId, searchTerm) {
     });
 
     const searchData = await searchResponse.json();
-    console.log(`🔍 [SEARCH API] Found ${searchData.results?.length || 0} agreements for "${searchTerm}"`);
+    // console.log($2
 
     if (!searchData.results || searchData.results.length === 0) {
       return {
@@ -108,7 +108,7 @@ async function searchAgreementsWithAPI(hubspotClient, objectId, searchTerm) {
       ...processedAgreements
     ];
 
-    console.log(`✅ [SEARCH API] Search completed: ${processedAgreements.length} matches for "${searchTerm}"`);
+    // console.log($2
 
     return {
       status: "SUCCESS",
@@ -125,7 +125,7 @@ async function searchAgreementsWithAPI(hubspotClient, objectId, searchTerm) {
   } catch (error) {
     console.error("❌ [SEARCH API] Error in searchAgreementsWithAPI:", error);
     // Fallback to basic API if search fails
-    console.log("🔄 [FALLBACK] Trying basic API search...");
+    // console.log($2
     return await searchAgreementsBasic(hubspotClient, objectId, searchTerm);
   }
 }
@@ -134,7 +134,7 @@ async function searchAgreementsWithAPI(hubspotClient, objectId, searchTerm) {
  * 🆕 FIXED: Use Search API for paginated results with recent records first
  */
 async function getPaginatedAgreementsWithAPI(hubspotClient, objectId, page, limit, selectedAgreementId = "") {
-  console.log(`📄 [SEARCH API] Getting page ${page} with limit ${limit}, selected: ${selectedAgreementId}`);
+  // console.log($2
 
   try {
     // Calculate offset for pagination
@@ -153,7 +153,7 @@ async function getPaginatedAgreementsWithAPI(hubspotClient, objectId, page, limi
       // No filters - get all records
     };
 
-    console.log(`📄 [SEARCH API] Request:`, JSON.stringify(searchRequest, null, 2));
+    // console.log($2
 
     // Use Search API endpoint
     const searchResponse = await hubspotClient.apiRequest({
@@ -163,7 +163,7 @@ async function getPaginatedAgreementsWithAPI(hubspotClient, objectId, page, limi
     });
 
     const searchData = await searchResponse.json();
-    console.log(`📄 [SEARCH API] Retrieved ${searchData.results?.length || 0} agreements from API`);
+    // console.log($2
 
     if (!searchData.results || searchData.results.length === 0) {
       return {
@@ -217,7 +217,7 @@ async function getPaginatedAgreementsWithAPI(hubspotClient, objectId, page, limi
       ...processedAgreements
     ];
 
-    console.log(`✅ [SEARCH API] Returned page ${page}: ${processedAgreements.length} agreements, hasMore: ${hasMore}`);
+    // console.log($2
 
     return {
       status: "SUCCESS",
@@ -235,7 +235,7 @@ async function getPaginatedAgreementsWithAPI(hubspotClient, objectId, page, limi
   } catch (error) {
     console.error("❌ [SEARCH API] Error in getPaginatedAgreementsWithAPI:", error);
     // Fallback to basic API if search fails
-    console.log("🔄 [FALLBACK] Trying basic API pagination...");
+    // console.log($2
     return await getPaginatedAgreementsBasic(hubspotClient, objectId, page, limit, selectedAgreementId);
   }
 }
@@ -244,7 +244,7 @@ async function getPaginatedAgreementsWithAPI(hubspotClient, objectId, page, limi
  * 🆕 FIXED: Use Search API for default results with recent records first
  */
 async function getDefaultAgreementsWithAPI(hubspotClient, objectId, limit, selectedAgreementId = "") {
-  console.log(`🏠 [SEARCH API] Getting default agreements (limit: ${limit}), selected: ${selectedAgreementId}`);
+  // console.log($2
 
   try {
     // 🔧 FIX: Use Search API with sorting to get recent records
@@ -260,7 +260,7 @@ async function getDefaultAgreementsWithAPI(hubspotClient, objectId, limit, selec
       // No filters - get all records
     };
 
-    console.log(`🏠 [SEARCH API] Request:`, JSON.stringify(searchRequest, null, 2));
+    // console.log($2
 
     // Use Search API endpoint
     const searchResponse = await hubspotClient.apiRequest({
@@ -270,7 +270,7 @@ async function getDefaultAgreementsWithAPI(hubspotClient, objectId, limit, selec
     });
 
     const searchData = await searchResponse.json();
-    console.log(`🏠 [SEARCH API] Retrieved ${searchData.results?.length || 0} default agreements`);
+    // console.log($2
 
     if (!searchData.results || searchData.results.length === 0) {
       return {
@@ -323,7 +323,7 @@ async function getDefaultAgreementsWithAPI(hubspotClient, objectId, limit, selec
 
     const hasMore = totalAvailable > limit;
 
-    console.log(`✅ [SEARCH API] Loaded ${processedAgreements.length} default agreements, hasMore: ${hasMore}`);
+    // console.log($2
 
     return {
       status: "SUCCESS",
@@ -340,7 +340,7 @@ async function getDefaultAgreementsWithAPI(hubspotClient, objectId, limit, selec
   } catch (error) {
     console.error("❌ [SEARCH API] Error in getDefaultAgreementsWithAPI:", error);
     // Fallback to basic API if search fails
-    console.log("🔄 [FALLBACK] Trying basic API default...");
+    // console.log($2
     return await getDefaultAgreementsBasic(hubspotClient, objectId, limit, selectedAgreementId);
   }
 }
@@ -349,7 +349,7 @@ async function getDefaultAgreementsWithAPI(hubspotClient, objectId, limit, selec
  * 🔄 FALLBACK: Original search function using basic API
  */
 async function searchAgreementsBasic(hubspotClient, objectId, searchTerm) {
-  console.log(`🔍 [BASIC API] Fallback search for: "${searchTerm}"`);
+  // console.log($2
 
   const agreements = await hubspotClient.crm.objects.basicApi.getPage(
     objectId,
@@ -393,7 +393,7 @@ async function searchAgreementsBasic(hubspotClient, objectId, searchTerm) {
  * 🔄 FALLBACK: Original pagination function using basic API
  */
 async function getPaginatedAgreementsBasic(hubspotClient, objectId, page, limit, selectedAgreementId) {
-  console.log(`📄 [BASIC API] Fallback pagination for page ${page}`);
+  // console.log($2
   
   const offset = (page - 1) * limit;
   const agreements = await hubspotClient.crm.objects.basicApi.getPage(
@@ -456,7 +456,7 @@ async function getPaginatedAgreementsBasic(hubspotClient, objectId, page, limit,
  * 🔄 FALLBACK: Original default function using basic API
  */
 async function getDefaultAgreementsBasic(hubspotClient, objectId, limit, selectedAgreementId) {
-  console.log(`🏠 [BASIC API] Fallback default agreements`);
+  // console.log($2
 
   const agreements = await hubspotClient.crm.objects.basicApi.getPage(
     objectId,

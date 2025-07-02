@@ -382,14 +382,14 @@ async function processAdvertiserWithCompany(hubspotClient, advertiser, index) {
     organization_name: advertiser.properties.organization_name
   };
 
-  console.log(`🔍 [DEBUG] Advertiser ${advertiser.id} possible name fields:`, possibleNameFields);
+  // console.log($2
 
   // Filter out empty/null values and log non-empty ones
   const nonEmptyFields = Object.entries(possibleNameFields)
     .filter(([key, value]) => value && value.trim() !== '')
     .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
 
-  console.log(`🔍 [DEBUG] Advertiser ${advertiser.id} non-empty name fields:`, nonEmptyFields);
+  // console.log($2
 
   // Try common field names for advertiser name with priority order
   // 🎯 PRIORITY: "advertiser" field first (matches HubSpot UI column name)
@@ -430,7 +430,7 @@ async function processAdvertiserWithCompany(hubspotClient, advertiser, index) {
     debugProperties: advertiser.properties
   };
 
-  console.log(`🎯 [DEBUG] Advertiser ${advertiser.id} final processed result:`, result);
+  // console.log($2
 
   return result;
 }
@@ -439,18 +439,18 @@ async function processAdvertiserWithCompany(hubspotClient, advertiser, index) {
  * Search advertisers by term (searches ALL advertisers)
  */
 async function searchAdvertisers(hubspotClient, objectId, searchTerm) {
-  console.log(`🔍 [SEARCH] Starting advertiser search for: "${searchTerm}"`);
+  // console.log($2
 
   try {
     // 🔧 FIX: First, get the schema to discover available properties
     let availableProperties = [];
     try {
-      console.log(`🔍 [SCHEMA] Fetching object schema for ${objectId}...`);
+      // console.log($2
       const schema = await hubspotClient.crm.schemas.coreApi.getById(objectId);
       availableProperties = schema.properties
         .filter(prop => !prop.name.startsWith('hs_')) // Filter out system properties
         .map(prop => prop.name);
-      console.log(`✅ [SCHEMA] Found custom properties:`, availableProperties);
+      // console.log($2
     } catch (schemaError) {
       console.warn(`⚠️ [SCHEMA] Could not fetch schema:`, schemaError.message);
       // Fallback to common property names
@@ -458,11 +458,11 @@ async function searchAdvertisers(hubspotClient, objectId, searchTerm) {
         'advertiser', 'name', 'title', 'label', 'advertiser_name',
         'brand_name', 'company_name', 'client_name', 'display_name'
       ];
-      console.log(`🔄 [SCHEMA] Using fallback properties:`, availableProperties);
+      // console.log($2
     }
 
     // Now fetch more records for the actual search with discovered properties
-    console.log(`🔍 [DEBUG] Fetching full advertiser dataset for search...`);
+    // console.log($2
 
     const advertisers = await hubspotClient.crm.objects.basicApi.getPage(
       objectId,
@@ -471,7 +471,7 @@ async function searchAdvertisers(hubspotClient, objectId, searchTerm) {
       availableProperties.length > 0 ? availableProperties : undefined // Use discovered properties
     );
 
-    console.log(`🔍 [SEARCH] Retrieved ${advertisers.results?.length || 0} advertisers for search`);
+    // console.log($2
 
     if (!advertisers.results || advertisers.results.length === 0) {
       console.warn(`⚠️ [SEARCH] No advertisers found in object ${objectId}`);
@@ -495,10 +495,10 @@ async function searchAdvertisers(hubspotClient, objectId, searchTerm) {
         Object.keys(advertiser.properties).forEach(key => allPropertyKeys.add(key));
       }
     });
-    console.log(`🔍 [DEBUG] All unique property keys found across advertisers:`, Array.from(allPropertyKeys).sort());
+    // console.log($2
 
     // Filter advertisers by search term (case-insensitive)
-    console.log(`🔍 [SEARCH] Starting to filter ${advertisers.results.length} advertisers by term "${searchTerm}"`);
+    // console.log($2
 
     const filteredAdvertisers = advertisers.results.filter((advertiser, index) => {
       const searchableFields = [
@@ -528,25 +528,25 @@ async function searchAdvertisers(hubspotClient, objectId, searchTerm) {
       );
 
       if (matches) {
-        console.log(`✅ [SEARCH] Advertiser ${advertiser.id} MATCHES search term "${searchTerm}"`);
+        // console.log($2
       }
 
       return matches;
     });
 
-    console.log(`🔍 [SEARCH] Filtered to ${filteredAdvertisers.length} matching advertisers`);
+    // console.log($2
 
     // Process each advertiser with company information
-    console.log(`🔍 [SEARCH] Starting to process ${filteredAdvertisers.length} matching advertisers...`);
+    // console.log($2
 
     const processedAdvertisers = await Promise.all(
       filteredAdvertisers.map((advertiser, index) => {
-        console.log(`🔄 [PROCESS] Processing advertiser ${index + 1}/${filteredAdvertisers.length}: ${advertiser.id}`);
+        // console.log($2
         return processAdvertiserWithCompany(hubspotClient, advertiser, index);
       })
     );
 
-    console.log(`✅ [SEARCH] Finished processing advertisers. Results:`, processedAdvertisers.map(a => ({ id: a.value, label: a.label })));
+    // console.log($2
 
     // Sort by name
     processedAdvertisers.sort((a, b) => a.label.localeCompare(b.label));
@@ -583,7 +583,7 @@ async function searchAdvertisers(hubspotClient, objectId, searchTerm) {
  * Get paginated advertisers for browsing
  */
 async function getPaginatedAdvertisers(hubspotClient, objectId, page, limit) {
-  console.log(`📄 [PAGINATE] Getting advertiser page ${page} with limit ${limit}`);
+  // console.log($2
 
   try {
     // Calculate offset for pagination
@@ -592,12 +592,12 @@ async function getPaginatedAdvertisers(hubspotClient, objectId, page, limit) {
     // 🔧 FIX: Get the schema to discover available properties
     let availableProperties = [];
     try {
-      console.log(`🔍 [SCHEMA] Fetching object schema for ${objectId}...`);
+      // console.log($2
       const schema = await hubspotClient.crm.schemas.coreApi.getById(objectId);
       availableProperties = sgetPaginatedAdvertiserschema.properties
         .filter(prop => !prop.name.startsWith('hs_')) // Filter out system properties
         .map(prop => prop.name);
-      console.log(`✅ [SCHEMA] Found custom properties:`, availableProperties);
+      // console.log($2
     } catch (schemaError) {
       console.warn(`⚠️ [SCHEMA] Could not fetch schema:`, schemaError.message);
       // Fallback to common property names
@@ -605,10 +605,10 @@ async function getPaginatedAdvertisers(hubspotClient, objectId, page, limit) {
         'advertiser', 'name', 'title', 'label', 'advertiser_name',
         'brand_name', 'company_name', 'client_name', 'display_name'
       ];
-      console.log(`🔄 [SCHEMA] Using fallback properties:`, availableProperties);
+      // console.log($2
     }
 
-    console.log(`🔍 [DEBUG] Fetching advertisers with offset ${offset}, limit ${Math.min(offset + limit, 100)}`);
+    // console.log($2
 
     const advertisers = await hubspotClient.crm.objects.basicApi.getPage(
       objectId,
@@ -617,20 +617,20 @@ async function getPaginatedAdvertisers(hubspotClient, objectId, page, limit) {
       availableProperties.length > 0 ? availableProperties : undefined // Use discovered properties
     );
 
-    console.log(`📄 [PAGINATE] Retrieved ${advertisers.results?.length || 0} advertisers from API`);
+    // console.log($2
 
     if (advertisers.results && advertisers.results.length > 0) {
-      console.log(`🔍 [DEBUG] Sample advertiser properties:`, Object.keys(advertisers.results[0].properties || {}));
+      // console.log($2
     }
 
     // Slice the results for the requested page
     const paginatedResults = advertisers.results.slice(offset, offset + limit);
-    console.log(`📄 [PAGINATE] Sliced to ${paginatedResults.length} results for page ${page}`);
+    // console.log($2
 
     // Process each advertiser with company information
     const processedAdvertisers = await Promise.all(
       paginatedResults.map((advertiser, index) => {
-        console.log(`🔄 [PROCESS] Processing paginated advertiser ${index + 1}/${paginatedResults.length}: ${advertiser.id}`);
+        // console.log($2
         return processAdvertiserWithCompany(hubspotClient, advertiser, index);
       })
     );
@@ -644,8 +644,8 @@ async function getPaginatedAdvertisers(hubspotClient, objectId, page, limit) {
 
     const hasMore = advertisers.results.length > (offset + limit);
 
-    console.log(`✅ [PAGINATE] Returned page ${page}: ${processedAdvertisers.length} advertisers, hasMore: ${hasMore}`);
-    console.log(`🎯 [PAGINATE] Final options:`, options.map(opt => ({ label: opt.label, value: opt.value })));
+    // console.log($2
+    // console.log($2
 
     return {
       status: "SUCCESS",
@@ -669,20 +669,20 @@ async function getPaginatedAdvertisers(hubspotClient, objectId, page, limit) {
  * Get default advertisers (most recent/popular)
  */
 async function getDefaultAdvertisers(hubspotClient, objectId, limit) {
-  console.log(`🏠 [DEFAULT] Getting default advertisers (limit: ${limit})`);
+  // console.log($2
 
   try {
-    console.log(`🔍 [DEBUG] Fetching default advertisers from object ${objectId}`);
+    // console.log($2
 
     // 🔧 FIX: First, get the schema to discover available properties
     let availableProperties = [];
     try {
-      console.log(`🔍 [SCHEMA] Fetching object schema for ${objectId}...`);
+      // console.log($2
       const schema = await hubspotClient.crm.schemas.coreApi.getById(objectId);
       availableProperties = schema.properties
         .filter(prop => !prop.name.startsWith('hs_')) // Filter out system properties
         .map(prop => prop.name);
-      console.log(`✅ [SCHEMA] Found custom properties:`, availableProperties);
+      // console.log($2
     } catch (schemaError) {
       console.warn(`⚠️ [SCHEMA] Could not fetch schema:`, schemaError.message);
       // Fallback to common property names
@@ -690,7 +690,7 @@ async function getDefaultAdvertisers(hubspotClient, objectId, limit) {
         'advertiser', 'name', 'title', 'label', 'advertiser_name',
         'brand_name', 'company_name', 'client_name', 'display_name'
       ];
-      console.log(`🔄 [SCHEMA] Using fallback properties:`, availableProperties);
+      // console.log($2
     }
 
     // 🔧 FIX: Request specific properties instead of empty array
@@ -701,7 +701,7 @@ async function getDefaultAdvertisers(hubspotClient, objectId, limit) {
       availableProperties.length > 0 ? availableProperties : undefined // Use discovered properties
     );
 
-    console.log(`🏠 [DEFAULT] Retrieved ${advertisers.results?.length || 0} default advertisers`);
+    // console.log($2
 
     if (!advertisers.results || advertisers.results.length === 0) {
       console.warn(`⚠️ [DEFAULT] No advertisers found in object ${objectId}`);
@@ -726,11 +726,11 @@ async function getDefaultAdvertisers(hubspotClient, objectId, limit) {
     });
 
     // Process each advertiser with company information
-    console.log(`🔄 [DEFAULT] Processing ${advertisers.results.length} default advertisers...`);
+    // console.log($2
 
     const processedAdvertisers = await Promise.all(
       advertisers.results.map((advertiser, index) => {
-        console.log(`🔄 [PROCESS] Processing default advertiser ${index + 1}/${advertisers.results.length}: ${advertiser.id}`);
+        // console.log($2
         return processAdvertiserWithCompany(hubspotClient, advertiser, index);
       })
     );
@@ -745,8 +745,8 @@ async function getDefaultAdvertisers(hubspotClient, objectId, limit) {
     const totalAvailable = advertisers.total || advertisers.results.length;
     const hasMore = totalAvailable > limit;
 
-    console.log(`✅ [DEFAULT] Loaded ${processedAdvertisers.length} default advertisers, hasMore: ${hasMore}`);
-    console.log(`🎯 [DEFAULT] Final processed advertisers:`, processedAdvertisers.map(a => ({ id: a.value, label: a.label })));
+    // console.log($2
+    // console.log($2
 
     return {
       status: "SUCCESS",

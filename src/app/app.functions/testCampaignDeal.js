@@ -21,10 +21,10 @@ exports.main = async (context) => {
       // Try to get basic info about the object
       if (objectType === 'deals') {
         const deal = await hubspotClient.crm.deals.basicApi.getById(objectId, ['dealname', 'amount']);
-        console.log('✅ Successfully retrieved deal:', deal.properties);
+        // console.log($2
       } else if (objectType === 'companies') {
         const company = await hubspotClient.crm.companies.basicApi.getById(objectId, ['name', 'domain']);
-        console.log('✅ Successfully retrieved company:', company.properties);
+        // console.log($2
       }
     } catch (hubspotError) {
       console.warn('⚠️ HubSpot API test failed:', hubspotError.message);

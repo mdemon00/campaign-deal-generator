@@ -122,7 +122,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
         loadLineItemsQuietly()
       ]);
       setHasLoadedData(true);
-      console.log("All data loaded for view mode");
+      // console.log($2
     } catch (error) {
       console.error("Error loading data for view mode:", error);
       setHasLoadedData(true);
@@ -155,7 +155,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
           hasData: !!(data.formData.campaignName || data.formData.advertiser)
         });
 
-        console.log("Basic information loaded quietly for view mode");
+        // console.log($2
       }
     } catch (error) {
       console.warn("Could not load basic information for view mode:", error);
@@ -186,7 +186,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
           hasData: !!(data.formData.commercialAgreement)
         });
 
-        console.log("Commercial agreement loaded quietly for view mode");
+        // console.log($2
       }
     } catch (error) {
       console.warn("Could not load commercial agreement for view mode:", error);
@@ -216,7 +216,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
           hasData: !!(data.formData.taxId || data.formData.businessName) // ✅ Updated
         });
 
-        console.log("Campaign details loaded quietly for view mode");
+        // console.log($2
       }
     } catch (error) {
       console.warn("Could not load campaign details for view mode:", error);
@@ -241,7 +241,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
           hasData: data.lineItems && data.lineItems.length > 0
         });
 
-        console.log("Line items loaded quietly for view mode");
+        // console.log($2
       }
     } catch (error) {
       console.warn("Could not load line items for view mode:", error);

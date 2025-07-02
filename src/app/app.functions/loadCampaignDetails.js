@@ -7,7 +7,7 @@ exports.main = async (context) => {
   try {
     const { campaignDealId } = context.parameters;
 
-    console.log('📖 Loading Campaign Details for Campaign Deal:', campaignDealId);
+    // console.log($2
 
     // Step 1: Fetch Campaign Deal properties
     const CAMPAIGN_DEAL_OBJECT_ID = "2-45275187"; // ✅ Your Campaign Deal Object ID
@@ -29,20 +29,20 @@ exports.main = async (context) => {
     const properties = campaignDeal.properties;
     const saveStatus = properties.campaign_details_saved || 'not_saved';
 
-    console.log('📋 Campaign Detail properties loaded:', {
-      saveStatus,
-      campaignType: properties.campaign_type,
-      taxId: properties.tax_id,
-      businessName: properties.business_name,
-      dealCS: properties.deal_cs_id
-    });
+    // console.log('📋 Campaign Detail properties loaded:', {
+    //   saveStatus,
+    //   campaignType: properties.campaign_type,
+    //   taxId: properties.tax_id,
+    //   businessName: properties.business_name,
+    //   dealCS: properties.deal_cs_id
+    // });
 
     // Step 2: Load Deal CS details (if saved) - Reuse Deal Owner function
     let dealCSInfo = null;
     
     if (properties.deal_cs_id) {
       try {
-        console.log('🔍 Loading Deal CS details...');
+        // console.log($2
         
         // Fetch Deal CS details using HubSpot Owners API (same as Deal Owner)
         const response = await hubspotClient.apiRequest({
@@ -82,7 +82,7 @@ exports.main = async (context) => {
           email: email
         };
         
-        console.log('✅ Deal CS loaded:', dealCSInfo);
+        // console.log($2
         
       } catch (error) {
         console.warn('⚠️ Could not load Deal CS details:', error.message);
@@ -106,7 +106,7 @@ exports.main = async (context) => {
       lastModified: properties.last_modified_date || null
     };
 
-    console.log('🎉 Campaign Details loaded successfully!');
+    // console.log($2
 
     return {
       status: "SUCCESS",

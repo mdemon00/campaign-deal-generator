@@ -7,7 +7,7 @@ exports.main = async (context) => {
   try {
     const { campaignDealId } = context.parameters;
 
-    console.log('🔍 Checking save status for Campaign Deal:', campaignDealId);
+    // console.log($2
 
     // Quick fetch of just the save status properties
     const CAMPAIGN_DEAL_OBJECT_ID = "2-45275187"; // ✅ Your Campaign Deal Object ID
@@ -35,7 +35,7 @@ exports.main = async (context) => {
       campaignName: properties.campaign_name || ''
     };
 
-    console.log('📊 Save status checked:', statusInfo);
+    // console.log($2
 
     // Determine user-friendly message
     let message = '';

@@ -13,7 +13,7 @@ exports.main = async (context) => {
       includeInactive = false
     } = context.parameters;
 
-    console.log('🔍 Deal Owner Search Parameters:', { searchTerm, page, limit, loadAll, includeInactive });
+    // console.log($2
 
     // Determine search strategy
     if (searchTerm && searchTerm.trim() !== "") {
@@ -73,7 +73,7 @@ function processOwnerData(owner, index) {
     ? `${displayName} (${email})`
     : displayName;
 
-  console.log(`✅ [DEBUG] Owner ${owner.id} processed: "${fullDisplayName}"`);
+  // console.log($2
 
   return {
     label: fullDisplayName,
@@ -93,7 +93,7 @@ function processOwnerData(owner, index) {
  * Make direct API request to HubSpot Owners endpoint
  */
 async function fetchOwners(hubspotClient, limit = 20, after = undefined, includeInactive = false) {
-  console.log(`🔍 [API] Making direct API request to /crm/v3/owners`);
+  // console.log($2
   
   try {
     const queryParams = { 
@@ -108,7 +108,7 @@ async function fetchOwners(hubspotClient, limit = 20, after = undefined, include
       queryParams.archived = true;
     }
 
-    console.log(`🔍 [API] Query parameters:`, queryParams);
+    // console.log($2
 
     const response = await hubspotClient.apiRequest({
       method: 'GET',
@@ -127,7 +127,7 @@ async function fetchOwners(hubspotClient, limit = 20, after = undefined, include
       sampleData: data.results?.[0] || 'No results'
     });
 
-    console.log(`🔍 [API] Full response data:`, JSON.stringify(data, null, 2));
+    // console.log($2
 
     return data;
   } catch (error) {
@@ -140,7 +140,7 @@ async function fetchOwners(hubspotClient, limit = 20, after = undefined, include
  * Search deal owners by term
  */
 async function searchDealOwners(hubspotClient, searchTerm, includeInactive) {
-  console.log(`🔍 [SEARCH] Starting deal owner search for: "${searchTerm}"`);
+  // console.log($2
 
   try {
     // Fetch owners using direct API
@@ -161,7 +161,7 @@ async function searchDealOwners(hubspotClient, searchTerm, includeInactive) {
       };
     }
 
-    console.log(`🔍 [SEARCH] Found ${ownersData.results.length} total owners, filtering by "${searchTerm}"`);
+    // console.log($2
 
     // Filter owners by search term (case-insensitive)
     const filteredOwners = ownersData.results.filter((owner, index) => {
@@ -178,13 +178,13 @@ async function searchDealOwners(hubspotClient, searchTerm, includeInactive) {
       );
 
       if (matches) {
-        console.log(`✅ [SEARCH] Owner ${owner.id} MATCHES search term "${searchTerm}"`);
+        // console.log($2
       }
 
       return matches;
     });
 
-    console.log(`🔍 [SEARCH] Filtered to ${filteredOwners.length} matching owners`);
+    // console.log($2
 
     // Process each owner
     const processedOwners = filteredOwners.map((owner, index) => {
@@ -199,7 +199,7 @@ async function searchDealOwners(hubspotClient, searchTerm, includeInactive) {
       ...processedOwners
     ];
 
-    console.log(`✅ [SEARCH] Final search results for "${searchTerm}": ${processedOwners.length} matches`);
+    // console.log($2
 
     return {
       status: "SUCCESS",
@@ -223,7 +223,7 @@ async function searchDealOwners(hubspotClient, searchTerm, includeInactive) {
  * Get paginated deal owners for browsing
  */
 async function getPaginatedDealOwners(hubspotClient, page, limit, includeInactive) {
-  console.log(`📄 [PAGINATE] Getting deal owner page ${page} with limit ${limit}`);
+  // console.log($2
 
   try {
     const fetchLimit = Math.min(page * limit, 100);
@@ -248,7 +248,7 @@ async function getPaginatedDealOwners(hubspotClient, page, limit, includeInactiv
     // Calculate pagination slice
     const offset = (page - 1) * limit;
     const paginatedResults = ownersData.results.slice(offset, offset + limit);
-    console.log(`📄 [PAGINATE] Sliced to ${paginatedResults.length} results for page ${page}`);
+    // console.log($2
 
     // Process each owner
     const processedOwners = paginatedResults.map((owner, index) => {
@@ -264,7 +264,7 @@ async function getPaginatedDealOwners(hubspotClient, page, limit, includeInactiv
 
     const hasMore = ownersData.results.length > (offset + limit);
 
-    console.log(`✅ [PAGINATE] Returned page ${page}: ${processedOwners.length} owners, hasMore: ${hasMore}`);
+    // console.log($2
 
     return {
       status: "SUCCESS",
@@ -288,7 +288,7 @@ async function getPaginatedDealOwners(hubspotClient, page, limit, includeInactiv
  * Get default deal owners
  */
 async function getDefaultDealOwners(hubspotClient, limit, includeInactive) {
-  console.log(`🏠 [DEFAULT] Getting default deal owners (limit: ${limit})`);
+  // console.log($2
 
   try {
     // Fetch owners using direct API
@@ -299,11 +299,11 @@ async function getDefaultDealOwners(hubspotClient, limit, includeInactive) {
       
       // Check if we should try different parameters
       if (!includeInactive) {
-        console.log(`🔄 [DEFAULT] Trying again with includeInactive=true to see if there are archived owners...`);
+        // console.log($2
         const ownersDataWithArchived = await fetchOwners(hubspotClient, limit, undefined, true);
         
         if (ownersDataWithArchived.results && ownersDataWithArchived.results.length > 0) {
-          console.log(`🔍 [DEBUG] Found ${ownersDataWithArchived.results.length} owners when including archived ones`);
+          // console.log($2
         }
       }
       
@@ -320,7 +320,7 @@ async function getDefaultDealOwners(hubspotClient, limit, includeInactive) {
       };
     }
 
-    console.log(`🏠 [DEFAULT] Retrieved ${ownersData.results.length} default owners`);
+    // console.log($2
 
     // Process each owner
     const processedOwners = ownersData.results.map((owner, index) => {
@@ -337,8 +337,8 @@ async function getDefaultDealOwners(hubspotClient, limit, includeInactive) {
     // Check if there might be more owners
     const hasMore = ownersData.results.length >= limit;
 
-    console.log(`✅ [DEFAULT] Loaded ${processedOwners.length} default owners, hasMore: ${hasMore}`);
-    console.log(`🎯 [DEFAULT] Final processed owners:`, processedOwners.map(o => ({ id: o.value, label: o.label })));
+    // console.log($2
+    // console.log($2
 
     return {
       status: "SUCCESS",

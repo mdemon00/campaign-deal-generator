@@ -180,7 +180,7 @@ const CommercialAgreement = forwardRef(({
         // Set display labels directly
         setDisplayLabels(newDisplayLabels);
 
-        console.log("✅ Commercial agreement loaded for view mode");
+        // console.log($2
       }
     } catch (error) {
       console.warn("Could not load commercial agreement for view mode:", error);
@@ -242,7 +242,7 @@ const CommercialAgreement = forwardRef(({
           });
         }
 
-        console.log("✅ Commercial agreement loaded successfully");
+        // console.log($2
       } else {
         throw new Error(response?.response?.message || "Failed to load data");
       }
@@ -298,7 +298,7 @@ const CommercialAgreement = forwardRef(({
           });
         }
 
-        console.log("✅ Commercial agreement saved successfully");
+        // console.log($2
       } else {
         throw new Error(response?.response?.message || "Failed to save data");
       }
@@ -335,7 +335,7 @@ const CommercialAgreement = forwardRef(({
         setUseAgreementSearchMode(true);
         setLastAgreementSearchTerm(searchTerm);
         
-        console.log(`✅ Agreement search completed: ${data.totalCount} results for "${searchTerm}"`);
+        // console.log($2
       } else {
         throw new Error("Invalid search response");
       }

@@ -7,7 +7,7 @@ exports.main = async (context) => {
   try {
     const { campaignDealId } = context.parameters;
 
-    console.log('📖 Loading Line Items for Campaign Deal:', campaignDealId);
+    // console.log($2
 
     // Step 1: Fetch Campaign Deal properties
     const CAMPAIGN_DEAL_OBJECT_ID = "2-45275187"; // ✅ Your Campaign Deal Object ID
@@ -43,7 +43,7 @@ exports.main = async (context) => {
     if (properties.line_items_data) {
       try {
         lineItems = JSON.parse(properties.line_items_data);
-        console.log(`✅ Parsed ${lineItems.length} line items from stored data`);
+        // console.log($2
       } catch (parseError) {
         console.warn('⚠️ Could not parse line items data:', parseError.message);
         lineItems = [];
@@ -77,7 +77,7 @@ exports.main = async (context) => {
       lineItemCount: validatedLineItems.length
     };
 
-    console.log('📊 Line Items summary calculated:', summary);
+    // console.log($2
 
     // Step 5: Prepare response data
     const responseData = {
@@ -92,7 +92,7 @@ exports.main = async (context) => {
       }
     };
 
-    console.log('🎉 Line Items loaded successfully!');
+    // console.log($2
 
     return {
       status: "SUCCESS",

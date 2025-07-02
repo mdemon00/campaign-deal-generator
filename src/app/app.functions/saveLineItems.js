@@ -38,7 +38,7 @@ exports.main = async (context) => {
       last_modified_date: new Date().toISOString().split('T')[0]
     };
 
-    console.log('🔄 Updating Campaign Deal with line items summary:', updateProperties);
+    // console.log($2
 
     // Update the Campaign Deal object
     const CAMPAIGN_DEAL_OBJECT_ID = "2-45275187"; // ✅ Your Campaign Deal Object ID
@@ -49,7 +49,7 @@ exports.main = async (context) => {
       { properties: updateProperties }
     );
 
-    console.log('✅ Campaign Deal updated with line items summary');
+    // console.log($2
 
     // Step 3: Store line items data as a JSON property (for simplicity)
     // In a full implementation, you might create separate Line Item objects
@@ -65,12 +65,12 @@ exports.main = async (context) => {
       }
     );
 
-    console.log('✅ Line items data stored successfully');
+    // console.log($2
 
     // Step 4: Create associations to related objects if needed
     // For example, if line items reference products, create those associations here
 
-    console.log('🎉 Line Items saved successfully!');
+    // console.log($2
 
     return {
       status: "SUCCESS",

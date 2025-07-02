@@ -167,7 +167,7 @@ const LineItems = forwardRef(({
         setAvailableFilters(data.filters);
         setHasProductsLoaded(true);
         
-        console.log(`✅ Product catalog loaded: ${data.products.length} products`);
+        // console.log($2
       } else {
         throw new Error(response?.response?.message || "Failed to load product catalog");
       }
@@ -240,7 +240,7 @@ const LineItems = forwardRef(({
       name: selectedProduct.label // Auto-fill name with product name
     }));
 
-    console.log("✅ Product selected:", selectedProduct);
+    // console.log($2
   };
 
   // === LINE ITEM MANAGEMENT FUNCTIONS ===
@@ -369,7 +369,7 @@ const LineItems = forwardRef(({
           });
         }
 
-        console.log("✅ Line items loaded successfully");
+        // console.log($2
       } else {
         throw new Error(response?.response?.message || "Failed to load line items");
       }
@@ -417,7 +417,7 @@ const LineItems = forwardRef(({
           variant: "success"
         });
 
-        console.log("✅ Line items saved successfully");
+        // console.log($2
       } else {
         throw new Error(response?.response?.message || "Failed to save line items");
       }
