@@ -30,12 +30,12 @@ exports.main = async (context) => {
     const properties = campaignDeal.properties;
     const saveStatus = properties.line_items_saved || 'not_saved';
 
-    console.log('📋 Line Items properties loaded:', {
-      saveStatus,
-      lineItemsCount: properties.line_items_count,
-      totalBudget: properties.total_budget,
-      hasLineItemsData: !!properties.line_items_data
-    });
+    // console.log('📋 Line Items properties loaded:', {
+    //   saveStatus,
+    //   lineItemsCount: properties.line_items_count,
+    //   totalBudget: properties.total_budget,
+    //   hasLineItemsData: !!properties.line_items_data
+    // });
 
     // Step 2: Parse line items data
     let lineItems = [];

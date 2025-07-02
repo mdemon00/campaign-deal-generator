@@ -358,13 +358,13 @@ async function fetchAssociatedCompany(hubspotClient, advertiserId) {
  */
 async function processAdvertiserWithCompany(hubspotClient, advertiser, index) {
   // 🐛 DEBUG: Log the raw advertiser data structure
-  console.log(`🔍 [DEBUG] Raw advertiser ${index + 1} data:`, {
-    id: advertiser.id,
-    properties: advertiser.properties,
-    allPropertyKeys: Object.keys(advertiser.properties || {}),
-    createdAt: advertiser.createdAt,
-    updatedAt: advertiser.updatedAt
-  });
+  // console.log(`🔍 [DEBUG] Raw advertiser ${index + 1} data:`, {
+  //   id: advertiser.id,
+  //   properties: advertiser.properties,
+  //   allPropertyKeys: Object.keys(advertiser.properties || {}),
+  //   createdAt: advertiser.createdAt,
+  //   updatedAt: advertiser.updatedAt
+  // });
 
   // 🐛 DEBUG: Try to identify all possible name fields
   const possibleNameFields = {
@@ -409,8 +409,8 @@ async function processAdvertiserWithCompany(hubspotClient, advertiser, index) {
 
   const displayName = name && name.trim() !== '' ? name : `Advertiser ${advertiser.id}`;
 
-  console.log(`✅ [DEBUG] Advertiser ${advertiser.id} final display name: "${displayName}" (from field: ${Object.entries(possibleNameFields).find(([key, value]) => value === name)?.[0] || 'fallback'
-    })`);
+  // console.log(`✅ [DEBUG] Advertiser ${advertiser.id} final display name: "${displayName}" (from field: ${Object.entries(possibleNameFields).find(([key, value]) => value === name)?.[0] || 'fallback'
+  //   })`);
 
   // Fetch associated company (optional for advertisers)
   const associatedCompany = await fetchAssociatedCompany(hubspotClient, advertiser.id);
@@ -517,11 +517,11 @@ async function searchAdvertisers(hubspotClient, objectId, searchTerm) {
         advertiser.properties.domain
       ];
 
-      console.log(`🔍 [DEBUG] Advertiser ${index + 1} (${advertiser.id}) searchable fields:`, {
-        id: advertiser.id,
-        searchableFields: searchableFields.filter(field => field && field.trim() !== ''),
-        allProperties: Object.keys(advertiser.properties || {})
-      });
+      // console.log(`🔍 [DEBUG] Advertiser ${index + 1} (${advertiser.id}) searchable fields:`, {
+      //   id: advertiser.id,
+      //   searchableFields: searchableFields.filter(field => field && field.trim() !== ''),
+      //   allProperties: Object.keys(advertiser.properties || {})
+      // });
 
       const matches = searchableFields.some(field =>
         field && field.toLowerCase().includes(searchTerm.toLowerCase())
@@ -556,10 +556,10 @@ async function searchAdvertisers(hubspotClient, objectId, searchTerm) {
       ...processedAdvertisers,
     ];
 
-    console.log(`✅ [SEARCH] Final search results for "${searchTerm}":`, {
-      totalMatches: processedAdvertisers.length,
-      options: options.map(opt => ({ label: opt.label, value: opt.value }))
-    });
+    // console.log(`✅ [SEARCH] Final search results for "${searchTerm}":`, {
+    //   totalMatches: processedAdvertisers.length,
+    //   options: options.map(opt => ({ label: opt.label, value: opt.value }))
+    // });
 
     return {
       status: "SUCCESS",
@@ -719,11 +719,11 @@ async function getDefaultAdvertisers(hubspotClient, objectId, limit) {
     }
 
     // 🐛 DEBUG: Show schema information for default load
-    console.log(`🔍 [DEBUG] Default advertisers schema:`, {
-      sampleProperties: advertisers.results[0]?.properties ? Object.keys(advertisers.results[0].properties) : 'No properties',
-      totalResults: advertisers.results.length,
-      requestedProperties: availableProperties
-    });
+    // console.log(`🔍 [DEBUG] Default advertisers schema:`, {
+    //   sampleProperties: advertisers.results[0]?.properties ? Object.keys(advertisers.results[0].properties) : 'No properties',
+    //   totalResults: advertisers.results.length,
+    //   requestedProperties: availableProperties
+    // });
 
     // Process each advertiser with company information
     // console.log($2

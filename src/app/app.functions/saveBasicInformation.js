@@ -14,15 +14,15 @@ exports.main = async (context) => {
       createdBy
     } = context.parameters;
 
-    console.log('💾 Saving Basic Information:', {
-      campaignDealId,
-      campaignName,
-      commercialAgreement,
-      advertiser,
-      dealOwner,
-      createdBy,
-      timestamp: new Date().toISOString()
-    });
+    // console.log('💾 Saving Basic Information:', {
+    //   campaignDealId,
+    //   campaignName,
+    //   commercialAgreement,
+    //   advertiser,
+    //   dealOwner,
+    //   createdBy,
+    //   timestamp: new Date().toISOString()
+    // });
 
     // Step 1: Update Campaign Deal properties
     const updateProperties = {

@@ -40,14 +40,14 @@ exports.main = async (context) => {
  * Process contact data into consistent format
  */
 function processContactData(contact, index) {
-  console.log(`🔍 [DEBUG] Raw contact ${index + 1} data:`, {
-    id: contact.id,
-    firstName: contact.properties.firstname,
-    lastName: contact.properties.lastname,
-    email: contact.properties.email,
-    company: contact.properties.company,
-    phone: contact.properties.phone
-  });
+  // console.log(`🔍 [DEBUG] Raw contact ${index + 1} data:`, {
+  //   id: contact.id,
+  //   firstName: contact.properties.firstname,
+  //   lastName: contact.properties.lastname,
+  //   email: contact.properties.email,
+  //   company: contact.properties.company,
+  //   phone: contact.properties.phone
+  // });
 
   const firstName = contact.properties.firstname || '';
   const lastName = contact.properties.lastname || '';
@@ -281,7 +281,7 @@ async function getDefaultContacts(hubspotClient, limit, includeInactive) {
     const contactsData = await fetchContacts(hubspotClient, limit, undefined, includeInactive);
 
     if (!contactsData.results || contactsData.results.length === 0) {
-      console.warn(`⚠️ [DEFAULT] No contacts found in system`);
+      // console.warn(`⚠️ [DEFAULT] No contacts found in system`);
       
       return {
         status: "SUCCESS",

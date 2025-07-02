@@ -40,15 +40,15 @@ exports.main = async (context) => {
  * Process owner data into consistent format
  */
 function processOwnerData(owner, index) {
-  console.log(`🔍 [DEBUG] Raw owner ${index + 1} data:`, {
-    id: owner.id,
-    firstName: owner.firstName,
-    lastName: owner.lastName,
-    email: owner.email,
-    userId: owner.userId,
-    archived: owner.archived,
-    teams: owner.teams
-  });
+  // console.log(`🔍 [DEBUG] Raw owner ${index + 1} data:`, {
+  //   id: owner.id,
+  //   firstName: owner.firstName,
+  //   lastName: owner.lastName,
+  //   email: owner.email,
+  //   userId: owner.userId,
+  //   archived: owner.archived,
+  //   teams: owner.teams
+  // });
 
   const firstName = owner.firstName || '';
   const lastName = owner.lastName || '';
@@ -118,14 +118,14 @@ async function fetchOwners(hubspotClient, limit = 20, after = undefined, include
 
     const data = await response.json();
     
-    console.log(`🔍 [API] Raw response structure:`, {
-      hasResults: !!data.results,
-      resultCount: data.results?.length || 0,
-      hasTotal: !!data.total,
-      hasPaging: !!data.paging,
-      responseKeys: Object.keys(data),
-      sampleData: data.results?.[0] || 'No results'
-    });
+    // console.log(`🔍 [API] Raw response structure:`, {
+    //   hasResults: !!data.results,
+    //   resultCount: data.results?.length || 0,
+    //   hasTotal: !!data.total,
+    //   hasPaging: !!data.paging,
+    //   responseKeys: Object.keys(data),
+    //   sampleData: data.results?.[0] || 'No results'
+    // });
 
     // console.log($2
 

@@ -30,13 +30,13 @@ exports.main = async (context) => {
     const properties = campaignDeal.properties;
     const saveStatus = properties.basic_info_saved || 'not_saved';
 
-    console.log('📋 Campaign Deal properties loaded:', {
-      saveStatus,
-      campaignName: properties.campaign_name,
-      commercialAgreement: properties.commercial_agreement_id,
-      advertiser: properties.advertiser_id,
-      dealOwner: properties.deal_owner_id
-    });
+    // console.log('📋 Campaign Deal properties loaded:', {
+    //   saveStatus,
+    //   campaignName: properties.campaign_name,
+    //   commercialAgreement: properties.commercial_agreement_id,
+    //   advertiser: properties.advertiser_id,
+    //   dealOwner: properties.deal_owner_id
+    // });
 
     // Step 2: Load Commercial Agreement details (if saved)
     let commercialAgreementInfo = null;
