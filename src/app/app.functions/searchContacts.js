@@ -94,27 +94,29 @@ function processContactData(contact, index) {
 }
 
 /**
- * Fetch contacts using standard Contacts API
+ * Make direct API request to HubSpot Contacts endpoint
  */
 async function fetchContacts(hubspotClient, limit = 20, after = undefined, includeInactive = false) {
-  // console.log($2
-  
   try {
-    const properties = ['firstname', 'lastname', 'email', 'company', 'phone'];
-    
-    // ✅ FIXED: Use standard contacts API, not custom objects API
-    const contacts = await hubspotClient.crm.contacts.basicApi.getPage(
-      limit,
-      after,
-      properties,
-      undefined, // propertiesWithHistory
-      undefined, // associations
-      !includeInactive // archived - false means get active contacts
-    );
+    const queryParams = {
+      limit: limit
+    };
+    if (after) {
+      queryParams.after = after;
+    }
+    if (includeInactive) {
+      queryParams.archived = true;
+    }
+    // Only fetch needed properties
+    queryParams.properties = ['firstname', 'lastname', 'email', 'company', 'phone'];
 
-    // console.log($2
-
-    return contacts;
+    const response = await hubspotClient.apiRequest({
+      method: 'GET',
+      path: '/crm/v3/objects/contacts',
+      qs: queryParams
+    });
+    const data = await response.json();
+    return data;
   } catch (error) {
     console.error(`❌ [API] Error fetching contacts:`, error);
     throw error;
