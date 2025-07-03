@@ -216,7 +216,7 @@ const BasicInformation = forwardRef(({
 
         // 🔧 FIXED: Only set display labels, don't try to modify form data
         const newDisplayLabels = {};
-        
+
         // Set display labels from association data with proper fallbacks
         if (data.associations?.advertiser) {
           newDisplayLabels.advertiser = data.associations.advertiser.label;
@@ -225,7 +225,7 @@ const BasicInformation = forwardRef(({
         } else {
           newDisplayLabels.advertiser = "";
         }
-        
+
         if (data.associations?.dealOwner) {
           newDisplayLabels.dealOwner = data.associations.dealOwner.label;
         } else if (data.formData.dealOwner) {
@@ -259,7 +259,7 @@ const BasicInformation = forwardRef(({
 
         const selectedType = CAMPAIGN_TYPE_OPTIONS.find(t => t.value === data.formData.campaignType);
         newDisplayLabels.campaignType = selectedType?.label || data.formData.campaignType || "";
-        
+
         setDisplayLabels(newDisplayLabels);
       }
     } catch (error) {
@@ -295,12 +295,12 @@ const BasicInformation = forwardRef(({
 
         // Update display labels and search terms from association data
         const newDisplayLabels = { ...displayLabels };
-        
+
         if (data.associations?.advertiser) {
           newDisplayLabels.advertiser = data.associations.advertiser.label;
           setAdvertiserSearchTerm(data.associations.advertiser.label);
         }
-        
+
         if (data.associations?.dealOwner) {
           newDisplayLabels.dealOwner = data.associations.dealOwner.label;
           setDealOwnerSearchTerm(data.associations.dealOwner.label);
@@ -318,7 +318,7 @@ const BasicInformation = forwardRef(({
 
         const selectedType = CAMPAIGN_TYPE_OPTIONS.find(t => t.value === data.formData.campaignType);
         newDisplayLabels.campaignType = selectedType?.label || data.formData.campaignType || "";
-        
+
         setDisplayLabels(newDisplayLabels);
 
         // Store initial form data for change tracking
@@ -415,7 +415,7 @@ const BasicInformation = forwardRef(({
 
     try {
       const searchTerm = advertiserSearchTerm.trim();
-      
+
       const response = await runServerless({
         name: "searchAdvertisers",
         parameters: {
@@ -487,7 +487,7 @@ const BasicInformation = forwardRef(({
 
     try {
       const searchTerm = dealOwnerSearchTerm.trim();
-      
+
       const response = await runServerless({
         name: "searchDealOwners",
         parameters: {
@@ -558,7 +558,7 @@ const BasicInformation = forwardRef(({
 
     try {
       const searchTerm = customerServiceSearchTerm.trim();
-      
+
       const response = await runServerless({
         name: "searchDealOwners", // Reuse deal owners for customer service
         parameters: {
@@ -580,7 +580,7 @@ const BasicInformation = forwardRef(({
         setCustomerServiceHasMore(data.hasMore || false);
         setUseCustomerServiceSearchMode(true);
         setLastCustomerServiceSearchTerm(searchTerm);
-        
+
         console.log('🔍 [SEARCH] Customer service search results:', options?.length || 0);
       } else {
         throw new Error("Invalid customer service search response");
@@ -641,7 +641,7 @@ const BasicInformation = forwardRef(({
 
     try {
       const searchTerm = contactSearchTerm.trim();
-      
+
       const response = await runServerless({
         name: "searchContacts",
         parameters: {
@@ -658,7 +658,7 @@ const BasicInformation = forwardRef(({
         setContactHasMore(data.hasMore || false);
         setUseContactSearchMode(true);
         setLastContactSearchTerm(searchTerm);
-        
+
         console.log('🔍 [SEARCH] Contact search results:', data.options?.length || 0);
       } else {
         throw new Error("Invalid contact search response");
@@ -909,13 +909,13 @@ const BasicInformation = forwardRef(({
 
   const isSaveDisabled = () => {
     return saveState === COMPONENT_SAVE_STATES.SAVING ||
-           saveState === COMPONENT_SAVE_STATES.LOADING ||
-           !formData.campaignName ||
-           !formData.advertiser ||
-           !formData.dealOwner ||
-           !formData.assignedCustomerService ||
-           !formData.contact ||
-           !formData.campaignType;
+      saveState === COMPONENT_SAVE_STATES.LOADING ||
+      !formData.campaignName ||
+      !formData.advertiser ||
+      !formData.dealOwner ||
+      !formData.assignedCustomerService ||
+      !formData.contact ||
+      !formData.campaignType;
   };
 
   // === STATUS MESSAGES ===
@@ -987,11 +987,11 @@ const BasicInformation = forwardRef(({
       // Validate required fields
       const requiredFields = ['campaignName', 'advertiser', 'dealOwner', 'assignedCustomerService', 'contact', 'campaignType'];
       const missingFields = requiredFields.filter(field => !formData[field]);
-      
+
       if (missingFields.length > 0) {
         return `Please fill all required fields in Basic Information: ${missingFields.join(', ')}.`;
       }
-      
+
       await saveBasicInformation();
       if (saveError) return saveError;
       if (saveState === COMPONENT_SAVE_STATES.ERROR) return "Failed to save Basic Information.";
@@ -1051,6 +1051,8 @@ const BasicInformation = forwardRef(({
           />
         </Box>
 
+        <Divider></ Divider>
+
         {/* ROW 2: Advertiser (Full Row - Has Browse/Search) */}
         <Box marginBottom="extra-large">
           {/* Mode Controls - Only show in Edit Mode */}
@@ -1091,7 +1093,7 @@ const BasicInformation = forwardRef(({
               name="advertiser"
               placeholder="No advertiser selected"
               value={
-                displayLabels.advertiser || 
+                displayLabels.advertiser ||
                 (formData.advertiser ? `Advertiser (${formData.advertiser})` : "")
               }
               readOnly={true}
@@ -1112,7 +1114,7 @@ const BasicInformation = forwardRef(({
                 />
               </Box>
               <Box>
-                <Button 
+                <Button
                   onClick={performAdvertiserSearch}
                   disabled={!advertiserSearchTerm.trim() || isAdvertiserSearching || isAdvertiserLoading}
                 >
@@ -1198,6 +1200,8 @@ const BasicInformation = forwardRef(({
           </Flex>
         </Box>
 
+        <Divider></ Divider>
+
         {/* ROW 4: Deal Owner (Full Row - Has Browse/Search) */}
         <Box marginBottom="extra-large">
           {/* Mode Controls - Only show in Edit Mode */}
@@ -1238,7 +1242,7 @@ const BasicInformation = forwardRef(({
               name="dealOwner"
               placeholder="No deal owner selected"
               value={
-                displayLabels.dealOwner || 
+                displayLabels.dealOwner ||
                 (formData.dealOwner ? `Owner (${formData.dealOwner})` : "")
               }
               readOnly={true}
@@ -1259,7 +1263,7 @@ const BasicInformation = forwardRef(({
                 />
               </Box>
               <Box>
-                <Button 
+                <Button
                   onClick={performDealOwnerSearch}
                   disabled={!dealOwnerSearchTerm.trim() || isDealOwnerSearching || isDealOwnerLoading}
                 >
@@ -1320,6 +1324,8 @@ const BasicInformation = forwardRef(({
           )}
         </Box>
 
+        <Divider></ Divider>
+
         {/* ROW 5: Assigned Customer Service (Full Row - Has Browse/Search) */}
         <Box marginBottom="extra-large">
           {/* Mode Controls - Only show in Edit Mode */}
@@ -1360,7 +1366,7 @@ const BasicInformation = forwardRef(({
               name="assignedCustomerService"
               placeholder="No CS representative selected"
               value={
-                displayLabels.assignedCustomerService || 
+                displayLabels.assignedCustomerService ||
                 (formData.assignedCustomerService ? `CS Rep (${formData.assignedCustomerService})` : "")
               }
               readOnly={true}
@@ -1381,7 +1387,7 @@ const BasicInformation = forwardRef(({
                 />
               </Box>
               <Box>
-                <Button 
+                <Button
                   onClick={performCustomerServiceSearch}
                   disabled={!customerServiceSearchTerm.trim() || isCustomerServiceSearching || isCustomerServiceLoading}
                 >
@@ -1442,6 +1448,8 @@ const BasicInformation = forwardRef(({
           )}
         </Box>
 
+        <Divider></ Divider>
+
         {/* ROW 6: Contact (Full Row - Has Browse/Search) */}
         <Box marginBottom="extra-large">
           {/* Mode Controls - Only show in Edit Mode */}
@@ -1482,7 +1490,7 @@ const BasicInformation = forwardRef(({
               name="contact"
               placeholder="No contact selected"
               value={
-                displayLabels.contact || 
+                displayLabels.contact ||
                 (formData.contact ? `Contact (${formData.contact})` : "")
               }
               readOnly={true}
@@ -1503,7 +1511,7 @@ const BasicInformation = forwardRef(({
                 />
               </Box>
               <Box>
-                <Button 
+                <Button
                   onClick={performContactSearch}
                   disabled={!contactSearchTerm.trim() || isContactSearching || isContactLoading}
                 >

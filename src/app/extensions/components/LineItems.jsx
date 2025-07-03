@@ -53,24 +53,24 @@ const LineItems = forwardRef(({
     type: "initial",
     startDate: null,
     endDate: null,
-    
+
     // Product selection fields
     productId: "",
     selectedProduct: null,
-    
+
     // Pricing fields (auto-populated from product)
     price: 0,
     buyingModel: "",
     units: "",
     category: "",
-    
+
     // Quantity fields
     billable: 0,
     bonus: 0,
-    
+
     // Agreement pricing indicator
     hasAgreementPricing: false,
-    
+
     // Agreement dates indicator
     hasAgreementDates: false
   });
@@ -124,7 +124,7 @@ const LineItems = forwardRef(({
     const products = Array.isArray(newAgreementProducts) ? newAgreementProducts : [];
     console.log(`🔄 Updating agreement products: ${products.length} products received`);
     setAgreementProducts(products);
-    
+
     // Log the agreement products for debugging
     if (products.length > 0) {
       console.log('✅ Agreement products stored:', products.map(p => ({
@@ -142,32 +142,32 @@ const LineItems = forwardRef(({
   useEffect(() => {
     if (newLineItem.selectedProduct && newLineItem.productId) {
       console.log('🔄 Agreement products changed, recalculating price and dates for selected product');
-      
+
       // Recalculate price and dates for currently selected product
       let finalPrice = newLineItem.selectedProduct.price || 0;
       let finalStartDate = newLineItem.startDate;
       let finalEndDate = newLineItem.endDate;
       let hasAgreementPricing = false;
       let hasAgreementDates = false;
-      
+
       if (agreementProducts && agreementProducts.length > 0) {
         // Create matching key for agreement lookup
         const lookupKey = `${newLineItem.selectedProduct.category}_${newLineItem.selectedProduct.media}_${newLineItem.selectedProduct.contentType}_${newLineItem.selectedProduct.buyingModel}`.toLowerCase();
-        
+
         // Find matching agreement product
         const matchingAgreementProduct = agreementProducts.find(agreementProduct => {
           const values = agreementProduct.values;
           const agreementKey = `${values.name}_${values.media}_${values.content_type}_${values.buying_model}`.toLowerCase();
           return agreementKey === lookupKey;
         });
-        
+
         if (matchingAgreementProduct) {
           const values = matchingAgreementProduct.values;
-          
+
           // Override pricing
           finalPrice = values.pircing || 0;
           hasAgreementPricing = true;
-          
+
           // Override dates if available (convert from timestamp to HubSpot DateInput format)
           if (values.start_date) {
             // Convert Unix timestamp (milliseconds) to HubSpot DateInput object format
@@ -189,7 +189,7 @@ const LineItems = forwardRef(({
             };
             hasAgreementDates = true;
           }
-          
+
           console.log(`🎯 Updated agreement data for ${newLineItem.selectedProduct.category}:`);
           console.log(`   💰 Price: ${finalPrice} ${currency} (was: ${newLineItem.selectedProduct.price})`);
           if (hasAgreementDates) {
@@ -201,13 +201,13 @@ const LineItems = forwardRef(({
 
       // Update the price and dates if they changed
       const needsUpdate = (
-        finalPrice !== newLineItem.price || 
+        finalPrice !== newLineItem.price ||
         hasAgreementPricing !== newLineItem.hasAgreementPricing ||
         hasAgreementDates !== newLineItem.hasAgreementDates ||
         finalStartDate !== newLineItem.startDate ||
         finalEndDate !== newLineItem.endDate
       );
-      
+
       if (needsUpdate) {
         setNewLineItem(prev => ({
           ...prev,
@@ -240,7 +240,7 @@ const LineItems = forwardRef(({
   }));
 
   // === PRODUCT CATALOG FUNCTIONS ===
-  
+
   const loadProductCatalog = async () => {
     if (!runServerless || !isEditMode) return;
 
@@ -258,16 +258,16 @@ const LineItems = forwardRef(({
 
       if (response?.status === "SUCCESS" && response?.response?.data) {
         const data = response.response.data;
-        
+
         // Add default "Select Product" option
         const productOptions = [
           { label: "Select Product", value: "", isAvailable: true, hasStandardPricing: true },
           ...data.products
         ];
-        
+
         setProducts(productOptions);
         setHasProductsLoaded(true);
-        
+
         console.log(`✅ Product catalog loaded with ${agreementProducts.length} agreement pricing overrides`);
       } else {
         throw new Error(response?.response?.message || "Failed to load product catalog");
@@ -278,7 +278,7 @@ const LineItems = forwardRef(({
         message: `Failed to load product catalog: ${error.message}`,
         variant: "error"
       });
-      
+
       // Set fallback empty state
       setProducts([{ label: "Select Product", value: "", isAvailable: true, hasStandardPricing: true }]);
     } finally {
@@ -288,12 +288,12 @@ const LineItems = forwardRef(({
 
 
   // === PRODUCT SELECTION HANDLERS ===
-  
+
   const handleProductSelection = (productId) => {
     if (!isEditMode) return;
 
     const selectedProduct = products.find(p => p.value === productId);
-    
+
     if (!selectedProduct || selectedProduct.value === "") {
       // Clear product selection
       setNewLineItem(prev => ({
@@ -319,25 +319,25 @@ const LineItems = forwardRef(({
     let finalEndDate = null;
     let hasAgreementPricing = false;
     let hasAgreementDates = false;
-    
+
     if (agreementProducts && agreementProducts.length > 0) {
       // Create matching key for agreement lookup
       const lookupKey = `${selectedProduct.category}_${selectedProduct.media}_${selectedProduct.contentType}_${selectedProduct.buyingModel}`.toLowerCase();
-      
+
       // Find matching agreement product
       const matchingAgreementProduct = agreementProducts.find(agreementProduct => {
         const values = agreementProduct.values;
         const agreementKey = `${values.name}_${values.media}_${values.content_type}_${values.buying_model}`.toLowerCase();
         return agreementKey === lookupKey;
       });
-      
+
       if (matchingAgreementProduct) {
         const values = matchingAgreementProduct.values;
-        
+
         // Override pricing
         finalPrice = values.pircing || 0;
         hasAgreementPricing = true;
-        
+
         // Override dates if available (convert from timestamp to HubSpot DateInput format)
         if (values.start_date) {
           // Convert Unix timestamp (milliseconds) to HubSpot DateInput object format
@@ -359,7 +359,7 @@ const LineItems = forwardRef(({
           };
           hasAgreementDates = true;
         }
-        
+
         console.log(`🎯 Using agreement data for ${selectedProduct.category}:`);
         console.log(`   💰 Price: ${finalPrice} ${currency} (was: ${selectedProduct.price})`);
         if (hasAgreementDates) {
@@ -389,7 +389,7 @@ const LineItems = forwardRef(({
   };
 
   // === LINE ITEM MANAGEMENT FUNCTIONS ===
-  
+
   const handleNewLineItemChange = (field, value) => {
     if (!isEditMode) return;
 
@@ -441,7 +441,7 @@ const LineItems = forwardRef(({
       id: newCounter,
       ...newLineItem,
       ...totals,
-      
+
       // Store product information
       productInfo: {
         productId: newLineItem.productId,
@@ -482,7 +482,7 @@ const LineItems = forwardRef(({
   };
 
   // === EXISTING FUNCTIONS ===
-  
+
   const loadLineItems = async () => {
     if (!runServerless || !context?.crm?.objectId) return;
 
@@ -576,7 +576,7 @@ const LineItems = forwardRef(({
   };
 
   // === UI HELPER FUNCTIONS ===
-  
+
   const getSaveStatusDisplay = () => {
     const message = SAVE_STATUS_MESSAGES[saveState] || SAVE_STATUS_MESSAGES[COMPONENT_SAVE_STATES.NOT_SAVED];
     const color = SAVE_STATUS_COLORS[saveState] || SAVE_STATUS_COLORS[COMPONENT_SAVE_STATES.NOT_SAVED];
@@ -604,7 +604,7 @@ const LineItems = forwardRef(({
   };
 
   // === RENDER FUNCTIONS ===
-  
+
   const renderViewModeCell = (value, placeholder = "Not set") => {
     return (
       <Text>
@@ -637,7 +637,7 @@ const LineItems = forwardRef(({
     // Format dates
     const formatDate = (dateValue) => {
       if (!dateValue) return 'Date not set';
-      
+
       // Handle HubSpot DateInput object format {year, month, date}
       if (typeof dateValue === 'object' && dateValue.year && typeof dateValue.month === 'number' && dateValue.date) {
         try {
@@ -648,12 +648,12 @@ const LineItems = forwardRef(({
           return 'Invalid date';
         }
       }
-      
+
       // Handle pre-formatted date object
       if (typeof dateValue === 'object' && dateValue.formattedDate) {
         return dateValue.formattedDate;
       }
-      
+
       // Handle string or number dates
       try {
         const dateObj = new Date(dateValue);
@@ -751,14 +751,11 @@ const LineItems = forwardRef(({
       {/* PRODUCT CATALOG & ADD NEW LINE ITEM FORM - Only show in Edit Mode */}
       {isEditMode && (
         <Tile>
-          <Text format={{ fontWeight: "bold" }}>Add New Line Item</Text>
-
           {/* Product Catalog Section */}
           <Box marginTop="medium">
             <Text format={{ fontWeight: "bold" }} marginBottom="small">
-              📦 Select Product from Catalog
+              📦 Select Product
             </Text>
-
 
             {/* Product Selection */}
             <Box marginBottom="medium">
@@ -770,15 +767,17 @@ const LineItems = forwardRef(({
                 disabled={isProductsLoading || !hasProductsLoaded}
                 required
               />
-              
+
               {isProductsLoading && (
                 <Text variant="microcopy" format={{ color: 'medium' }}>
-                  Loading product catalog...
+                  Loading product...
                 </Text>
               )}
             </Box>
 
           </Box>
+          
+          <Divider></ Divider>
 
           {/* Regular Line Item Fields */}
           <Box marginTop="medium">
@@ -813,6 +812,8 @@ const LineItems = forwardRef(({
             </Flex>
           </Box>
 
+          <Divider></ Divider>
+
           <Box marginTop="medium">
             <Flex direction="row" gap="medium" wrap="wrap">
               <Box flex={1} minWidth="150px">
@@ -824,7 +825,7 @@ const LineItems = forwardRef(({
                 />
                 {newLineItem.hasAgreementDates && newLineItem.startDate && (
                   <Text variant="microcopy" format={{ color: 'success' }} marginTop="extra-small">
-                    📅 Agreement start date applied
+                    Agreement start date applied
                   </Text>
                 )}
               </Box>
@@ -837,7 +838,7 @@ const LineItems = forwardRef(({
                 />
                 {newLineItem.hasAgreementDates && newLineItem.endDate && (
                   <Text variant="microcopy" format={{ color: 'success' }} marginTop="extra-small">
-                    📅 Agreement end date applied
+                    Agreement end date applied
                   </Text>
                 )}
               </Box>
@@ -852,7 +853,7 @@ const LineItems = forwardRef(({
                 />
                 {newLineItem.hasAgreementPricing && (
                   <Text variant="microcopy" format={{ color: 'success' }} marginTop="extra-small">
-                    💰 Agreement price applied
+                    Agreement price applied
                   </Text>
                 )}
               </Box>
@@ -877,9 +878,11 @@ const LineItems = forwardRef(({
             </Flex>
           </Box>
 
+          <Divider></ Divider>
+
           <Box marginTop="medium">
-            <Button 
-              onClick={addLineItem} 
+            <Button
+              onClick={addLineItem}
               variant="primary"
               disabled={!newLineItem.productId || newLineItem.price <= 0}
             >
