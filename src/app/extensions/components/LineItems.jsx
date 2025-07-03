@@ -79,6 +79,7 @@ const LineItems = forwardRef(({
   const [isProductsLoading, setIsProductsLoading] = useState(false);
   const [hasProductsLoaded, setHasProductsLoaded] = useState(false);
   const [agreementProducts, setAgreementProducts] = useState([]);
+  const [showRefreshButton, setShowRefreshButton] = useState(false);
 
   // === SAVE/LOAD STATE ===
   const [saveState, setSaveState] = useState(COMPONENT_SAVE_STATES.NOT_SAVED);
@@ -122,6 +123,11 @@ const LineItems = forwardRef(({
     console.log(`🔄 Updating agreement products: ${products.length} products received`);
     setAgreementProducts(products);
     
+    // Show refresh button if there are agreement products and current line item has a product selected
+    if (products.length > 0 && newLineItem.productId && newLineItem.productId !== "") {
+      setShowRefreshButton(true);
+    }
+    
     // Log the agreement products for debugging
     if (products.length > 0) {
       console.log('✅ Agreement products stored:', products.map(p => ({
@@ -133,6 +139,20 @@ const LineItems = forwardRef(({
         currency: p.values.currency
       })));
     }
+  };
+
+  // Function to refresh current line item price with agreement pricing
+  const refreshLineItemPrice = () => {
+    if (!newLineItem.productId || !newLineItem.selectedProduct) return;
+    
+    // Trigger the product selection logic again to check for new agreement pricing
+    handleProductSelection(newLineItem.productId);
+    setShowRefreshButton(false);
+    
+    onAlert({
+      message: "Price updated with current agreement pricing!",
+      variant: "success"
+    });
   };
 
   // Expose save method and agreement products update to parent
@@ -254,6 +274,9 @@ const LineItems = forwardRef(({
       name: selectedProduct.label, // Auto-fill name with product name
       hasAgreementPricing: hasAgreementPricing
     }));
+
+    // Hide refresh button when product changes
+    setShowRefreshButton(false);
 
     // console.log($2
   };
@@ -686,17 +709,37 @@ const LineItems = forwardRef(({
                 />
               </Box>
               <Box flex={1} minWidth="120px">
-                <NumberInput
-                  label={`Price (${currency})`}
-                  name="newItemPrice"
-                  placeholder="Enter price"
-                  value={newLineItem.price}
-                  onChange={(value) => handleNewLineItemChange("price", value)}
-                  precision={2}
-                />
+                <Flex direction="row" align="end" gap="small">
+                  <Box flex={1}>
+                    <NumberInput
+                      label={`Price (${currency})`}
+                      name="newItemPrice"
+                      placeholder="Enter price"
+                      value={newLineItem.price}
+                      onChange={(value) => handleNewLineItemChange("price", value)}
+                      precision={2}
+                    />
+                  </Box>
+                  {showRefreshButton && (
+                    <Box>
+                      <Button
+                        variant="secondary"
+                        size="xs"
+                        onClick={refreshLineItemPrice}
+                      >
+                        🔄
+                      </Button>
+                    </Box>
+                  )}
+                </Flex>
                 {newLineItem.hasAgreementPricing && (
                   <Text variant="microcopy" format={{ color: 'success' }} marginTop="extra-small">
                     💰 Agreement price applied
+                  </Text>
+                )}
+                {showRefreshButton && (
+                  <Text variant="microcopy" format={{ color: 'warning' }} marginTop="extra-small">
+                    📝 Click 🔄 to update price with agreement pricing
                   </Text>
                 )}
               </Box>
