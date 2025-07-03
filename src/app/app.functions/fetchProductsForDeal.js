@@ -10,14 +10,9 @@ async function fetchProductsForDeal(hubspotClient, dealId) {
 
     console.log(`Total rows in HubDB table: ${apiResponse.results.length}`);
     
-    // Log all products to see what's available
-    console.log("ALL PRODUCTS IN TABLE:");
-    apiResponse.results.forEach((row, index) => {
-      console.log(`Row ${index + 1}:`, {
-        id: row.id,
-        values: row.values
-      });
-    });
+    // Log unique deal IDs to see what's available
+    const uniqueDealIds = [...new Set(apiResponse.results.map(row => row.values.deal_id))];
+    console.log("Available deal IDs in table:", uniqueDealIds);
 
     // Filter products that match the deal_id
     const filteredProducts = apiResponse.results.filter(row => row.values.deal_id == dealId);
