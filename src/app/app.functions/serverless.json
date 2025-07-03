@@ -55,6 +55,10 @@
     "getProductCatalog": {
       "file": "getProductCatalog.js",
       "secrets": []
+    },
+    "fetchProductsForDeal": {
+      "file": "fetchProductsForDeal.js",
+      "secrets": []
     }
   }
 }
