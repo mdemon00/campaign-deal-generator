@@ -654,8 +654,6 @@ const BasicInformation = forwardRef(({
 
       if (response && response.status === "SUCCESS" && response.response && response.response.data) {
         const data = response.response.data;
-        console.log('🔍 [DEBUG] Contact search response:', response);
-        console.log('🔍 [DEBUG] Contact search options:', data.options);
         setContacts(data.options || [{ label: "Select Contact", value: "" }]);
         setContactHasMore(data.hasMore || false);
         setUseContactSearchMode(true);
@@ -663,7 +661,6 @@ const BasicInformation = forwardRef(({
         
         console.log('🔍 [SEARCH] Contact search results:', data.options?.length || 0);
       } else {
-        console.log('🔍 [DEBUG] Invalid contact search response:', response);
         throw new Error("Invalid contact search response");
       }
     } catch (error) {
@@ -692,13 +689,10 @@ const BasicInformation = forwardRef(({
 
       if (response && response.status === "SUCCESS" && response.response && response.response.data) {
         const data = response.response.data;
-        console.log('🔍 [DEBUG] Full contact response:', response);
-        console.log('🔍 [DEBUG] Contact options received:', data.options);
         setContacts(data.options || [{ label: "Select Contact", value: "" }]);
         setContactHasMore(data.hasMore || false);
         console.log('🔍 [DEFAULT] Loaded default contacts:', data.options?.length || 0);
       } else {
-        console.log('🔍 [DEBUG] Invalid contact response:', response);
         throw new Error("Invalid response from contact server");
       }
     } catch (error) {

@@ -12,6 +12,7 @@ exports.main = async (context) => {
       advertiser,
       dealOwner,
       assignedCustomerService,
+      contact,
       createdBy
     } = context.parameters;
 
@@ -32,6 +33,7 @@ exports.main = async (context) => {
       advertiser_id: advertiser || '',
       deal_owner_id: dealOwner || '', // This is a HubSpot User property
       deal_cs_id: assignedCustomerService || '', // Customer service representative
+      contact_id: contact || '', // Contact association
       created_by: createdBy || '',
       basic_info_saved: 'Saved', // ✅ Fixed: Use 'Saved' with capital S
       basic_info_saved_date: new Date().toISOString().split('T')[0], // YYYY-MM-DD format

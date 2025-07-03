@@ -21,6 +21,7 @@ exports.main = async (context) => {
         'advertiser_id',
         'deal_owner_id',
         'deal_cs_id',
+        'contact_id',
         'created_by',
         'basic_info_saved',
         'basic_info_saved_date',
@@ -228,7 +229,70 @@ exports.main = async (context) => {
       }
     }
 
-    // Step 6: Prepare form data
+    // Step 6: Load Contact details (if saved) - Using HubSpot Contacts API
+    let contactInfo = null;
+    
+    if (properties.contact_id) {
+      try {
+        // Fetch contact details using HubSpot Contacts API
+        const response = await hubspotClient.apiRequest({
+          method: 'GET',
+          path: `/crm/v3/objects/contacts/${properties.contact_id}`,
+          qs: {
+            properties: 'firstname,lastname,email,company,phone'
+          }
+        });
+
+        const contactData = await response.json();
+        
+        const firstName = contactData.properties.firstname || '';
+        const lastName = contactData.properties.lastname || '';
+        const email = contactData.properties.email || '';
+        const company = contactData.properties.company || '';
+        
+        let displayName;
+        if (firstName && lastName) {
+          displayName = `${firstName} ${lastName}`;
+        } else if (firstName) {
+          displayName = firstName;
+        } else if (lastName) {
+          displayName = lastName;
+        } else if (email) {
+          displayName = email;
+        } else {
+          displayName = `Contact ${properties.contact_id}`;
+        }
+
+        // Add email suffix if we have both name and email
+        const fullDisplayName = (firstName || lastName) && email 
+          ? `${displayName} (${email})`
+          : displayName;
+
+        // Add company if available
+        const finalDisplayName = company 
+          ? `${fullDisplayName} - ${company}`
+          : fullDisplayName;
+
+        contactInfo = {
+          id: properties.contact_id,
+          label: finalDisplayName,
+          value: properties.contact_id,
+          displayName: displayName,
+          email: email,
+          company: company
+        };
+        
+      } catch (error) {
+        console.warn('⚠️ Could not load Contact details:', error.message);
+        contactInfo = {
+          id: properties.contact_id,
+          label: `Contact ${properties.contact_id}`,
+          value: properties.contact_id
+        };
+      }
+    }
+
+    // Step 7: Prepare form data
     const formData = {
       campaignName: properties.campaign_name || '',
       commercialAgreement: properties.commercial_agreement_id || '',
@@ -236,6 +300,7 @@ exports.main = async (context) => {
       advertiser: properties.advertiser_id || '',
       dealOwner: properties.deal_owner_id || '',
       assignedCustomerService: properties.deal_cs_id || '',
+      contact: properties.contact_id || '',
       currency: companyInfo.currency || '',
       // Additional context
       createdBy: properties.created_by || '',
@@ -256,7 +321,8 @@ exports.main = async (context) => {
           commercialAgreement: commercialAgreementInfo,
           advertiser: advertiserInfo,
           dealOwner: dealOwnerInfo,
-          assignedCustomerService: customerServiceInfo
+          assignedCustomerService: customerServiceInfo,
+          contact: contactInfo
         },
         companyInfo,
         metadata: {
@@ -284,6 +350,7 @@ exports.main = async (context) => {
           advertiser: '',
           dealOwner: '',
           assignedCustomerService: '',
+          contact: '',
           currency: ''
         },
         saveStatus: 'not_saved',
