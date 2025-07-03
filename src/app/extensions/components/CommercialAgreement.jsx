@@ -104,6 +104,15 @@ const CommercialAgreement = forwardRef(({
     }
   }, [formData, initialFormData, saveState, hasUnsavedChanges, isEditMode]);
 
+  // Fetch agreement products when commercial agreement is initially loaded (edit mode only)
+  useEffect(() => {
+    if (isEditMode && formData.commercialAgreement && formData.commercialAgreement !== "" && 
+        saveState === COMPONENT_SAVE_STATES.SAVED && lineItemsRef?.current?.updateAgreementProducts) {
+      console.log(`🔄 Initial load: Fetching products for loaded commercial agreement: ${formData.commercialAgreement}`);
+      fetchProductsForCommercialAgreement(formData.commercialAgreement);
+    }
+  }, [isEditMode, formData.commercialAgreement, saveState, lineItemsRef]);
+
   // === DISPLAY LABEL FUNCTIONS ===
   const updateDisplayLabels = () => {
     const newLabels = { ...displayLabels };
