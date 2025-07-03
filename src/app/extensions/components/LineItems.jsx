@@ -228,12 +228,12 @@ const LineItems = forwardRef(({
       return;
     }
 
-    // Auto-populate fields from selected product
+    // Auto-populate fields from selected product, including price
     setNewLineItem(prev => ({
       ...prev,
       productId: productId,
       selectedProduct: selectedProduct,
-      price: selectedProduct.hasStandardPricing ? selectedProduct.price : 0, // ✅ Only auto-fill for standard pricing
+      price: selectedProduct.price || 0, // Always populate price for user to modify
       buyingModel: selectedProduct.buyingModel,
       units: selectedProduct.units,
       category: selectedProduct.category,
@@ -270,10 +270,10 @@ const LineItems = forwardRef(({
       return;
     }
 
-    // ✅ FIXED: Allow custom pricing products, just validate price is entered
-    if (!newLineItem.selectedProduct?.hasStandardPricing && newLineItem.price <= 0) {
+    // Validate price is entered
+    if (newLineItem.price <= 0) {
       onAlert({
-        message: "Please enter a price for this custom pricing product",
+        message: "Please enter a price for this line item",
         variant: "error"
       });
       return;
@@ -686,24 +686,6 @@ const LineItems = forwardRef(({
               )}
             </Box>
 
-            {/* Selected Product Info Display */}
-            {newLineItem.selectedProduct && newLineItem.selectedProduct.value !== "" && (
-              <Box marginBottom="medium">
-                <Alert variant={newLineItem.selectedProduct.hasStandardPricing ? "info" : "warning"}>
-                  <Text format={{ fontWeight: "bold" }}>Selected Product:</Text>
-                  <Text>Category: {newLineItem.selectedProduct.category}</Text>
-                  <Text>Buying Model: {newLineItem.selectedProduct.buyingModel}</Text>
-                  <Text>Price: {newLineItem.selectedProduct.priceDisplay}</Text>
-                  <Text>Units: {newLineItem.selectedProduct.units}</Text>
-                  {!newLineItem.selectedProduct.hasStandardPricing && (
-                    <Text format={{ color: 'warning' }}>💡 Custom pricing product - enter your negotiated price below</Text>
-                  )}
-                  {newLineItem.selectedProduct.hasStandardPricing && (
-                    <Text format={{ color: 'success' }}>✅ Standard pricing - price auto-filled</Text>
-                  )}
-                </Alert>
-              </Box>
-            )}
           </Box>
 
           {/* Regular Line Item Fields */}
@@ -759,20 +741,13 @@ const LineItems = forwardRef(({
               </Box>
               <Box flex={1} minWidth="120px">
                 <NumberInput
-                  label={`Price (${currency}) ${!newLineItem.selectedProduct?.hasStandardPricing ? '*' : ''}`}
+                  label={`Price (${currency})`}
                   name="newItemPrice"
-                  placeholder={newLineItem.selectedProduct?.hasStandardPricing ? "Auto-filled from product" : "Enter custom price"}
+                  placeholder="Enter price"
                   value={newLineItem.price}
                   onChange={(value) => handleNewLineItemChange("price", value)}
                   precision={2}
-                  readOnly={newLineItem.selectedProduct?.hasStandardPricing}
-                  required={!newLineItem.selectedProduct?.hasStandardPricing}
                 />
-                {!newLineItem.selectedProduct?.hasStandardPricing && newLineItem.selectedProduct && (
-                  <Text variant="microcopy" format={{ color: 'medium' }}>
-                    Enter your negotiated price for this product
-                  </Text>
-                )}
               </Box>
               <Box flex={1} minWidth="120px">
                 <NumberInput
@@ -799,13 +774,13 @@ const LineItems = forwardRef(({
             <Button 
               onClick={addLineItem} 
               variant="primary"
-              disabled={!newLineItem.productId || (!newLineItem.selectedProduct?.hasStandardPricing && newLineItem.price <= 0)}
+              disabled={!newLineItem.productId || newLineItem.price <= 0}
             >
               Add Line Item
             </Button>
-            {!newLineItem.selectedProduct?.hasStandardPricing && newLineItem.selectedProduct && newLineItem.price <= 0 && (
+            {newLineItem.price <= 0 && (
               <Text variant="microcopy" format={{ color: 'error' }} marginTop="small">
-                Please enter a price for this custom pricing product
+                Please enter a price for this line item
               </Text>
             )}
           </Box>
