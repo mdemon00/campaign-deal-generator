@@ -73,19 +73,8 @@ const LineItems = forwardRef(({
 
   // === PRODUCT CATALOG STATE ===
   const [products, setProducts] = useState([]);
-  const [productSearchTerm, setProductSearchTerm] = useState("");
   const [isProductsLoading, setIsProductsLoading] = useState(false);
   const [hasProductsLoaded, setHasProductsLoaded] = useState(false);
-  const [productFilters, setProductFilters] = useState({
-    category: "",
-    buyingModel: "",
-    media: ""
-  });
-  const [availableFilters, setAvailableFilters] = useState({
-    categories: [],
-    buyingModels: [],
-    mediaTypes: []
-  });
 
   // === SAVE/LOAD STATE ===
   const [saveState, setSaveState] = useState(COMPONENT_SAVE_STATES.NOT_SAVED);
@@ -136,7 +125,7 @@ const LineItems = forwardRef(({
 
   // === PRODUCT CATALOG FUNCTIONS ===
   
-  const loadProductCatalog = async (searchTerm = "", filters = {}) => {
+  const loadProductCatalog = async () => {
     if (!runServerless || !isEditMode) return;
 
     setIsProductsLoading(true);
@@ -145,11 +134,7 @@ const LineItems = forwardRef(({
       const response = await runServerless({
         name: "getProductCatalog",
         parameters: {
-          searchTerm: searchTerm,
           currency: currency,
-          category: filters.category || "",
-          buyingModel: filters.buyingModel || "",
-          media: filters.media || "",
           limit: 100
         }
       });
@@ -164,7 +149,6 @@ const LineItems = forwardRef(({
         ];
         
         setProducts(productOptions);
-        setAvailableFilters(data.filters);
         setHasProductsLoaded(true);
         
         // console.log($2
@@ -185,26 +169,6 @@ const LineItems = forwardRef(({
     }
   };
 
-  const handleProductSearch = () => {
-    if (!isEditMode) return;
-    loadProductCatalog(productSearchTerm, productFilters);
-  };
-
-  const handleProductFilterChange = (filterType, value) => {
-    if (!isEditMode) return;
-    
-    const newFilters = { ...productFilters, [filterType]: value };
-    setProductFilters(newFilters);
-    loadProductCatalog(productSearchTerm, newFilters);
-  };
-
-  const clearProductFilters = () => {
-    if (!isEditMode) return;
-    
-    setProductSearchTerm("");
-    setProductFilters({ category: "", buyingModel: "", media: "" });
-    loadProductCatalog("", {});
-  };
 
   // === PRODUCT SELECTION HANDLERS ===
   
@@ -597,76 +561,6 @@ const LineItems = forwardRef(({
               📦 Select Product from Catalog
             </Text>
 
-            {/* Product Search & Filters */}
-            <Flex direction="row" gap="medium" wrap="wrap" marginBottom="medium">
-              <Box flex={1} minWidth="200px">
-                <Input
-                  label="Search Products"
-                  placeholder="Search by category, media, content type..."
-                  value={productSearchTerm}
-                  onChange={(value) => setProductSearchTerm(value)}
-                  disabled={isProductsLoading}
-                />
-              </Box>
-              <Box>
-                <Button
-                  variant="secondary"
-                  onClick={handleProductSearch}
-                  disabled={isProductsLoading}
-                >
-                  {isProductsLoading ? <LoadingSpinner size="xs" /> : "🔍 Search"}
-                </Button>
-              </Box>
-            </Flex>
-
-            {/* Filter Options */}
-            <Flex direction="row" gap="medium" wrap="wrap" marginBottom="medium">
-              <Box flex={1} minWidth="150px">
-                <Select
-                  label="Category"
-                  options={[
-                    { label: "All Categories", value: "" },
-                    ...availableFilters.categories
-                  ]}
-                  value={productFilters.category}
-                  onChange={(value) => handleProductFilterChange("category", value)}
-                  disabled={isProductsLoading}
-                />
-              </Box>
-              <Box flex={1} minWidth="150px">
-                <Select
-                  label="Buying Model"
-                  options={[
-                    { label: "All Models", value: "" },
-                    ...availableFilters.buyingModels
-                  ]}
-                  value={productFilters.buyingModel}
-                  onChange={(value) => handleProductFilterChange("buyingModel", value)}
-                  disabled={isProductsLoading}
-                />
-              </Box>
-              <Box flex={1} minWidth="150px">
-                <Select
-                  label="Media Type"
-                  options={[
-                    { label: "All Media", value: "" },
-                    ...availableFilters.mediaTypes
-                  ]}
-                  value={productFilters.media}
-                  onChange={(value) => handleProductFilterChange("media", value)}
-                  disabled={isProductsLoading}
-                />
-              </Box>
-              <Box>
-                <Button
-                  variant="secondary"
-                  onClick={clearProductFilters}
-                  disabled={isProductsLoading}
-                >
-                  ✕ Clear
-                </Button>
-              </Box>
-            </Flex>
 
             {/* Product Selection */}
             <Box marginBottom="medium">
