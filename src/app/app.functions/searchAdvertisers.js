@@ -51,9 +51,6 @@ async function fetchAssociatedCompany(hubspotClient, advertiserId) {
       "companies"
     );
 
-    // console.log("fetchAssociatedCompany associations"); 
-    // console.log(associations); 
-
     if (associations.results && associations.results.length > 0) {
       const companyId = associations.results[0].toObjectId;
       
@@ -81,9 +78,6 @@ async function fetchAssociatedCompany(hubspotClient, advertiserId) {
  * 🔧 FIXED: Return correct property names for auto-population
  */
 async function processAdvertiserWithCompany(hubspotClient, advertiser, index) {
-  // 🐛 DEBUG: Log advertiser properties to see what's available
-  console.log(`🔍 [DEBUG] Advertiser ${advertiser.id} properties:`, advertiser.properties);
-
   const name = advertiser.properties.advertiser ||
                 advertiser.properties.name || 
                 advertiser.properties.advertiser_name || 
@@ -102,15 +96,6 @@ async function processAdvertiserWithCompany(hubspotClient, advertiser, index) {
 
   const associatedCompany = await fetchAssociatedCompany(hubspotClient, advertiser.id);
 
-  // 🐛 DEBUG: Log what we got from company association
-  console.log(`🔍 [DEBUG] Advertiser ${advertiser.id} company info:`, {
-    hasAssociatedCompany: !!associatedCompany,
-    associatedCompany: associatedCompany,
-    advertiserCountryProperty: advertiser.properties.country,
-    advertiserDomainProperty: advertiser.properties.domain
-  });
-
-  // 🔧 FIXED: Return correct property names that BasicInformation.jsx expects
   return {
     label: displayName,
     value: advertiser.id,
@@ -136,8 +121,6 @@ async function processAdvertiserWithCompany(hubspotClient, advertiser, index) {
  * 🔧 NEW: Function to fetch a specific advertiser for auto-population
  */
 async function getSpecificAdvertiser(hubspotClient, objectId, advertiserId) {
-  console.log(`🔍 [SPECIFIC] Fetching specific advertiser: ${advertiserId}`);
-
   try {
     const availableProperties = await getCustomProperties(hubspotClient, objectId);
 
@@ -148,8 +131,6 @@ async function getSpecificAdvertiser(hubspotClient, objectId, advertiserId) {
       availableProperties.length > 0 ? availableProperties : undefined
     );
 
-    console.log(`🔍 [SPECIFIC] Found advertiser:`, advertiser);
-
     // Process the advertiser
     const processedAdvertiser = await processAdvertiserWithCompany(hubspotClient, advertiser, 0);
 
@@ -157,8 +138,6 @@ async function getSpecificAdvertiser(hubspotClient, objectId, advertiserId) {
       { label: "Select Advertiser", value: "" },
       processedAdvertiser
     ];
-
-    console.log(`✅ [SPECIFIC] Processed advertiser:`, processedAdvertiser);
 
     return {
       status: "SUCCESS",
@@ -223,9 +202,6 @@ async function searchAdvertisers(hubspotClient, objectId, searchTerm) {
       availableProperties.length > 0 ? availableProperties : undefined
     );
 
-    // console.log("availableProperties"); 
-    // console.log(advertisers); 
-
     if (!advertisers.results || advertisers.results.length === 0) {
       return {
         status: "SUCCESS",
@@ -275,15 +251,6 @@ async function searchAdvertisers(hubspotClient, objectId, searchTerm) {
       ...processedAdvertisers,
     ];
 
-    // 🐛 DEBUG: Log final processed advertisers to see the structure
-    console.log(`🔍 [DEBUG] Final processed advertisers:`, processedAdvertisers.map(adv => ({
-      id: adv.value,
-      label: adv.label,
-      companyName: adv.companyName,
-      country: adv.country,
-      hasCompany: adv.hasCompany
-    })));
-
     return {
       status: "SUCCESS",
       data: {
@@ -316,9 +283,6 @@ async function getPaginatedAdvertisers(hubspotClient, objectId, page, limit) {
       undefined,
       availableProperties.length > 0 ? availableProperties : undefined
     );
-
-    // console.log("getPaginatedAdvertisers advertisers"); 
-    // console.log(advertisers); 
 
     const paginatedResults = advertisers.results.slice(offset, offset + limit);
 
@@ -368,9 +332,6 @@ async function getDefaultAdvertisers(hubspotClient, objectId, limit) {
       undefined,
       availableProperties.length > 0 ? availableProperties : undefined
     );
-
-    console.log("getDefaultAdvertisers advertisers");
-    console.log(advertisers);
 
     if (!advertisers.results || advertisers.results.length === 0) {
       return {

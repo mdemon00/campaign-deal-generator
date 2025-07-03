@@ -254,8 +254,6 @@ const BasicInformation = forwardRef(({
         newDisplayLabels.campaignType = selectedType?.label || data.formData.campaignType || "";
         
         setDisplayLabels(newDisplayLabels);
-
-        console.log('🔍 [VIEW MODE] Loaded display labels:', newDisplayLabels);
       }
     } catch (error) {
       console.warn("Could not load display labels for view mode:", error);
@@ -392,8 +390,6 @@ const BasicInformation = forwardRef(({
             hasData: true
           });
         }
-
-        console.log('✅ Basic information saved successfully');
       } else {
         throw new Error(response?.response?.message || "Failed to save data");
       }
@@ -429,8 +425,6 @@ const BasicInformation = forwardRef(({
         setAdvertiserHasMore(data.hasMore || false);
         setUseAdvertiserSearchMode(true);
         setLastAdvertiserSearchTerm(searchTerm);
-        
-        console.log('🔍 [SEARCH] Advertiser search results:', data.options?.length || 0);
       } else {
         throw new Error("Invalid advertiser search response");
       }
@@ -461,7 +455,6 @@ const BasicInformation = forwardRef(({
         const data = response.response.data;
         setAdvertisers(data.options || [{ label: "Select Advertiser", value: "" }]);
         setAdvertiserHasMore(data.hasMore || false);
-        console.log('🔍 [DEFAULT] Loaded default advertisers:', data.options?.length || 0);
       } else {
         throw new Error("Invalid response from advertiser server");
       }
@@ -505,8 +498,6 @@ const BasicInformation = forwardRef(({
         setDealOwnerHasMore(data.hasMore || false);
         setUseDealOwnerSearchMode(true);
         setLastDealOwnerSearchTerm(searchTerm);
-        
-        console.log('🔍 [SEARCH] Deal owner search results:', data.options?.length || 0);
       } else {
         throw new Error("Invalid deal owner search response");
       }
