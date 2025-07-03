@@ -323,19 +323,25 @@ const CommercialAgreement = forwardRef(({
         }
       });
 
-      if (response?.status === "SUCCESS" && response?.response) {
-        const products = response.response;
+      console.log(`Full response for Deal ID ${dealId}:`, response);
+
+      if (response?.status === "SUCCESS") {
+        const products = response.response || [];
         console.log(`✅ Found ${products.length} products for Deal ID ${dealId}:`, products);
         
         // Log each product for better visibility
-        products.forEach((product, index) => {
-          console.log(`Product ${index + 1}:`, {
-            id: product.id,
-            values: product.values
+        if (Array.isArray(products) && products.length > 0) {
+          products.forEach((product, index) => {
+            console.log(`Product ${index + 1}:`, {
+              id: product.id,
+              values: product.values
+            });
           });
-        });
+        } else {
+          console.log(`📝 No products found in HubDB table for Deal ID ${dealId}`);
+        }
       } else {
-        console.log(`❌ No products found for Deal ID ${dealId}`);
+        console.log(`❌ Failed to fetch products for Deal ID ${dealId}:`, response);
       }
     } catch (error) {
       console.error(`❌ Error fetching products for Deal ID ${dealId}:`, error);
