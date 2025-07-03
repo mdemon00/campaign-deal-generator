@@ -94,10 +94,63 @@ function processContactData(contact, index) {
 }
 
 /**
- * Make direct API request to HubSpot Contacts endpoint
+ * Make direct API request to HubSpot Contacts endpoint from specific list
  */
 async function fetchContacts(hubspotClient, limit = 20, after = undefined, includeInactive = false) {
   try {
+    // First, try to get contacts from the specific list
+    try {
+      const listResponse = await hubspotClient.apiRequest({
+        method: 'GET',
+        path: '/crm/v3/lists/search',
+        qs: {
+          count: 100
+        }
+      });
+      const listsData = await listResponse.json();
+      console.log('🔍 [DEBUG] Available contact lists:', listsData);
+      
+      // Look for the specific list (you may need to adjust this)
+      const targetList = listsData.results?.find(list => 
+        list.name?.toLowerCase().includes('my') || 
+        list.name?.toLowerCase().includes('contact')
+      );
+      
+      if (targetList) {
+        console.log('🔍 [DEBUG] Found target list:', targetList);
+        
+        // Get contacts from the specific list
+        const listContactsResponse = await hubspotClient.apiRequest({
+          method: 'GET',
+          path: `/crm/v3/lists/${targetList.listId}/memberships`,
+          qs: {
+            limit: limit
+          }
+        });
+        const listContactsData = await listContactsResponse.json();
+        
+        if (listContactsData.results && listContactsData.results.length > 0) {
+          // Get contact IDs from the list
+          const contactIds = listContactsData.results.map(member => member.recordId);
+          
+          // Batch fetch contact details
+          const contactsResponse = await hubspotClient.apiRequest({
+            method: 'POST',
+            path: '/crm/v3/objects/contacts/batch/read',
+            body: {
+              inputs: contactIds.map(id => ({ id })),
+              properties: ['firstname', 'lastname', 'email', 'company', 'phone']
+            }
+          });
+          const contactsData = await contactsResponse.json();
+          return contactsData;
+        }
+      }
+    } catch (listError) {
+      console.warn('⚠️ Could not fetch from specific list, falling back to all contacts:', listError.message);
+    }
+
+    // Fallback to all contacts if list approach fails
     const queryParams = {
       limit: limit
     };
