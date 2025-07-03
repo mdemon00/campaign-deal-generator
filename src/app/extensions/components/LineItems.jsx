@@ -96,13 +96,6 @@ const LineItems = forwardRef(({
     }
   }, [runServerless, isEditMode, context?.crm?.objectId, currency]);
 
-  // Reload product catalog when agreement products change
-  useEffect(() => {
-    if (runServerless && isEditMode && hasProductsLoaded && agreementProducts.length > 0) {
-      console.log('🔄 Reloading product catalog with agreement products');
-      loadProductCatalog();
-    }
-  }, [agreementProducts]);
 
   // Track line items changes (only in edit mode)
   useEffect(() => {

@@ -32,8 +32,6 @@ exports.main = async (context) => {
           hubdbId: product.id
         };
       });
-      
-      console.log('Agreement pricing map created:', agreementPricingMap);
     }
 
     // Static pricing table (in production, this could be stored in HubSpot or external DB)
