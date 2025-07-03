@@ -637,9 +637,24 @@ const LineItems = forwardRef(({
     // Format dates
     const formatDate = (dateValue) => {
       if (!dateValue) return 'Date not set';
+      
+      // Handle HubSpot DateInput object format {year, month, date}
+      if (typeof dateValue === 'object' && dateValue.year && typeof dateValue.month === 'number' && dateValue.date) {
+        try {
+          // Create Date object from HubSpot DateInput format (month is 0-based)
+          const dateObj = new Date(dateValue.year, dateValue.month, dateValue.date);
+          return isNaN(dateObj.getTime()) ? 'Invalid date' : dateObj.toLocaleDateString();
+        } catch (error) {
+          return 'Invalid date';
+        }
+      }
+      
+      // Handle pre-formatted date object
       if (typeof dateValue === 'object' && dateValue.formattedDate) {
         return dateValue.formattedDate;
       }
+      
+      // Handle string or number dates
       try {
         const dateObj = new Date(dateValue);
         return isNaN(dateObj.getTime()) ? 'Invalid date' : dateObj.toLocaleDateString();
