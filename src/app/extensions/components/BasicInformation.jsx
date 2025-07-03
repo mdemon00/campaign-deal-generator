@@ -560,7 +560,7 @@ const BasicInformation = forwardRef(({
       const searchTerm = customerServiceSearchTerm.trim();
       
       const response = await runServerless({
-        name: "searchDealOwners", // Reuse deal owners for customer service
+        name: "searchContacts", // Use contacts for customer service
         parameters: {
           searchTerm: searchTerm,
           page: 1,
@@ -574,7 +574,7 @@ const BasicInformation = forwardRef(({
         // Update labels to reflect CS role
         const options = data.options.map(option => ({
           ...option,
-          label: option.label === "Select Deal Owner" ? "Select CS Representative" : option.label
+          label: option.label === "Select Contact" ? "Select CS Representative" : option.label
         }));
         setCustomerServices(options);
         setCustomerServiceHasMore(data.hasMore || false);
@@ -601,7 +601,7 @@ const BasicInformation = forwardRef(({
 
     try {
       const response = await runServerless({
-        name: "searchDealOwners", // Reuse deal owners for customer service
+        name: "searchContacts", // Use contacts for customer service
         parameters: {
           loadAll: false,
           limit: 20,
@@ -614,7 +614,7 @@ const BasicInformation = forwardRef(({
         // Update labels to reflect CS role
         const options = data.options.map(option => ({
           ...option,
-          label: option.label === "Select Deal Owner" ? "Select CS Representative" : option.label
+          label: option.label === "Select Contact" ? "Select CS Representative" : option.label
         }));
         setCustomerServices(options);
         setCustomerServiceHasMore(data.hasMore || false);
