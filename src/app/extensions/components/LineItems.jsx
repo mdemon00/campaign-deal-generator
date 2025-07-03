@@ -160,6 +160,9 @@ const LineItems = forwardRef(({
     setIsProductsLoading(true);
 
     try {
+      console.log(`DEBUG: Calling getProductCatalog with ${agreementProducts.length} agreement products`);
+      console.log('DEBUG: Agreement products being sent:', agreementProducts);
+      
       const response = await runServerless({
         name: "getProductCatalog",
         parameters: {

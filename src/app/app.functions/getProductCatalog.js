@@ -14,6 +14,14 @@ exports.main = async (context) => {
       agreementProducts = [] // New parameter for commercial agreement products
     } = context.parameters;
 
+    console.log('DEBUG getProductCatalog: Received parameters:', {
+      currency,
+      'agreementProducts.length': agreementProducts ? agreementProducts.length : 0,
+      'typeof agreementProducts': typeof agreementProducts,
+      'Array.isArray(agreementProducts)': Array.isArray(agreementProducts)
+    });
+    console.log('DEBUG getProductCatalog: agreementProducts =', agreementProducts);
+
     // Create agreement pricing map for quick lookup
     const agreementPricingMap = {};
     if (agreementProducts && agreementProducts.length > 0) {
