@@ -327,7 +327,7 @@ const CommercialAgreement = forwardRef(({
       console.log(`Full response for Deal ID ${dealId}:`, response);
 
       if (response?.status === "SUCCESS") {
-        const products = response.response?.data || [];
+        const products = response.response || [];
         console.log(`✅ Found ${products.length} products for Deal ID ${dealId}:`, products);
         
         // Update LineItems component with agreement products

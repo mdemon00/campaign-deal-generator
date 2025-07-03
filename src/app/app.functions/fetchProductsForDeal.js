@@ -48,9 +48,7 @@ exports.main = async (context) => {
 
     return {
       status: "SUCCESS",
-      response: {
-        data: products
-      }
+      response: products
     };
   } catch (error) {
     console.error("Error in fetchProductsForDeal function:", error.message);
