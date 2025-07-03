@@ -75,6 +75,7 @@ const LineItems = forwardRef(({
   const [products, setProducts] = useState([]);
   const [isProductsLoading, setIsProductsLoading] = useState(false);
   const [hasProductsLoaded, setHasProductsLoaded] = useState(false);
+  const [agreementProducts, setAgreementProducts] = useState([]);
 
   // === SAVE/LOAD STATE ===
   const [saveState, setSaveState] = useState(COMPONENT_SAVE_STATES.NOT_SAVED);
@@ -95,6 +96,14 @@ const LineItems = forwardRef(({
     }
   }, [runServerless, isEditMode, context?.crm?.objectId, currency]);
 
+  // Reload product catalog when agreement products change
+  useEffect(() => {
+    if (runServerless && isEditMode && hasProductsLoaded && agreementProducts.length > 0) {
+      console.log('🔄 Reloading product catalog with agreement products');
+      loadProductCatalog();
+    }
+  }, [agreementProducts]);
+
   // Track line items changes (only in edit mode)
   useEffect(() => {
     if (initialLineItems.length > 0 && saveState === COMPONENT_SAVE_STATES.SAVED && isEditMode) {
@@ -110,7 +119,18 @@ const LineItems = forwardRef(({
     }
   }, [lineItems, initialLineItems, saveState, hasUnsavedChanges, isEditMode]);
 
-  // Expose save method to parent
+  // Function to update agreement products and reload catalog
+  const updateAgreementProducts = async (newAgreementProducts) => {
+    console.log('🔄 Updating agreement products:', newAgreementProducts);
+    setAgreementProducts(newAgreementProducts);
+    
+    // Reload product catalog with new agreement pricing
+    if (isEditMode && hasProductsLoaded) {
+      await loadProductCatalog();
+    }
+  };
+
+  // Expose save method and agreement products update to parent
   useImperativeHandle(ref, () => ({
     save: async () => {
       if (!lineItems || lineItems.length === 0) {
@@ -120,7 +140,8 @@ const LineItems = forwardRef(({
       if (saveError) return saveError;
       if (saveState === COMPONENT_SAVE_STATES.ERROR) return "Failed to save Line Items.";
       return null;
-    }
+    },
+    updateAgreementProducts: updateAgreementProducts
   }));
 
   // === PRODUCT CATALOG FUNCTIONS ===
@@ -135,7 +156,8 @@ const LineItems = forwardRef(({
         name: "getProductCatalog",
         parameters: {
           currency: currency,
-          limit: 100
+          limit: 100,
+          agreementProducts: agreementProducts // Pass agreement products for pricing overrides
         }
       });
 
@@ -151,7 +173,7 @@ const LineItems = forwardRef(({
         setProducts(productOptions);
         setHasProductsLoaded(true);
         
-        // console.log($2
+        console.log(`✅ Product catalog loaded with ${agreementProducts.length} agreement pricing overrides`);
       } else {
         throw new Error(response?.response?.message || "Failed to load product catalog");
       }

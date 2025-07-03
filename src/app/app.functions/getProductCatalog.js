@@ -10,10 +10,29 @@ exports.main = async (context) => {
       buyingModel = "",
       media = "",
       currency = "MXN",
-      limit = 50 
+      limit = 50,
+      agreementProducts = [] // New parameter for commercial agreement products
     } = context.parameters;
 
-    // console.log($2
+    // Create agreement pricing map for quick lookup
+    const agreementPricingMap = {};
+    if (agreementProducts && agreementProducts.length > 0) {
+      console.log(`Processing ${agreementProducts.length} agreement products for pricing overrides`);
+      
+      agreementProducts.forEach(product => {
+        const values = product.values;
+        // Create a key based on product characteristics for matching
+        const key = `${values.name}_${values.media}_${values.content_type}_${values.buying_model}`.toLowerCase();
+        agreementPricingMap[key] = {
+          price: values.pircing || 0, // Note: "pircing" is the field name in HubDB
+          currency: values.currency,
+          productId: values.product_id,
+          hubdbId: product.id
+        };
+      });
+      
+      console.log('Agreement pricing map created:', agreementPricingMap);
+    }
 
     // Static pricing table (in production, this could be stored in HubSpot or external DB)
     const pricingTable = [
@@ -74,8 +93,26 @@ exports.main = async (context) => {
     // Format products for UI
     const formattedProducts = filteredProducts.map(product => {
       const priceField = `pricing${currency === 'R' ? 'BRL' : currency}`;
-      const price = product[priceField] || "0.00";
-      const isAvailable = price !== "-";
+      let price = product[priceField] || "0.00";
+      let isAvailable = price !== "-";
+      let hasAgreementPricing = false;
+      let agreementPrice = null;
+
+      // Check for agreement pricing override
+      const lookupKey = `${product.category}_${product.media}_${product.contentType}_${product.buyingModel}`.toLowerCase();
+      if (agreementPricingMap[lookupKey]) {
+        const agreementData = agreementPricingMap[lookupKey];
+        // Only use agreement pricing if currencies match or we can convert
+        if (agreementData.currency === currency || 
+            (agreementData.currency === 'R' && currency === 'BRL') ||
+            (agreementData.currency === 'BRL' && currency === 'R')) {
+          agreementPrice = agreementData.price;
+          price = agreementPrice.toString();
+          isAvailable = true;
+          hasAgreementPricing = true;
+          console.log(`✅ Override pricing for ${product.category}: ${agreementPrice} ${currency} (was: ${product[priceField]})`);
+        }
+      }
 
       // Create display name
       const displayName = `${product.category} - ${product.media} ${product.contentType} (${product.buyingModel})`;
@@ -97,6 +134,11 @@ exports.main = async (context) => {
         priceDisplay: isAvailable ? `${price} ${currency}` : "Quote Required",
         currency: currency,
         isAvailable: isAvailable,
+        
+        // Agreement pricing info
+        hasAgreementPricing: hasAgreementPricing,
+        agreementPrice: agreementPrice,
+        originalPrice: isAvailable ? parseFloat(product[priceField] || "0") : 0,
         
         // All pricing for reference
         allPricing: {

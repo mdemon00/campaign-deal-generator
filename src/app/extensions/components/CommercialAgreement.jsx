@@ -29,7 +29,8 @@ const CommercialAgreement = forwardRef(({
   runServerless,
   context,
   onSaveStatusChange,
-  isEditMode = false
+  isEditMode = false,
+  lineItemsRef // New prop to communicate with LineItems component
 }, ref) => {
 
   // === SAVE/LOAD STATE ===
@@ -328,6 +329,12 @@ const CommercialAgreement = forwardRef(({
       if (response?.status === "SUCCESS") {
         const products = response.response || [];
         console.log(`✅ Found ${products.length} products for Deal ID ${dealId}:`, products);
+        
+        // Update LineItems component with agreement products
+        if (lineItemsRef?.current?.updateAgreementProducts) {
+          lineItemsRef.current.updateAgreementProducts(products);
+          console.log(`🔄 Updated LineItems with ${products.length} agreement products`);
+        }
         
         // Log each product for better visibility
         if (Array.isArray(products) && products.length > 0) {

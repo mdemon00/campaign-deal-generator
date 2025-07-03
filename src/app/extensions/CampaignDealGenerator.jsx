@@ -548,6 +548,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
               context={context}
               onSaveStatusChange={handleCommercialAgreementSaveStatusChange}
               isEditMode={isEditMode}
+              lineItemsRef={lineItemsRef}
             />
           </Box>
 
