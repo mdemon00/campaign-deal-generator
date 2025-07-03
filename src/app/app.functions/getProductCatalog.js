@@ -23,6 +23,16 @@ exports.main = async (context) => {
         const values = product.values;
         // Create a key based on product characteristics for matching
         const key = `${values.name}_${values.media}_${values.content_type}_${values.buying_model}`.toLowerCase();
+        console.log(`DEBUG: Creating key for agreement product: "${key}"`);
+        console.log(`DEBUG: Agreement product values:`, {
+          name: values.name,
+          media: values.media,
+          content_type: values.content_type,
+          buying_model: values.buying_model,
+          price: values.pircing,
+          currency: values.currency
+        });
+        
         agreementPricingMap[key] = {
           price: values.pircing || 0, // Note: "pircing" is the field name in HubDB
           currency: values.currency,
@@ -100,8 +110,18 @@ exports.main = async (context) => {
 
       // Check for agreement pricing override
       const lookupKey = `${product.category}_${product.media}_${product.contentType}_${product.buyingModel}`.toLowerCase();
+      console.log(`DEBUG: Looking for product key: "${lookupKey}"`);
+      console.log(`DEBUG: Product details:`, {
+        category: product.category,
+        media: product.media,
+        contentType: product.contentType,
+        buyingModel: product.buyingModel
+      });
+      
       if (agreementPricingMap[lookupKey]) {
         const agreementData = agreementPricingMap[lookupKey];
+        console.log(`DEBUG: Found agreement pricing for key "${lookupKey}":`, agreementData);
+        
         // Only use agreement pricing if currencies match or we can convert
         if (agreementData.currency === currency || 
             (agreementData.currency === 'R' && currency === 'BRL') ||
@@ -111,7 +131,12 @@ exports.main = async (context) => {
           isAvailable = true;
           hasAgreementPricing = true;
           console.log(`✅ Override pricing for ${product.category}: ${agreementPrice} ${currency} (was: ${product[priceField]})`);
+        } else {
+          console.log(`DEBUG: Currency mismatch - agreement: ${agreementData.currency}, requested: ${currency}`);
         }
+      } else {
+        console.log(`DEBUG: No agreement pricing found for key "${lookupKey}"`);
+        console.log(`DEBUG: Available keys in agreement map:`, Object.keys(agreementPricingMap));
       }
 
       // Create display name
