@@ -121,11 +121,14 @@ const LineItems = forwardRef(({
 
   // Function to update agreement products and reload catalog
   const updateAgreementProducts = async (newAgreementProducts) => {
-    console.log('🔄 Updating agreement products:', newAgreementProducts);
-    setAgreementProducts(newAgreementProducts);
+    // Ensure we have a proper array
+    const products = Array.isArray(newAgreementProducts) ? newAgreementProducts : [];
+    console.log(`🔄 Updating agreement products: ${products.length} products received`);
+    setAgreementProducts(products);
     
     // Reload product catalog with new agreement pricing
-    if (isEditMode && hasProductsLoaded) {
+    if (isEditMode && hasProductsLoaded && products.length > 0) {
+      console.log('🔄 Reloading product catalog with agreement products');
       await loadProductCatalog();
     }
   };
