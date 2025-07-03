@@ -135,6 +135,45 @@ const LineItems = forwardRef(({
     }
   };
 
+  // Watch for agreement products changes and update current selected product price
+  useEffect(() => {
+    if (newLineItem.selectedProduct && newLineItem.productId) {
+      console.log('🔄 Agreement products changed, recalculating price for selected product');
+      
+      // Recalculate price for currently selected product
+      let finalPrice = newLineItem.selectedProduct.price || 0;
+      let hasAgreementPricing = false;
+      
+      if (agreementProducts && agreementProducts.length > 0) {
+        // Create matching key for agreement lookup
+        const lookupKey = `${newLineItem.selectedProduct.category}_${newLineItem.selectedProduct.media}_${newLineItem.selectedProduct.contentType}_${newLineItem.selectedProduct.buyingModel}`.toLowerCase();
+        
+        // Find matching agreement product
+        const matchingAgreementProduct = agreementProducts.find(agreementProduct => {
+          const values = agreementProduct.values;
+          const agreementKey = `${values.name}_${values.media}_${values.content_type}_${values.buying_model}`.toLowerCase();
+          return agreementKey === lookupKey;
+        });
+        
+        if (matchingAgreementProduct) {
+          finalPrice = matchingAgreementProduct.values.pircing || 0;
+          hasAgreementPricing = true;
+          console.log(`🎯 Updated agreement pricing for ${newLineItem.selectedProduct.category}: ${finalPrice} ${currency} (was: ${newLineItem.selectedProduct.price})`);
+        }
+      }
+
+      // Update the price if it changed
+      if (finalPrice !== newLineItem.price || hasAgreementPricing !== newLineItem.hasAgreementPricing) {
+        setNewLineItem(prev => ({
+          ...prev,
+          price: finalPrice,
+          hasAgreementPricing: hasAgreementPricing
+        }));
+        console.log(`💰 Price automatically updated to: ${finalPrice} ${currency}`);
+      }
+    }
+  }, [agreementProducts, currency]); // Watch for changes to agreement products
+
   // Expose save method and agreement products update to parent
   useImperativeHandle(ref, () => ({
     save: async () => {
