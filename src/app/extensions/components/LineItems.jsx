@@ -121,6 +121,11 @@ const LineItems = forwardRef(({
 
   // Function to update agreement products and reload catalog
   const updateAgreementProducts = async (newAgreementProducts) => {
+    // Debug what we're receiving
+    console.log('DEBUG LineItems: received newAgreementProducts =', newAgreementProducts);
+    console.log('DEBUG LineItems: typeof newAgreementProducts =', typeof newAgreementProducts);
+    console.log('DEBUG LineItems: Array.isArray(newAgreementProducts) =', Array.isArray(newAgreementProducts));
+    
     // Ensure we have a proper array
     const products = Array.isArray(newAgreementProducts) ? newAgreementProducts : [];
     console.log(`🔄 Updating agreement products: ${products.length} products received`);

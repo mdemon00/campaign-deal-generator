@@ -46,10 +46,13 @@ exports.main = async (context) => {
     const products = await fetchProductsForDeal(hubspotClient, dealId);
     console.log("Filtered products found:", JSON.stringify(products, null, 2));
 
-    return {
+    const response = {
       status: "SUCCESS",
       response: products
     };
+    
+    console.log("DEBUG: Serverless function returning:", JSON.stringify(response, null, 2));
+    return response;
   } catch (error) {
     console.error("Error in fetchProductsForDeal function:", error.message);
     return {
