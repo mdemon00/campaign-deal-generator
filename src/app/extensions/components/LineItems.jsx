@@ -170,23 +170,31 @@ const LineItems = forwardRef(({
           
           // Override dates if available (convert from timestamp to HubSpot DateInput format)
           if (values.start_date) {
-            // Convert Unix timestamp (milliseconds) to ISO date string (YYYY-MM-DD format)
+            // Convert Unix timestamp (milliseconds) to HubSpot DateInput object format
             const date = new Date(parseInt(values.start_date));
-            finalStartDate = date.toISOString().split('T')[0]; // Gets YYYY-MM-DD format
+            finalStartDate = {
+              year: date.getFullYear(),
+              month: date.getMonth(), // 0-based month (0 = January)
+              date: date.getDate()
+            };
             hasAgreementDates = true;
           }
           if (values.end_date) {
-            // Convert Unix timestamp (milliseconds) to ISO date string (YYYY-MM-DD format)
+            // Convert Unix timestamp (milliseconds) to HubSpot DateInput object format
             const date = new Date(parseInt(values.end_date));
-            finalEndDate = date.toISOString().split('T')[0]; // Gets YYYY-MM-DD format
+            finalEndDate = {
+              year: date.getFullYear(),
+              month: date.getMonth(), // 0-based month (0 = January)
+              date: date.getDate()
+            };
             hasAgreementDates = true;
           }
           
           console.log(`🎯 Updated agreement data for ${newLineItem.selectedProduct.category}:`);
           console.log(`   💰 Price: ${finalPrice} ${currency} (was: ${newLineItem.selectedProduct.price})`);
           if (hasAgreementDates) {
-            console.log(`   📅 Start Date: ${finalStartDate || 'None'}`);
-            console.log(`   📅 End Date: ${finalEndDate || 'None'}`);
+            console.log(`   📅 Start Date: ${finalStartDate ? `${finalStartDate.date}/${finalStartDate.month + 1}/${finalStartDate.year}` : 'None'}`);
+            console.log(`   📅 End Date: ${finalEndDate ? `${finalEndDate.date}/${finalEndDate.month + 1}/${finalEndDate.year}` : 'None'}`);
           }
         }
       }
@@ -332,23 +340,31 @@ const LineItems = forwardRef(({
         
         // Override dates if available (convert from timestamp to HubSpot DateInput format)
         if (values.start_date) {
-          // Convert Unix timestamp (milliseconds) to ISO date string (YYYY-MM-DD format)
+          // Convert Unix timestamp (milliseconds) to HubSpot DateInput object format
           const date = new Date(parseInt(values.start_date));
-          finalStartDate = date.toISOString().split('T')[0]; // Gets YYYY-MM-DD format
+          finalStartDate = {
+            year: date.getFullYear(),
+            month: date.getMonth(), // 0-based month (0 = January)
+            date: date.getDate()
+          };
           hasAgreementDates = true;
         }
         if (values.end_date) {
-          // Convert Unix timestamp (milliseconds) to ISO date string (YYYY-MM-DD format)
+          // Convert Unix timestamp (milliseconds) to HubSpot DateInput object format
           const date = new Date(parseInt(values.end_date));
-          finalEndDate = date.toISOString().split('T')[0]; // Gets YYYY-MM-DD format
+          finalEndDate = {
+            year: date.getFullYear(),
+            month: date.getMonth(), // 0-based month (0 = January)
+            date: date.getDate()
+          };
           hasAgreementDates = true;
         }
         
         console.log(`🎯 Using agreement data for ${selectedProduct.category}:`);
         console.log(`   💰 Price: ${finalPrice} ${currency} (was: ${selectedProduct.price})`);
         if (hasAgreementDates) {
-          console.log(`   📅 Start Date: ${finalStartDate || 'None'}`);
-          console.log(`   📅 End Date: ${finalEndDate || 'None'}`);
+          console.log(`   📅 Start Date: ${finalStartDate ? `${finalStartDate.date}/${finalStartDate.month + 1}/${finalStartDate.year}` : 'None'}`);
+          console.log(`   📅 End Date: ${finalEndDate ? `${finalEndDate.date}/${finalEndDate.month + 1}/${finalEndDate.year}` : 'None'}`);
         }
       }
     }
