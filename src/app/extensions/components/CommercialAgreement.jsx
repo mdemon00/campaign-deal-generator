@@ -309,6 +309,39 @@ const CommercialAgreement = forwardRef(({
     }
   };
 
+  // === PRODUCTS FETCH FUNCTION ===
+  const fetchProductsForCommercialAgreement = async (dealId) => {
+    if (!runServerless || !dealId) return;
+
+    try {
+      console.log(`🔍 Fetching products for Commercial Agreement ID: ${dealId}`);
+      
+      const response = await runServerless({
+        name: "fetchProductsForDeal",
+        parameters: {
+          dealId: dealId
+        }
+      });
+
+      if (response?.status === "SUCCESS" && response?.response) {
+        const products = response.response;
+        console.log(`✅ Found ${products.length} products for Deal ID ${dealId}:`, products);
+        
+        // Log each product for better visibility
+        products.forEach((product, index) => {
+          console.log(`Product ${index + 1}:`, {
+            id: product.id,
+            values: product.values
+          });
+        });
+      } else {
+        console.log(`❌ No products found for Deal ID ${dealId}`);
+      }
+    } catch (error) {
+      console.error(`❌ Error fetching products for Deal ID ${dealId}:`, error);
+    }
+  };
+
   // === COMMERCIAL AGREEMENTS SEARCH FUNCTIONS ===
   const performAgreementSearch = async () => {
     if (!runServerless || !isEditMode || !agreementSearchTerm.trim()) return;
@@ -390,6 +423,9 @@ const CommercialAgreement = forwardRef(({
     if (selectedAgreement && selectedAgreement.value !== "") {
       setAgreementSearchTerm(selectedAgreement.label);
       setUseAgreementSearchMode(false);
+
+      // Fetch products for the selected commercial agreement
+      fetchProductsForCommercialAgreement(value);
 
       if (selectedAgreement.hasCompany === false) {
         onChange('company', 'No company found');
