@@ -1,3 +1,6 @@
+// src/app/app.functions/searchAdvertisers.js
+// FIXED: Auto-population issue for advertiser country and company
+
 const hubspot = require('@hubspot/api-client');
 
 exports.main = async (context) => {
@@ -44,8 +47,8 @@ async function fetchAssociatedCompany(hubspotClient, advertiserId) {
       "companies"
     );
 
-    console.log("fetchAssociatedCompany associations"); 
-    console.log(associations); 
+    // console.log("fetchAssociatedCompany associations"); 
+    // console.log(associations); 
 
     if (associations.results && associations.results.length > 0) {
       const companyId = associations.results[0].toObjectId;
@@ -71,8 +74,12 @@ async function fetchAssociatedCompany(hubspotClient, advertiserId) {
 
 /**
  * Process advertiser data with company information
+ * 🔧 FIXED: Return correct property names for auto-population
  */
 async function processAdvertiserWithCompany(hubspotClient, advertiser, index) {
+  // 🐛 DEBUG: Log advertiser properties to see what's available
+  // console.log(`🔍 [DEBUG] Advertiser ${advertiser.id} properties:`, advertiser.properties);
+
   const name = advertiser.properties.advertiser ||
                 advertiser.properties.name || 
                 advertiser.properties.advertiser_name || 
@@ -91,13 +98,22 @@ async function processAdvertiserWithCompany(hubspotClient, advertiser, index) {
 
   const associatedCompany = await fetchAssociatedCompany(hubspotClient, advertiser.id);
 
+
+  // 🔧 FIXED: Return correct property names that BasicInformation.jsx expects
   return {
     label: displayName,
     value: advertiser.id,
     name: displayName,
-    company: associatedCompany?.name || '',
+    
+    // 🔧 FIXED: Use 'companyName' instead of 'company' to match BasicInformation.jsx
+    companyName: associatedCompany?.name || '',
     companyId: associatedCompany?.id || null,
     hasCompany: !!associatedCompany,
+    
+    // 🔧 FIXED: Add 'country' property from advertiser properties or company
+    country: advertiser.properties.country || associatedCompany?.country || '',
+    
+    // Keep existing properties
     domain: advertiser.properties.domain || '',
     industry: advertiser.properties.industry || '',
     category: advertiser.properties.category || ''
@@ -116,7 +132,8 @@ async function getCustomProperties(hubspotClient, objectId) {
   } catch (error) {
     return [
       'advertiser', 'name', 'title', 'label', 'advertiser_name', 
-      'brand_name', 'company_name', 'client_name', 'display_name'
+      'brand_name', 'company_name', 'client_name', 'display_name',
+      'country', 'domain' // 🔧 FIXED: Include country and domain in fallback
     ];
   }
 }
@@ -135,8 +152,8 @@ async function searchAdvertisers(hubspotClient, objectId, searchTerm) {
       availableProperties.length > 0 ? availableProperties : undefined
     );
 
-    console.log("availableProperties"); 
-    console.log(advertisers); 
+    // console.log("availableProperties"); 
+    // console.log(advertisers); 
 
     if (!advertisers.results || advertisers.results.length === 0) {
       return {
@@ -187,6 +204,7 @@ async function searchAdvertisers(hubspotClient, objectId, searchTerm) {
       ...processedAdvertisers,
     ];
 
+
     return {
       status: "SUCCESS",
       data: {
@@ -220,8 +238,8 @@ async function getPaginatedAdvertisers(hubspotClient, objectId, page, limit) {
       availableProperties.length > 0 ? availableProperties : undefined
     );
 
-     console.log("getPaginatedAdvertisers advertisers"); 
-     console.log(advertisers); 
+    // console.log("getPaginatedAdvertisers advertisers"); 
+    // console.log(advertisers); 
 
     const paginatedResults = advertisers.results.slice(offset, offset + limit);
 
