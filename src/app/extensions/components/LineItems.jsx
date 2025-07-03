@@ -168,23 +168,25 @@ const LineItems = forwardRef(({
           finalPrice = values.pircing || 0;
           hasAgreementPricing = true;
           
-          // Override dates if available (convert from timestamp to Date object)
+          // Override dates if available (convert from timestamp to HubSpot DateInput format)
           if (values.start_date) {
-            // Convert Unix timestamp (milliseconds) to Date object
-            finalStartDate = new Date(parseInt(values.start_date));
+            // Convert Unix timestamp (milliseconds) to ISO date string (YYYY-MM-DD format)
+            const date = new Date(parseInt(values.start_date));
+            finalStartDate = date.toISOString().split('T')[0]; // Gets YYYY-MM-DD format
             hasAgreementDates = true;
           }
           if (values.end_date) {
-            // Convert Unix timestamp (milliseconds) to Date object
-            finalEndDate = new Date(parseInt(values.end_date));
+            // Convert Unix timestamp (milliseconds) to ISO date string (YYYY-MM-DD format)
+            const date = new Date(parseInt(values.end_date));
+            finalEndDate = date.toISOString().split('T')[0]; // Gets YYYY-MM-DD format
             hasAgreementDates = true;
           }
           
           console.log(`🎯 Updated agreement data for ${newLineItem.selectedProduct.category}:`);
           console.log(`   💰 Price: ${finalPrice} ${currency} (was: ${newLineItem.selectedProduct.price})`);
           if (hasAgreementDates) {
-            console.log(`   📅 Start Date: ${finalStartDate ? finalStartDate.toLocaleDateString() : 'None'}`);
-            console.log(`   📅 End Date: ${finalEndDate ? finalEndDate.toLocaleDateString() : 'None'}`);
+            console.log(`   📅 Start Date: ${finalStartDate || 'None'}`);
+            console.log(`   📅 End Date: ${finalEndDate || 'None'}`);
           }
         }
       }
@@ -328,23 +330,25 @@ const LineItems = forwardRef(({
         finalPrice = values.pircing || 0;
         hasAgreementPricing = true;
         
-        // Override dates if available (convert from timestamp to Date object)
+        // Override dates if available (convert from timestamp to HubSpot DateInput format)
         if (values.start_date) {
-          // Convert Unix timestamp (milliseconds) to Date object
-          finalStartDate = new Date(parseInt(values.start_date));
+          // Convert Unix timestamp (milliseconds) to ISO date string (YYYY-MM-DD format)
+          const date = new Date(parseInt(values.start_date));
+          finalStartDate = date.toISOString().split('T')[0]; // Gets YYYY-MM-DD format
           hasAgreementDates = true;
         }
         if (values.end_date) {
-          // Convert Unix timestamp (milliseconds) to Date object
-          finalEndDate = new Date(parseInt(values.end_date));
+          // Convert Unix timestamp (milliseconds) to ISO date string (YYYY-MM-DD format)
+          const date = new Date(parseInt(values.end_date));
+          finalEndDate = date.toISOString().split('T')[0]; // Gets YYYY-MM-DD format
           hasAgreementDates = true;
         }
         
         console.log(`🎯 Using agreement data for ${selectedProduct.category}:`);
         console.log(`   💰 Price: ${finalPrice} ${currency} (was: ${selectedProduct.price})`);
         if (hasAgreementDates) {
-          console.log(`   📅 Start Date: ${finalStartDate ? finalStartDate.toLocaleDateString() : 'None'}`);
-          console.log(`   📅 End Date: ${finalEndDate ? finalEndDate.toLocaleDateString() : 'None'}`);
+          console.log(`   📅 Start Date: ${finalStartDate || 'None'}`);
+          console.log(`   📅 End Date: ${finalEndDate || 'None'}`);
         }
       }
     }
