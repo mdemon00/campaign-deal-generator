@@ -20,7 +20,7 @@ exports.main = async (context) => {
         'commercial_agreement_id', 
         'advertiser_id',
         'deal_owner_id',
-        'assigned_customer_service_id',
+        'assigned_customer_service',
         'created_by',
         'basic_info_saved',
         'basic_info_saved_date',
@@ -174,14 +174,14 @@ exports.main = async (context) => {
     // Step 5: Load Customer Service details (if saved) - Using HubSpot Owners API
     let customerServiceInfo = null;
     
-    if (properties.assigned_customer_service_id) {
+    if (properties.assigned_customer_service) {
       try {
         // console.log($2
         
         // Fetch customer service details using HubSpot Owners API
         const response = await hubspotClient.apiRequest({
           method: 'GET',
-          path: `/crm/v3/owners/${properties.assigned_customer_service_id}`
+          path: `/crm/v3/owners/${properties.assigned_customer_service}`
         });
 
         const ownerData = await response.json();
@@ -200,7 +200,7 @@ exports.main = async (context) => {
         } else if (email) {
           displayName = email;
         } else {
-          displayName = `CS Rep ${properties.assigned_customer_service_id}`;
+          displayName = `CS Rep ${properties.assigned_customer_service}`;
         }
 
         // Add email suffix if we have both name and email
@@ -209,9 +209,9 @@ exports.main = async (context) => {
           : displayName;
 
         customerServiceInfo = {
-          id: properties.assigned_customer_service_id,
+          id: properties.assigned_customer_service,
           label: fullDisplayName,
-          value: properties.assigned_customer_service_id,
+          value: properties.assigned_customer_service,
           displayName: displayName,
           email: email
         };
@@ -221,9 +221,9 @@ exports.main = async (context) => {
       } catch (error) {
         console.warn('⚠️ Could not load Customer Service details:', error.message);
         customerServiceInfo = {
-          id: properties.assigned_customer_service_id,
-          label: `CS Rep ${properties.assigned_customer_service_id}`,
-          value: properties.assigned_customer_service_id
+          id: properties.assigned_customer_service,
+          label: `CS Rep ${properties.assigned_customer_service}`,
+          value: properties.assigned_customer_service
         };
       }
     }
@@ -235,7 +235,7 @@ exports.main = async (context) => {
       company: companyInfo.companyName || '',
       advertiser: properties.advertiser_id || '',
       dealOwner: properties.deal_owner_id || '',
-      assignedCustomerService: properties.assigned_customer_service_id || '',
+      assignedCustomerService: properties.assigned_customer_service || '',
       currency: companyInfo.currency || '',
       // Additional context
       createdBy: properties.created_by || '',
