@@ -8,10 +8,25 @@ async function fetchProductsForDeal(hubspotClient, dealId) {
 
     const apiResponse = await hubspotClient.cms.hubdb.rowsApi.getTableRows(tableId);
 
+    console.log(`Total rows in HubDB table: ${apiResponse.results.length}`);
+    
+    // Log all products to see what's available
+    console.log("ALL PRODUCTS IN TABLE:");
+    apiResponse.results.forEach((row, index) => {
+      console.log(`Row ${index + 1}:`, {
+        id: row.id,
+        values: row.values
+      });
+    });
+
     // Filter products that match the deal_id
     const filteredProducts = apiResponse.results.filter(row => row.values.deal_id == dealId);
 
     console.log(`Found ${filteredProducts.length} products for Deal ID ${dealId}`);
+
+    // Also try different comparison methods in case of type mismatch
+    const filteredProductsString = apiResponse.results.filter(row => String(row.values.deal_id) === String(dealId));
+    console.log(`Found ${filteredProductsString.length} products for Deal ID ${dealId} (string comparison)`);
 
     return filteredProducts.map(row => ({
         id: row.id,
