@@ -368,6 +368,8 @@ const CampaignDetails = forwardRef(({
           </Box>
         </Flex>
 
+        <Divider />
+
         <Box marginTop="medium">
           <Flex direction="row" gap="medium" wrap="wrap">
             <Box flex={1} minWidth="250px">
