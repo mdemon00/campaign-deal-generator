@@ -66,7 +66,10 @@ const LineItems = forwardRef(({
     
     // Quantity fields
     billable: 0,
-    bonus: 0
+    bonus: 0,
+    
+    // Agreement pricing indicator
+    hasAgreementPricing: false
   });
 
   const [lineItemCounter, setLineItemCounter] = useState(0);
@@ -112,17 +115,23 @@ const LineItems = forwardRef(({
     }
   }, [lineItems, initialLineItems, saveState, hasUnsavedChanges, isEditMode]);
 
-  // Function to update agreement products and reload catalog
+  // Function to update agreement products
   const updateAgreementProducts = async (newAgreementProducts) => {
     // Ensure we have a proper array
     const products = Array.isArray(newAgreementProducts) ? newAgreementProducts : [];
     console.log(`🔄 Updating agreement products: ${products.length} products received`);
     setAgreementProducts(products);
     
-    // Reload product catalog with new agreement pricing
-    if (isEditMode && products.length > 0) {
-      console.log('🔄 Reloading product catalog with agreement products');
-      await loadProductCatalog();
+    // Log the agreement products for debugging
+    if (products.length > 0) {
+      console.log('✅ Agreement products stored:', products.map(p => ({
+        name: p.values.name,
+        media: p.values.media,
+        contentType: p.values.content_type,
+        buyingModel: p.values.buying_model,
+        price: p.values.pircing,
+        currency: p.values.currency
+      })));
     }
   };
 
@@ -205,21 +214,45 @@ const LineItems = forwardRef(({
         buyingModel: "",
         units: "",
         category: "",
-        name: "" // Clear name when no product selected
+        name: "", // Clear name when no product selected
+        hasAgreementPricing: false
       }));
       return;
     }
 
-    // Auto-populate fields from selected product, including price
+    // Check for agreement pricing override
+    let finalPrice = selectedProduct.price || 0;
+    let hasAgreementPricing = false;
+    
+    if (agreementProducts && agreementProducts.length > 0) {
+      // Create matching key for agreement lookup
+      const lookupKey = `${selectedProduct.category}_${selectedProduct.media}_${selectedProduct.contentType}_${selectedProduct.buyingModel}`.toLowerCase();
+      
+      // Find matching agreement product
+      const matchingAgreementProduct = agreementProducts.find(agreementProduct => {
+        const values = agreementProduct.values;
+        const agreementKey = `${values.name}_${values.media}_${values.content_type}_${values.buying_model}`.toLowerCase();
+        return agreementKey === lookupKey;
+      });
+      
+      if (matchingAgreementProduct) {
+        finalPrice = matchingAgreementProduct.values.pircing || 0;
+        hasAgreementPricing = true;
+        console.log(`🎯 Using agreement pricing for ${selectedProduct.category}: ${finalPrice} ${currency} (was: ${selectedProduct.price})`);
+      }
+    }
+
+    // Auto-populate fields from selected product with agreement pricing if available
     setNewLineItem(prev => ({
       ...prev,
       productId: productId,
       selectedProduct: selectedProduct,
-      price: selectedProduct.price || 0, // Always populate price for user to modify
+      price: finalPrice,
       buyingModel: selectedProduct.buyingModel,
       units: selectedProduct.units,
       category: selectedProduct.category,
-      name: selectedProduct.label // Auto-fill name with product name
+      name: selectedProduct.label, // Auto-fill name with product name
+      hasAgreementPricing: hasAgreementPricing
     }));
 
     // console.log($2
@@ -307,7 +340,8 @@ const LineItems = forwardRef(({
       units: "",
       category: "",
       billable: 0,
-      bonus: 0
+      bonus: 0,
+      hasAgreementPricing: false
     });
 
     onAlert({
@@ -660,6 +694,11 @@ const LineItems = forwardRef(({
                   onChange={(value) => handleNewLineItemChange("price", value)}
                   precision={2}
                 />
+                {newLineItem.hasAgreementPricing && (
+                  <Text variant="microcopy" format={{ color: 'success' }} marginTop="extra-small">
+                    💰 Agreement price applied
+                  </Text>
+                )}
               </Box>
               <Box flex={1} minWidth="120px">
                 <NumberInput

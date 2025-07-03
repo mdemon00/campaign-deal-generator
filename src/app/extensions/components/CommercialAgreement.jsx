@@ -423,6 +423,11 @@ const CommercialAgreement = forwardRef(({
       setAgreementSearchTerm(selectedAgreement.label);
       setUseAgreementSearchMode(false);
 
+      // Clear existing products first
+      if (lineItemsRef?.current?.updateAgreementProducts) {
+        lineItemsRef.current.updateAgreementProducts([]);
+      }
+
       // Fetch products for the selected commercial agreement
       fetchProductsForCommercialAgreement(value);
 
@@ -438,6 +443,10 @@ const CommercialAgreement = forwardRef(({
         onChange('currency', '');
       }
     } else {
+      // Clear agreement products when no agreement is selected
+      if (lineItemsRef?.current?.updateAgreementProducts) {
+        lineItemsRef.current.updateAgreementProducts([]);
+      }
       onChange('company', '');
       onChange('currency', '');
       setCompanyStatus("");
