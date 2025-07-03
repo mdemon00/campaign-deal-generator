@@ -1,5 +1,5 @@
 // src/app/extensions/CampaignDealGenerator.jsx
-// Complete Updated Version - Added Commercial Agreement Section & Restructured
+// FIXED: Auto-populate advertiser details during data loading in parent component
 
 import React, { useState, useEffect, useRef } from "react";
 import {
@@ -17,7 +17,7 @@ import {
 // Import components
 import TestConnection from './components/TestConnection.jsx';
 import BasicInformation from './components/BasicInformation.jsx';
-import CommercialAgreement from './components/CommercialAgreement.jsx'; // ✅ New component
+import CommercialAgreement from './components/CommercialAgreement.jsx';
 import CampaignDetails from './components/CampaignDetails.jsx';
 import LineItems from './components/LineItems.jsx';
 
@@ -84,7 +84,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
 
   // === CHILD COMPONENT REFS FOR SAVE ===
   const basicInfoRef = useRef();
-  const commercialAgreementRef = useRef(); // ✅ New ref
+  const commercialAgreementRef = useRef();
   const campaignDetailsRef = useRef();
   const lineItemsRef = useRef();
 
@@ -117,12 +117,12 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
     try {
       await Promise.all([
         loadBasicInfoQuietly(),
-        loadCommercialAgreementQuietly(), // ✅ New function
+        loadCommercialAgreementQuietly(),
         loadCampaignDetailsQuietly(),
         loadLineItemsQuietly()
       ]);
       setHasLoadedData(true);
-      // console.log($2
+      console.log('🔍 [PARENT] All data loaded for view mode');
     } catch (error) {
       console.error("Error loading data for view mode:", error);
       setHasLoadedData(true);
@@ -131,6 +131,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
     }
   };
 
+  // 🔧 FIXED: Enhanced loadBasicInfoQuietly with advertiser auto-population
   const loadBasicInfoQuietly = async () => {
     try {
       const response = await runServerless({
@@ -141,7 +142,48 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
       if (response?.status === "SUCCESS" && response?.response?.data) {
         const data = response.response.data;
 
-        // Update only basic information fields (not commercial agreement fields)
+        console.log('🔍 [PARENT] Original basic info data:', data.formData);
+
+        // 🔧 FIXED: Auto-populate advertiser details if missing
+        if (data.formData.advertiser && (!data.formData.advertiserCountry || !data.formData.advertiserCompany)) {
+          try {
+            console.log(`🔍 [PARENT] Fetching advertiser details for auto-population: ${data.formData.advertiser}`);
+            
+            const advertiserResponse = await runServerless({
+              name: "searchAdvertisers",
+              parameters: {
+                selectedAdvertiserId: data.formData.advertiser,
+                limit: 1
+              }
+            });
+
+            console.log('🔍 [PARENT] Advertiser response:', advertiserResponse);
+
+            if (advertiserResponse?.status === "SUCCESS" && advertiserResponse?.response?.data) {
+              const foundAdvertiser = advertiserResponse.response.data.options?.find(
+                opt => opt.value === data.formData.advertiser
+              );
+
+              console.log('🔍 [PARENT] Found advertiser for auto-population:', foundAdvertiser);
+
+              if (foundAdvertiser) {
+                // Auto-populate missing fields
+                if (!data.formData.advertiserCountry && foundAdvertiser.country) {
+                  console.log(`🔧 [PARENT] Auto-populating country: ${foundAdvertiser.country}`);
+                  data.formData.advertiserCountry = foundAdvertiser.country;
+                }
+                if (!data.formData.advertiserCompany && foundAdvertiser.companyName) {
+                  console.log(`🔧 [PARENT] Auto-populating company: ${foundAdvertiser.companyName}`);
+                  data.formData.advertiserCompany = foundAdvertiser.companyName;
+                }
+              }
+            }
+          } catch (error) {
+            console.warn('Could not fetch advertiser details for auto-population:', error);
+          }
+        }
+
+        // Update form data with auto-populated data
         const basicFields = ['campaignName', 'advertiser', 'advertiserCountry', 'advertiserCompany', 'dealOwner', 'assignedCustomerService', 'contact', 'campaignType', 'linkToGoogleDrive'];
         basicFields.forEach(key => {
           if (data.formData[key] !== formData[key]) {
@@ -155,7 +197,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
           hasData: !!(data.formData.campaignName || data.formData.advertiser)
         });
 
-        // console.log($2
+        console.log('🔍 [PARENT] Basic info loaded with auto-populated data:', data.formData);
       }
     } catch (error) {
       console.warn("Could not load basic information for view mode:", error);
@@ -186,7 +228,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
           hasData: !!(data.formData.commercialAgreement)
         });
 
-        // console.log($2
+        console.log('🔍 [PARENT] Commercial agreement loaded:', data.formData);
       }
     } catch (error) {
       console.warn("Could not load commercial agreement for view mode:", error);
@@ -203,7 +245,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
       if (response?.status === "SUCCESS" && response?.response?.data) {
         const data = response.response.data;
 
-        const campaignDetailsFields = ['taxId', 'businessName']; // ✅ Updated - removed moved fields
+        const campaignDetailsFields = ['taxId', 'businessName'];
         campaignDetailsFields.forEach(key => {
           if (data.formData[key] !== formData[key]) {
             setFormData(prev => ({ ...prev, [key]: data.formData[key] }));
@@ -213,10 +255,10 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
         setCampaignDetailsSaveStatus({
           status: data.saveStatus || 'not_saved',
           lastSaved: data.metadata?.lastSaved,
-          hasData: !!(data.formData.taxId || data.formData.businessName) // ✅ Updated
+          hasData: !!(data.formData.taxId || data.formData.businessName)
         });
 
-        // console.log($2
+        console.log('🔍 [PARENT] Campaign details loaded:', data.formData);
       }
     } catch (error) {
       console.warn("Could not load campaign details for view mode:", error);
@@ -241,7 +283,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
           hasData: data.lineItems && data.lineItems.length > 0
         });
 
-        // console.log($2
+        console.log('🔍 [PARENT] Line items loaded:', data.lineItems?.length || 0);
       }
     } catch (error) {
       console.warn("Could not load line items for view mode:", error);
@@ -416,7 +458,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
   // === UI STATE CALCULATIONS ===
   const getOverallProgress = () => {
     let progress = 0;
-    let total = 4; // ✅ Updated total to include commercial agreement
+    let total = 4;
 
     if (basicInfoSaveStatus.status === 'Saved') {
       progress += 1;

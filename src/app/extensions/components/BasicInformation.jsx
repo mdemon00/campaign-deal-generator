@@ -1,5 +1,5 @@
 // src/app/extensions/components/BasicInformation.jsx
-// FIXED: Auto-population issues in edit and preview modes
+// FIXED: Simplified auto-population - now handled by parent component
 
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import {
@@ -102,10 +102,10 @@ const BasicInformation = forwardRef(({
     }
   }, [context?.crm?.objectId, runServerless, isEditMode]);
 
-  // Load data for view mode - but quietly
+  // 🔧 SIMPLIFIED: Load display labels for view mode (no auto-population)
   useEffect(() => {
     if (context?.crm?.objectId && runServerless && !isEditMode) {
-      loadBasicInformationForViewMode();
+      loadDisplayLabelsForViewMode();
     }
   }, [context?.crm?.objectId, runServerless, isEditMode]);
 
@@ -133,16 +133,6 @@ const BasicInformation = forwardRef(({
       updateDisplayLabels();
     }
   }, [formData, advertisers, dealOwners, customerServices, contacts, isEditMode]);
-
-  // 🔧 NEW: Auto-populate advertiser details when advertiser is loaded in edit mode
-  useEffect(() => {
-    if (isEditMode && formData.advertiser && hasAdvertiserLoaded && advertisers.length > 1) {
-      // Only auto-populate if we don't already have the info
-      if (!formData.advertiserCountry || !formData.advertiserCompany) {
-        triggerAdvertiserAutoPopulation(formData.advertiser);
-      }
-    }
-  }, [isEditMode, formData.advertiser, hasAdvertiserLoaded, advertisers, formData.advertiserCountry, formData.advertiserCompany]);
 
   // Track form changes (only in edit mode)
   useEffect(() => {
@@ -209,8 +199,8 @@ const BasicInformation = forwardRef(({
     setDisplayLabels(newLabels);
   };
 
-  // === VIEW MODE LOADING ===
-  const loadBasicInformationForViewMode = async () => {
+  // 🔧 SIMPLIFIED: Only load display labels, no auto-population
+  const loadDisplayLabelsForViewMode = async () => {
     if (!runServerless || !context?.crm?.objectId) return;
 
     try {
@@ -224,18 +214,10 @@ const BasicInformation = forwardRef(({
       if (response?.status === "SUCCESS" && response?.response?.data) {
         const data = response.response.data;
 
-        // Populate form with loaded data (quietly)
-        const basicFields = ['campaignName', 'advertiser', 'advertiserCountry', 'advertiserCompany', 'dealOwner', 'assignedCustomerService', 'contact', 'campaignType', 'linkToGoogleDrive'];
-        basicFields.forEach(key => {
-          if (data.formData[key] !== formData[key]) {
-            onChange(key, data.formData[key]);
-          }
-        });
-
-        // 🔧 FIXED: Enhanced display labels for view mode with proper fallbacks
+        // 🔧 FIXED: Only set display labels, don't try to modify form data
         const newDisplayLabels = {};
         
-        // Advertiser - Enhanced to fetch details for auto-population
+        // Set display labels from association data with proper fallbacks
         if (data.associations?.advertiser) {
           newDisplayLabels.advertiser = data.associations.advertiser.label;
         } else if (data.formData.advertiser) {
@@ -243,52 +225,7 @@ const BasicInformation = forwardRef(({
         } else {
           newDisplayLabels.advertiser = "";
         }
-
-        // 🔧 FIXED: Always fetch advertiser details for auto-population if we have an advertiser ID
-        if (data.formData.advertiser) {
-          try {
-            console.log(`🔍 [VIEW MODE] Fetching advertiser details for auto-population: ${data.formData.advertiser}`);
-            
-            const advertiserResponse = await runServerless({
-              name: "searchAdvertisers",
-              parameters: {
-                selectedAdvertiserId: data.formData.advertiser,
-                limit: 1
-              }
-            });
-            
-            console.log(`🔍 [VIEW MODE] Advertiser response:`, advertiserResponse);
-            
-            if (advertiserResponse?.status === "SUCCESS" && advertiserResponse?.response?.data) {
-              const foundAdvertiser = advertiserResponse.response.data.options?.find(
-                opt => opt.value === data.formData.advertiser
-              );
-              
-              console.log(`🔍 [VIEW MODE] Found advertiser for auto-population:`, foundAdvertiser);
-              
-              if (foundAdvertiser) {
-                // Update display label if we don't have association data
-                if (!data.associations?.advertiser) {
-                  newDisplayLabels.advertiser = foundAdvertiser.label;
-                }
-                
-                // 🔧 FIXED: Always populate country/company for view mode if missing
-                if (!formData.advertiserCountry && foundAdvertiser.country) {
-                  console.log(`🔧 [VIEW MODE] Auto-populating country: ${foundAdvertiser.country}`);
-                  onChange('advertiserCountry', foundAdvertiser.country);
-                }
-                if (!formData.advertiserCompany && foundAdvertiser.companyName) {
-                  console.log(`🔧 [VIEW MODE] Auto-populating company: ${foundAdvertiser.companyName}`);
-                  onChange('advertiserCompany', foundAdvertiser.companyName);
-                }
-              }
-            }
-          } catch (error) {
-            console.warn("Could not fetch advertiser details for view mode auto-population:", error);
-          }
-        }
         
-        // Deal Owner
         if (data.associations?.dealOwner) {
           newDisplayLabels.dealOwner = data.associations.dealOwner.label;
         } else if (data.formData.dealOwner) {
@@ -297,7 +234,6 @@ const BasicInformation = forwardRef(({
           newDisplayLabels.dealOwner = "";
         }
 
-        // Assigned Customer Service
         if (data.associations?.assignedCustomerService) {
           newDisplayLabels.assignedCustomerService = data.associations.assignedCustomerService.label;
         } else if (data.formData.assignedCustomerService) {
@@ -306,7 +242,6 @@ const BasicInformation = forwardRef(({
           newDisplayLabels.assignedCustomerService = "";
         }
 
-        // Contact
         if (data.associations?.contact) {
           newDisplayLabels.contact = data.associations.contact.label;
         } else if (data.formData.contact) {
@@ -315,17 +250,15 @@ const BasicInformation = forwardRef(({
           newDisplayLabels.contact = "";
         }
 
-        // Campaign Type
         const selectedType = CAMPAIGN_TYPE_OPTIONS.find(t => t.value === data.formData.campaignType);
         newDisplayLabels.campaignType = selectedType?.label || data.formData.campaignType || "";
         
-        // Set display labels directly
         setDisplayLabels(newDisplayLabels);
 
-        console.log('🔍 [VIEW MODE] Loaded basic information with enhanced display labels:', newDisplayLabels);
+        console.log('🔍 [VIEW MODE] Loaded display labels:', newDisplayLabels);
       }
     } catch (error) {
-      console.warn("Could not load basic information for view mode:", error);
+      console.warn("Could not load display labels for view mode:", error);
     }
   };
 
@@ -421,7 +354,7 @@ const BasicInformation = forwardRef(({
 
     try {
       const response = await runServerless({
-        name: "saveBasicInformation", // Will need to be updated to handle new fields
+        name: "saveBasicInformation",
         parameters: {
           campaignDealId: context.crm.objectId,
           campaignName: formData.campaignName,
@@ -439,16 +372,6 @@ const BasicInformation = forwardRef(({
 
       if (response?.status === "SUCCESS" && response?.response?.data) {
         const data = response.response.data;
-
-        // Update advertiser country and company from response if auto-populated
-        if (data.advertiserInfo) {
-          if (data.advertiserInfo.country) {
-            onChange('advertiserCountry', data.advertiserInfo.country);
-          }
-          if (data.advertiserInfo.company) {
-            onChange('advertiserCompany', data.advertiserInfo.company);
-          }
-        }
 
         // Update tracking state
         const basicFields = ['campaignName', 'advertiser', 'advertiserCountry', 'advertiserCompany', 'dealOwner', 'assignedCustomerService', 'contact', 'campaignType', 'linkToGoogleDrive'];
@@ -500,7 +423,6 @@ const BasicInformation = forwardRef(({
         }
       });
 
-      console.log('🔍 [SEARCH] Advertiser search response:', response?.response?.data);
       if (response && response.status === "SUCCESS" && response.response && response.response.data) {
         const data = response.response.data;
         setAdvertisers(data.options || [{ label: "Select Advertiser", value: "" }]);
@@ -554,56 +476,6 @@ const BasicInformation = forwardRef(({
     } finally {
       setIsAdvertiserLoading(false);
       setHasAdvertiserLoaded(true);
-    }
-  };
-
-  // 🔧 NEW: Function to trigger auto-population for loaded advertiser
-  const triggerAdvertiserAutoPopulation = async (advertiserId) => {
-    if (!isEditMode || !advertiserId || !runServerless) return;
-
-    console.log(`🔧 [AUTO-POPULATE] Triggering auto-population for advertiser: ${advertiserId}`);
-
-    // First check if advertiser is in current options
-    let selectedAdvertiser = advertisers.find(advertiser => advertiser.value === advertiserId);
-    
-    if (!selectedAdvertiser || selectedAdvertiser.value === "") {
-      // Advertiser not in current list, fetch it specifically
-      try {
-        const response = await runServerless({
-          name: "searchAdvertisers",
-          parameters: {
-            selectedAdvertiserId: advertiserId,
-            limit: 1
-          }
-        });
-
-        if (response?.status === "SUCCESS" && response?.response?.data) {
-          const foundAdvertiser = response.response.data.options?.find(
-            opt => opt.value === advertiserId
-          );
-          if (foundAdvertiser) {
-            selectedAdvertiser = foundAdvertiser;
-            console.log(`🔧 [AUTO-POPULATE] Found advertiser details:`, foundAdvertiser);
-          }
-        }
-      } catch (error) {
-        console.warn("Could not fetch advertiser for auto-population:", error);
-      }
-    }
-
-    if (selectedAdvertiser && selectedAdvertiser.value !== "") {
-      console.log(`🔧 [AUTO-POPULATE] Applying auto-population:`, {
-        country: selectedAdvertiser.country,
-        companyName: selectedAdvertiser.companyName
-      });
-
-      // Auto-populate advertiser country and company
-      if (selectedAdvertiser.country) {
-        onChange('advertiserCountry', selectedAdvertiser.country);
-      }
-      if (selectedAdvertiser.companyName) {
-        onChange('advertiserCompany', selectedAdvertiser.companyName);
-      }
     }
   };
 
@@ -837,7 +709,7 @@ const BasicInformation = forwardRef(({
   };
 
   // === EVENT HANDLERS ===
-  const handleAdvertiserChange = async (value) => {
+  const handleAdvertiserChange = (value) => {
     if (!isEditMode) return;
 
     const selectedAdvertiser = advertisers.find(advertiser => advertiser.value === value);
@@ -848,36 +720,14 @@ const BasicInformation = forwardRef(({
       setAdvertiserSearchTerm(selectedAdvertiser.label);
       setUseAdvertiserSearchMode(false);
 
-      console.log(`🔧 [MANUAL CHANGE] Auto-populating from manual selection:`, selectedAdvertiser);
+      console.log(`🔧 [EDIT MODE] Auto-populating from advertiser selection:`, selectedAdvertiser);
 
-      // Auto-populate advertiser country and company
+      // 🔧 FIXED: Auto-populate only in edit mode when user manually selects
       if (selectedAdvertiser.country) {
         onChange('advertiserCountry', selectedAdvertiser.country);
       }
       if (selectedAdvertiser.companyName) {
         onChange('advertiserCompany', selectedAdvertiser.companyName);
-      } else if (selectedAdvertiser.companyId) {
-        // Fetch company details if we have an ID but not the name
-        try {
-          onChange('advertiserCompany', 'Loading company...');
-          const companyResponse = await runServerless({
-            name: "searchAdvertisers", // Will need a specific function for company lookup
-            parameters: {
-              fetchCompany: true,
-              companyId: selectedAdvertiser.companyId
-            }
-          });
-          if (companyResponse?.status === "SUCCESS" && companyResponse?.response?.data?.companyName) {
-            onChange('advertiserCompany', companyResponse.response.data.companyName);
-          } else {
-            onChange('advertiserCompany', 'Company not found');
-          }
-        } catch (error) {
-          console.warn("Could not fetch company:", error);
-          onChange('advertiserCompany', 'Error loading company');
-        }
-      } else {
-        onChange('advertiserCompany', '');
       }
     } else {
       // Clear auto-populated fields
