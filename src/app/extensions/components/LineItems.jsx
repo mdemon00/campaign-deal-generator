@@ -69,7 +69,10 @@ const LineItems = forwardRef(({
     bonus: 0,
     
     // Agreement pricing indicator
-    hasAgreementPricing: false
+    hasAgreementPricing: false,
+    
+    // Agreement dates indicator
+    hasAgreementDates: false
   });
 
   const [lineItemCounter, setLineItemCounter] = useState(0);
@@ -135,14 +138,17 @@ const LineItems = forwardRef(({
     }
   };
 
-  // Watch for agreement products changes and update current selected product price
+  // Watch for agreement products changes and update current selected product price and dates
   useEffect(() => {
     if (newLineItem.selectedProduct && newLineItem.productId) {
-      console.log('🔄 Agreement products changed, recalculating price for selected product');
+      console.log('🔄 Agreement products changed, recalculating price and dates for selected product');
       
-      // Recalculate price for currently selected product
+      // Recalculate price and dates for currently selected product
       let finalPrice = newLineItem.selectedProduct.price || 0;
+      let finalStartDate = newLineItem.startDate;
+      let finalEndDate = newLineItem.endDate;
       let hasAgreementPricing = false;
+      let hasAgreementDates = false;
       
       if (agreementProducts && agreementProducts.length > 0) {
         // Create matching key for agreement lookup
@@ -156,20 +162,53 @@ const LineItems = forwardRef(({
         });
         
         if (matchingAgreementProduct) {
-          finalPrice = matchingAgreementProduct.values.pircing || 0;
+          const values = matchingAgreementProduct.values;
+          
+          // Override pricing
+          finalPrice = values.pircing || 0;
           hasAgreementPricing = true;
-          console.log(`🎯 Updated agreement pricing for ${newLineItem.selectedProduct.category}: ${finalPrice} ${currency} (was: ${newLineItem.selectedProduct.price})`);
+          
+          // Override dates if available
+          if (values.start_date) {
+            finalStartDate = values.start_date;
+            hasAgreementDates = true;
+          }
+          if (values.end_date) {
+            finalEndDate = values.end_date;
+            hasAgreementDates = true;
+          }
+          
+          console.log(`🎯 Updated agreement data for ${newLineItem.selectedProduct.category}:`);
+          console.log(`   💰 Price: ${finalPrice} ${currency} (was: ${newLineItem.selectedProduct.price})`);
+          if (hasAgreementDates) {
+            console.log(`   📅 Start Date: ${finalStartDate}`);
+            console.log(`   📅 End Date: ${finalEndDate}`);
+          }
         }
       }
 
-      // Update the price if it changed
-      if (finalPrice !== newLineItem.price || hasAgreementPricing !== newLineItem.hasAgreementPricing) {
+      // Update the price and dates if they changed
+      const needsUpdate = (
+        finalPrice !== newLineItem.price || 
+        hasAgreementPricing !== newLineItem.hasAgreementPricing ||
+        hasAgreementDates !== newLineItem.hasAgreementDates ||
+        finalStartDate !== newLineItem.startDate ||
+        finalEndDate !== newLineItem.endDate
+      );
+      
+      if (needsUpdate) {
         setNewLineItem(prev => ({
           ...prev,
           price: finalPrice,
-          hasAgreementPricing: hasAgreementPricing
+          startDate: finalStartDate,
+          endDate: finalEndDate,
+          hasAgreementPricing: hasAgreementPricing,
+          hasAgreementDates: hasAgreementDates
         }));
         console.log(`💰 Price automatically updated to: ${finalPrice} ${currency}`);
+        if (hasAgreementDates) {
+          console.log(`📅 Dates automatically updated - Start: ${finalStartDate}, End: ${finalEndDate}`);
+        }
       }
     }
   }, [agreementProducts, currency]); // Watch for changes to agreement products
@@ -250,18 +289,24 @@ const LineItems = forwardRef(({
         productId: "",
         selectedProduct: null,
         price: 0,
+        startDate: null,
+        endDate: null,
         buyingModel: "",
         units: "",
         category: "",
         name: "", // Clear name when no product selected
-        hasAgreementPricing: false
+        hasAgreementPricing: false,
+        hasAgreementDates: false
       }));
       return;
     }
 
-    // Check for agreement pricing override
+    // Check for agreement pricing and dates override
     let finalPrice = selectedProduct.price || 0;
+    let finalStartDate = null;
+    let finalEndDate = null;
     let hasAgreementPricing = false;
+    let hasAgreementDates = false;
     
     if (agreementProducts && agreementProducts.length > 0) {
       // Create matching key for agreement lookup
@@ -275,23 +320,45 @@ const LineItems = forwardRef(({
       });
       
       if (matchingAgreementProduct) {
-        finalPrice = matchingAgreementProduct.values.pircing || 0;
+        const values = matchingAgreementProduct.values;
+        
+        // Override pricing
+        finalPrice = values.pircing || 0;
         hasAgreementPricing = true;
-        console.log(`🎯 Using agreement pricing for ${selectedProduct.category}: ${finalPrice} ${currency} (was: ${selectedProduct.price})`);
+        
+        // Override dates if available
+        if (values.start_date) {
+          finalStartDate = values.start_date;
+          hasAgreementDates = true;
+        }
+        if (values.end_date) {
+          finalEndDate = values.end_date;
+          hasAgreementDates = true;
+        }
+        
+        console.log(`🎯 Using agreement data for ${selectedProduct.category}:`);
+        console.log(`   💰 Price: ${finalPrice} ${currency} (was: ${selectedProduct.price})`);
+        if (hasAgreementDates) {
+          console.log(`   📅 Start Date: ${finalStartDate}`);
+          console.log(`   📅 End Date: ${finalEndDate}`);
+        }
       }
     }
 
-    // Auto-populate fields from selected product with agreement pricing if available
+    // Auto-populate fields from selected product with agreement overrides if available
     setNewLineItem(prev => ({
       ...prev,
       productId: productId,
       selectedProduct: selectedProduct,
       price: finalPrice,
+      startDate: finalStartDate || prev.startDate, // Use agreement date or keep existing
+      endDate: finalEndDate || prev.endDate, // Use agreement date or keep existing
       buyingModel: selectedProduct.buyingModel,
       units: selectedProduct.units,
       category: selectedProduct.category,
       name: selectedProduct.label, // Auto-fill name with product name
-      hasAgreementPricing: hasAgreementPricing
+      hasAgreementPricing: hasAgreementPricing,
+      hasAgreementDates: hasAgreementDates
     }));
 
     // console.log($2
@@ -380,7 +447,8 @@ const LineItems = forwardRef(({
       category: "",
       billable: 0,
       bonus: 0,
-      hasAgreementPricing: false
+      hasAgreementPricing: false,
+      hasAgreementDates: false
     });
 
     onAlert({
@@ -715,6 +783,11 @@ const LineItems = forwardRef(({
                   value={newLineItem.startDate}
                   onChange={(value) => handleNewLineItemChange("startDate", value)}
                 />
+                {newLineItem.hasAgreementDates && newLineItem.startDate && (
+                  <Text variant="microcopy" format={{ color: 'success' }} marginTop="extra-small">
+                    📅 Agreement start date applied
+                  </Text>
+                )}
               </Box>
               <Box flex={1} minWidth="150px">
                 <DateInput
@@ -723,6 +796,11 @@ const LineItems = forwardRef(({
                   value={newLineItem.endDate}
                   onChange={(value) => handleNewLineItemChange("endDate", value)}
                 />
+                {newLineItem.hasAgreementDates && newLineItem.endDate && (
+                  <Text variant="microcopy" format={{ color: 'success' }} marginTop="extra-small">
+                    📅 Agreement end date applied
+                  </Text>
+                )}
               </Box>
               <Box flex={1} minWidth="120px">
                 <NumberInput
