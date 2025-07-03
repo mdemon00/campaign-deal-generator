@@ -560,7 +560,7 @@ const BasicInformation = forwardRef(({
       const searchTerm = customerServiceSearchTerm.trim();
       
       const response = await runServerless({
-        name: "searchContacts", // Use contacts for customer service
+        name: "searchDealOwners", // Reuse deal owners for customer service
         parameters: {
           searchTerm: searchTerm,
           page: 1,
@@ -574,7 +574,7 @@ const BasicInformation = forwardRef(({
         // Update labels to reflect CS role
         const options = data.options.map(option => ({
           ...option,
-          label: option.label === "Select Contact" ? "Select CS Representative" : option.label
+          label: option.label === "Select Deal Owner" ? "Select CS Representative" : option.label
         }));
         setCustomerServices(options);
         setCustomerServiceHasMore(data.hasMore || false);
@@ -601,7 +601,7 @@ const BasicInformation = forwardRef(({
 
     try {
       const response = await runServerless({
-        name: "searchContacts", // Use contacts for customer service
+        name: "searchDealOwners", // Reuse deal owners for customer service
         parameters: {
           loadAll: false,
           limit: 20,
@@ -614,7 +614,7 @@ const BasicInformation = forwardRef(({
         // Update labels to reflect CS role
         const options = data.options.map(option => ({
           ...option,
-          label: option.label === "Select Contact" ? "Select CS Representative" : option.label
+          label: option.label === "Select Deal Owner" ? "Select CS Representative" : option.label
         }));
         setCustomerServices(options);
         setCustomerServiceHasMore(data.hasMore || false);
@@ -654,6 +654,8 @@ const BasicInformation = forwardRef(({
 
       if (response && response.status === "SUCCESS" && response.response && response.response.data) {
         const data = response.response.data;
+        console.log('🔍 [DEBUG] Contact search response:', response);
+        console.log('🔍 [DEBUG] Contact search options:', data.options);
         setContacts(data.options || [{ label: "Select Contact", value: "" }]);
         setContactHasMore(data.hasMore || false);
         setUseContactSearchMode(true);
@@ -661,6 +663,7 @@ const BasicInformation = forwardRef(({
         
         console.log('🔍 [SEARCH] Contact search results:', data.options?.length || 0);
       } else {
+        console.log('🔍 [DEBUG] Invalid contact search response:', response);
         throw new Error("Invalid contact search response");
       }
     } catch (error) {
@@ -689,10 +692,13 @@ const BasicInformation = forwardRef(({
 
       if (response && response.status === "SUCCESS" && response.response && response.response.data) {
         const data = response.response.data;
+        console.log('🔍 [DEBUG] Full contact response:', response);
+        console.log('🔍 [DEBUG] Contact options received:', data.options);
         setContacts(data.options || [{ label: "Select Contact", value: "" }]);
         setContactHasMore(data.hasMore || false);
         console.log('🔍 [DEFAULT] Loaded default contacts:', data.options?.length || 0);
       } else {
+        console.log('🔍 [DEBUG] Invalid contact response:', response);
         throw new Error("Invalid response from contact server");
       }
     } catch (error) {
