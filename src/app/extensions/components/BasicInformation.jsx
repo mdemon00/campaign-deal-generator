@@ -237,7 +237,14 @@ const BasicInformation = forwardRef(({
         if (data.associations?.assignedCustomerService) {
           newDisplayLabels.assignedCustomerService = data.associations.assignedCustomerService.label;
         } else if (data.formData.assignedCustomerService) {
-          newDisplayLabels.assignedCustomerService = `CS Rep (${data.formData.assignedCustomerService})`;
+          // Try to find the label from the stored data or use a generic label
+          const storedLabel = data.associations?.assignedCustomerService?.label;
+          if (storedLabel) {
+            newDisplayLabels.assignedCustomerService = storedLabel;
+          } else {
+            // Don't show the raw ID, show nothing if we can't resolve the name
+            newDisplayLabels.assignedCustomerService = "";
+          }
         } else {
           newDisplayLabels.assignedCustomerService = "";
         }
@@ -333,7 +340,6 @@ const BasicInformation = forwardRef(({
           });
         }
 
-        console.log('🔍 [EDIT MODE] Loaded basic information:', data.formData);
       } else {
         throw new Error(response?.response?.message || "Failed to load data");
       }

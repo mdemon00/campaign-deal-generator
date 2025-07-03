@@ -20,6 +20,7 @@ exports.main = async (context) => {
         'commercial_agreement_id', 
         'advertiser_id',
         'deal_owner_id',
+        'assigned_customer_service_id',
         'created_by',
         'basic_info_saved',
         'basic_info_saved_date',
@@ -170,13 +171,71 @@ exports.main = async (context) => {
       }
     }
 
-    // Step 5: Prepare form data
+    // Step 5: Load Customer Service details (if saved) - Using HubSpot Owners API
+    let customerServiceInfo = null;
+    
+    if (properties.assigned_customer_service_id) {
+      try {
+        // console.log($2
+        
+        // Fetch customer service details using HubSpot Owners API
+        const response = await hubspotClient.apiRequest({
+          method: 'GET',
+          path: `/crm/v3/owners/${properties.assigned_customer_service_id}`
+        });
+
+        const ownerData = await response.json();
+        
+        const firstName = ownerData.firstName || '';
+        const lastName = ownerData.lastName || '';
+        const email = ownerData.email || '';
+        
+        let displayName;
+        if (firstName && lastName) {
+          displayName = `${firstName} ${lastName}`;
+        } else if (firstName) {
+          displayName = firstName;
+        } else if (lastName) {
+          displayName = lastName;
+        } else if (email) {
+          displayName = email;
+        } else {
+          displayName = `CS Rep ${properties.assigned_customer_service_id}`;
+        }
+
+        // Add email suffix if we have both name and email
+        const fullDisplayName = (firstName || lastName) && email 
+          ? `${displayName} (${email})`
+          : displayName;
+
+        customerServiceInfo = {
+          id: properties.assigned_customer_service_id,
+          label: fullDisplayName,
+          value: properties.assigned_customer_service_id,
+          displayName: displayName,
+          email: email
+        };
+        
+        // console.log($2
+        
+      } catch (error) {
+        console.warn('⚠️ Could not load Customer Service details:', error.message);
+        customerServiceInfo = {
+          id: properties.assigned_customer_service_id,
+          label: `CS Rep ${properties.assigned_customer_service_id}`,
+          value: properties.assigned_customer_service_id
+        };
+      }
+    }
+
+    // Step 6: Prepare form data
     const formData = {
       campaignName: properties.campaign_name || '',
       commercialAgreement: properties.commercial_agreement_id || '',
       company: companyInfo.companyName || '',
       advertiser: properties.advertiser_id || '',
       dealOwner: properties.deal_owner_id || '',
+      assignedCustomerService: properties.assigned_customer_service_id || '',
       currency: companyInfo.currency || '',
       // Additional context
       createdBy: properties.created_by || '',
@@ -196,7 +255,8 @@ exports.main = async (context) => {
         associations: {
           commercialAgreement: commercialAgreementInfo,
           advertiser: advertiserInfo,
-          dealOwner: dealOwnerInfo
+          dealOwner: dealOwnerInfo,
+          assignedCustomerService: customerServiceInfo
         },
         companyInfo,
         metadata: {
@@ -223,6 +283,7 @@ exports.main = async (context) => {
           company: '',
           advertiser: '',
           dealOwner: '',
+          assignedCustomerService: '',
           currency: ''
         },
         saveStatus: 'not_saved',

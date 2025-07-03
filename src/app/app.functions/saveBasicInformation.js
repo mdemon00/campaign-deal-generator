@@ -11,6 +11,7 @@ exports.main = async (context) => {
       commercialAgreement,
       advertiser,
       dealOwner,
+      assignedCustomerService,
       createdBy
     } = context.parameters;
 
@@ -30,6 +31,7 @@ exports.main = async (context) => {
       commercial_agreement_id: commercialAgreement || '',
       advertiser_id: advertiser || '',
       deal_owner_id: dealOwner || '', // This is a HubSpot User property
+      assigned_customer_service_id: assignedCustomerService || '', // Customer service representative
       created_by: createdBy || '',
       basic_info_saved: 'Saved', // ✅ Fixed: Use 'Saved' with capital S
       basic_info_saved_date: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
@@ -118,6 +120,17 @@ exports.main = async (context) => {
       }
     }
 
+    // Step 6: Fetch Customer Service details (for immediate return)
+    let customerServiceInfo = { name: '', email: '' };
+    
+    if (assignedCustomerService) {
+      try {
+        customerServiceInfo = await fetchDealOwnerInfo(hubspotClient, assignedCustomerService);
+      } catch (error) {
+        console.warn('⚠️ Could not fetch customer service info:', error.message);
+      }
+    }
+
     // console.log($2
 
     return {
@@ -129,10 +142,12 @@ exports.main = async (context) => {
         properties: updateProperties,
         companyInfo,
         dealOwnerInfo,
+        customerServiceInfo,
         associations: {
           commercialAgreement: commercialAgreement || null,
           advertiser: advertiser || null,
-          dealOwner: dealOwner || null
+          dealOwner: dealOwner || null,
+          assignedCustomerService: assignedCustomerService || null
         }
       },
       timestamp: Date.now()
