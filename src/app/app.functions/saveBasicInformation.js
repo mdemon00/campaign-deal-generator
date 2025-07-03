@@ -13,6 +13,7 @@ exports.main = async (context) => {
       dealOwner,
       assignedCustomerService,
       contact,
+      linkToGoogleDrive,
       createdBy
     } = context.parameters;
 
@@ -34,6 +35,7 @@ exports.main = async (context) => {
       deal_owner_id: dealOwner || '', // This is a HubSpot User property
       deal_cs_id: assignedCustomerService || '', // Customer service representative
       contact_id: contact || '', // Contact association
+      link_to_google_drive: linkToGoogleDrive || '', // Google Drive link - Fixed property name
       created_by: createdBy || '',
       basic_info_saved: 'Saved', // ✅ Fixed: Use 'Saved' with capital S
       basic_info_saved_date: new Date().toISOString().split('T')[0], // YYYY-MM-DD format

@@ -22,6 +22,7 @@ exports.main = async (context) => {
         'deal_owner_id',
         'deal_cs_id',
         'contact_id',
+        'link_to_google_drive',
         'created_by',
         'basic_info_saved',
         'basic_info_saved_date',
@@ -301,6 +302,7 @@ exports.main = async (context) => {
       dealOwner: properties.deal_owner_id || '',
       assignedCustomerService: properties.deal_cs_id || '',
       contact: properties.contact_id || '',
+      linkToGoogleDrive: properties.link_to_google_drive || '',
       currency: companyInfo.currency || '',
       // Additional context
       createdBy: properties.created_by || '',
