@@ -121,18 +121,13 @@ const LineItems = forwardRef(({
 
   // Function to update agreement products and reload catalog
   const updateAgreementProducts = async (newAgreementProducts) => {
-    // Debug what we're receiving
-    console.log('DEBUG LineItems: received newAgreementProducts =', newAgreementProducts);
-    console.log('DEBUG LineItems: typeof newAgreementProducts =', typeof newAgreementProducts);
-    console.log('DEBUG LineItems: Array.isArray(newAgreementProducts) =', Array.isArray(newAgreementProducts));
-    
     // Ensure we have a proper array
     const products = Array.isArray(newAgreementProducts) ? newAgreementProducts : [];
     console.log(`🔄 Updating agreement products: ${products.length} products received`);
     setAgreementProducts(products);
     
     // Reload product catalog with new agreement pricing
-    if (isEditMode && hasProductsLoaded && products.length > 0) {
+    if (isEditMode && products.length > 0) {
       console.log('🔄 Reloading product catalog with agreement products');
       await loadProductCatalog();
     }
@@ -160,9 +155,6 @@ const LineItems = forwardRef(({
     setIsProductsLoading(true);
 
     try {
-      console.log(`DEBUG: Calling getProductCatalog with ${agreementProducts.length} agreement products`);
-      console.log('DEBUG: Agreement products being sent:', agreementProducts);
-      
       const response = await runServerless({
         name: "getProductCatalog",
         parameters: {

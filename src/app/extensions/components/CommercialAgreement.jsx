@@ -324,34 +324,14 @@ const CommercialAgreement = forwardRef(({
         }
       });
 
-      console.log(`Full response for Deal ID ${dealId}:`, response);
-
       if (response?.status === "SUCCESS") {
-        // Debug the nested structure
-        console.log('DEBUG: response.response =', response.response);
-        console.log('DEBUG: response.response.response =', response.response?.response);
-        console.log('DEBUG: response.response.status =', response.response?.status);
-        
-        // The actual products array is nested deeper
         const products = response.response?.response || [];
-        console.log(`✅ Found ${products.length} products for Deal ID ${dealId}:`, products);
+        console.log(`✅ Found ${products.length} products for Deal ID ${dealId}`);
         
         // Update LineItems component with agreement products
         if (lineItemsRef?.current?.updateAgreementProducts) {
           lineItemsRef.current.updateAgreementProducts(products);
           console.log(`🔄 Updated LineItems with ${products.length} agreement products`);
-        }
-        
-        // Log each product for better visibility
-        if (Array.isArray(products) && products.length > 0) {
-          products.forEach((product, index) => {
-            console.log(`Product ${index + 1}:`, {
-              id: product.id,
-              values: product.values
-            });
-          });
-        } else {
-          console.log(`📝 No products found in HubDB table for Deal ID ${dealId}`);
         }
       } else {
         console.log(`❌ Failed to fetch products for Deal ID ${dealId}:`, response);
