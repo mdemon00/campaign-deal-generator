@@ -12,12 +12,16 @@ exports.main = async (context) => {
       searchTerm = "", 
       page = 1, 
       limit = 20, 
-      loadAll = false 
+      loadAll = false,
+      selectedAdvertiserId = "" // 🔧 NEW: Support for fetching specific advertiser
     } = context.parameters;
 
     const ADVERTISERS_OBJECT_ID = "2-40333244";
 
-    if (searchTerm && searchTerm.trim() !== "") {
+    // 🔧 NEW: Handle specific advertiser lookup
+    if (selectedAdvertiserId && selectedAdvertiserId.trim() !== "") {
+      return await getSpecificAdvertiser(hubspotClient, ADVERTISERS_OBJECT_ID, selectedAdvertiserId.trim());
+    } else if (searchTerm && searchTerm.trim() !== "") {
       return await searchAdvertisers(hubspotClient, ADVERTISERS_OBJECT_ID, searchTerm.trim());
     } else if (loadAll) {
       return await getPaginatedAdvertisers(hubspotClient, ADVERTISERS_OBJECT_ID, page, limit);
@@ -78,7 +82,7 @@ async function fetchAssociatedCompany(hubspotClient, advertiserId) {
  */
 async function processAdvertiserWithCompany(hubspotClient, advertiser, index) {
   // 🐛 DEBUG: Log advertiser properties to see what's available
-  // console.log(`🔍 [DEBUG] Advertiser ${advertiser.id} properties:`, advertiser.properties);
+  console.log(`🔍 [DEBUG] Advertiser ${advertiser.id} properties:`, advertiser.properties);
 
   const name = advertiser.properties.advertiser ||
                 advertiser.properties.name || 
@@ -98,6 +102,13 @@ async function processAdvertiserWithCompany(hubspotClient, advertiser, index) {
 
   const associatedCompany = await fetchAssociatedCompany(hubspotClient, advertiser.id);
 
+  // 🐛 DEBUG: Log what we got from company association
+  console.log(`🔍 [DEBUG] Advertiser ${advertiser.id} company info:`, {
+    hasAssociatedCompany: !!associatedCompany,
+    associatedCompany: associatedCompany,
+    advertiserCountryProperty: advertiser.properties.country,
+    advertiserDomainProperty: advertiser.properties.domain
+  });
 
   // 🔧 FIXED: Return correct property names that BasicInformation.jsx expects
   return {
@@ -118,6 +129,66 @@ async function processAdvertiserWithCompany(hubspotClient, advertiser, index) {
     industry: advertiser.properties.industry || '',
     category: advertiser.properties.category || ''
   };
+}
+
+/**
+ * Get specific advertiser by ID
+ * 🔧 NEW: Function to fetch a specific advertiser for auto-population
+ */
+async function getSpecificAdvertiser(hubspotClient, objectId, advertiserId) {
+  console.log(`🔍 [SPECIFIC] Fetching specific advertiser: ${advertiserId}`);
+
+  try {
+    const availableProperties = await getCustomProperties(hubspotClient, objectId);
+
+    // Fetch the specific advertiser
+    const advertiser = await hubspotClient.crm.objects.basicApi.getById(
+      objectId,
+      advertiserId,
+      availableProperties.length > 0 ? availableProperties : undefined
+    );
+
+    console.log(`🔍 [SPECIFIC] Found advertiser:`, advertiser);
+
+    // Process the advertiser
+    const processedAdvertiser = await processAdvertiserWithCompany(hubspotClient, advertiser, 0);
+
+    const options = [
+      { label: "Select Advertiser", value: "" },
+      processedAdvertiser
+    ];
+
+    console.log(`✅ [SPECIFIC] Processed advertiser:`, processedAdvertiser);
+
+    return {
+      status: "SUCCESS",
+      data: {
+        options: options,
+        totalCount: 1,
+        selectedAdvertiserId: advertiserId,
+        isSpecificResult: true,
+        hasMore: false,
+        timestamp: Date.now()
+      }
+    };
+
+  } catch (error) {
+    console.error(`❌ [SPECIFIC] Error fetching advertiser ${advertiserId}:`, error);
+    
+    // Return empty result if advertiser not found
+    return {
+      status: "SUCCESS",
+      data: {
+        options: [{ label: "Select Advertiser", value: "" }],
+        totalCount: 0,
+        selectedAdvertiserId: advertiserId,
+        isSpecificResult: true,
+        hasMore: false,
+        error: `Advertiser ${advertiserId} not found`,
+        timestamp: Date.now()
+      }
+    };
+  }
 }
 
 /**
@@ -204,6 +275,14 @@ async function searchAdvertisers(hubspotClient, objectId, searchTerm) {
       ...processedAdvertisers,
     ];
 
+    // 🐛 DEBUG: Log final processed advertisers to see the structure
+    console.log(`🔍 [DEBUG] Final processed advertisers:`, processedAdvertisers.map(adv => ({
+      id: adv.value,
+      label: adv.label,
+      companyName: adv.companyName,
+      country: adv.country,
+      hasCompany: adv.hasCompany
+    })));
 
     return {
       status: "SUCCESS",

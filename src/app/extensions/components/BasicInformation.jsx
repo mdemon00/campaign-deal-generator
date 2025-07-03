@@ -1,5 +1,5 @@
 // src/app/extensions/components/BasicInformation.jsx
-// Restructured Version - Fixed layout for Browse/Search fields
+// FIXED: Auto-population issues in edit and preview modes
 
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import {
@@ -134,6 +134,16 @@ const BasicInformation = forwardRef(({
     }
   }, [formData, advertisers, dealOwners, customerServices, contacts, isEditMode]);
 
+  // 🔧 NEW: Auto-populate advertiser details when advertiser is loaded in edit mode
+  useEffect(() => {
+    if (isEditMode && formData.advertiser && hasAdvertiserLoaded && advertisers.length > 1) {
+      // Only auto-populate if we don't already have the info
+      if (!formData.advertiserCountry || !formData.advertiserCompany) {
+        triggerAdvertiserAutoPopulation(formData.advertiser);
+      }
+    }
+  }, [isEditMode, formData.advertiser, hasAdvertiserLoaded, advertisers, formData.advertiserCountry, formData.advertiserCompany]);
+
   // Track form changes (only in edit mode)
   useEffect(() => {
     if (initialFormData && saveState === COMPONENT_SAVE_STATES.SAVED && isEditMode) {
@@ -222,16 +232,60 @@ const BasicInformation = forwardRef(({
           }
         });
 
-        // Set display labels from association data with proper fallbacks
+        // 🔧 FIXED: Enhanced display labels for view mode with proper fallbacks
         const newDisplayLabels = {};
         
-        // Advertiser
+        // Advertiser - Enhanced to fetch details for auto-population
         if (data.associations?.advertiser) {
           newDisplayLabels.advertiser = data.associations.advertiser.label;
         } else if (data.formData.advertiser) {
           newDisplayLabels.advertiser = `Advertiser (${data.formData.advertiser})`;
         } else {
           newDisplayLabels.advertiser = "";
+        }
+
+        // 🔧 FIXED: Always fetch advertiser details for auto-population if we have an advertiser ID
+        if (data.formData.advertiser) {
+          try {
+            console.log(`🔍 [VIEW MODE] Fetching advertiser details for auto-population: ${data.formData.advertiser}`);
+            
+            const advertiserResponse = await runServerless({
+              name: "searchAdvertisers",
+              parameters: {
+                selectedAdvertiserId: data.formData.advertiser,
+                limit: 1
+              }
+            });
+            
+            console.log(`🔍 [VIEW MODE] Advertiser response:`, advertiserResponse);
+            
+            if (advertiserResponse?.status === "SUCCESS" && advertiserResponse?.response?.data) {
+              const foundAdvertiser = advertiserResponse.response.data.options?.find(
+                opt => opt.value === data.formData.advertiser
+              );
+              
+              console.log(`🔍 [VIEW MODE] Found advertiser for auto-population:`, foundAdvertiser);
+              
+              if (foundAdvertiser) {
+                // Update display label if we don't have association data
+                if (!data.associations?.advertiser) {
+                  newDisplayLabels.advertiser = foundAdvertiser.label;
+                }
+                
+                // 🔧 FIXED: Always populate country/company for view mode if missing
+                if (!formData.advertiserCountry && foundAdvertiser.country) {
+                  console.log(`🔧 [VIEW MODE] Auto-populating country: ${foundAdvertiser.country}`);
+                  onChange('advertiserCountry', foundAdvertiser.country);
+                }
+                if (!formData.advertiserCompany && foundAdvertiser.companyName) {
+                  console.log(`🔧 [VIEW MODE] Auto-populating company: ${foundAdvertiser.companyName}`);
+                  onChange('advertiserCompany', foundAdvertiser.companyName);
+                }
+              }
+            }
+          } catch (error) {
+            console.warn("Could not fetch advertiser details for view mode auto-population:", error);
+          }
         }
         
         // Deal Owner
@@ -268,7 +322,7 @@ const BasicInformation = forwardRef(({
         // Set display labels directly
         setDisplayLabels(newDisplayLabels);
 
-        // console.log($2
+        console.log('🔍 [VIEW MODE] Loaded basic information with enhanced display labels:', newDisplayLabels);
       }
     } catch (error) {
       console.warn("Could not load basic information for view mode:", error);
@@ -348,7 +402,7 @@ const BasicInformation = forwardRef(({
           });
         }
 
-        // console.log($2
+        console.log('🔍 [EDIT MODE] Loaded basic information:', data.formData);
       } else {
         throw new Error(response?.response?.message || "Failed to load data");
       }
@@ -416,7 +470,7 @@ const BasicInformation = forwardRef(({
           });
         }
 
-        // console.log($2
+        console.log('✅ Basic information saved successfully');
       } else {
         throw new Error(response?.response?.message || "Failed to save data");
       }
@@ -446,7 +500,7 @@ const BasicInformation = forwardRef(({
         }
       });
 
-      // console.log($2
+      console.log('🔍 [SEARCH] Advertiser search response:', response?.response?.data);
       if (response && response.status === "SUCCESS" && response.response && response.response.data) {
         const data = response.response.data;
         setAdvertisers(data.options || [{ label: "Select Advertiser", value: "" }]);
@@ -454,7 +508,7 @@ const BasicInformation = forwardRef(({
         setUseAdvertiserSearchMode(true);
         setLastAdvertiserSearchTerm(searchTerm);
         
-        // console.log($2
+        console.log('🔍 [SEARCH] Advertiser search results:', data.options?.length || 0);
       } else {
         throw new Error("Invalid advertiser search response");
       }
@@ -485,6 +539,7 @@ const BasicInformation = forwardRef(({
         const data = response.response.data;
         setAdvertisers(data.options || [{ label: "Select Advertiser", value: "" }]);
         setAdvertiserHasMore(data.hasMore || false);
+        console.log('🔍 [DEFAULT] Loaded default advertisers:', data.options?.length || 0);
       } else {
         throw new Error("Invalid response from advertiser server");
       }
@@ -499,6 +554,56 @@ const BasicInformation = forwardRef(({
     } finally {
       setIsAdvertiserLoading(false);
       setHasAdvertiserLoaded(true);
+    }
+  };
+
+  // 🔧 NEW: Function to trigger auto-population for loaded advertiser
+  const triggerAdvertiserAutoPopulation = async (advertiserId) => {
+    if (!isEditMode || !advertiserId || !runServerless) return;
+
+    console.log(`🔧 [AUTO-POPULATE] Triggering auto-population for advertiser: ${advertiserId}`);
+
+    // First check if advertiser is in current options
+    let selectedAdvertiser = advertisers.find(advertiser => advertiser.value === advertiserId);
+    
+    if (!selectedAdvertiser || selectedAdvertiser.value === "") {
+      // Advertiser not in current list, fetch it specifically
+      try {
+        const response = await runServerless({
+          name: "searchAdvertisers",
+          parameters: {
+            selectedAdvertiserId: advertiserId,
+            limit: 1
+          }
+        });
+
+        if (response?.status === "SUCCESS" && response?.response?.data) {
+          const foundAdvertiser = response.response.data.options?.find(
+            opt => opt.value === advertiserId
+          );
+          if (foundAdvertiser) {
+            selectedAdvertiser = foundAdvertiser;
+            console.log(`🔧 [AUTO-POPULATE] Found advertiser details:`, foundAdvertiser);
+          }
+        }
+      } catch (error) {
+        console.warn("Could not fetch advertiser for auto-population:", error);
+      }
+    }
+
+    if (selectedAdvertiser && selectedAdvertiser.value !== "") {
+      console.log(`🔧 [AUTO-POPULATE] Applying auto-population:`, {
+        country: selectedAdvertiser.country,
+        companyName: selectedAdvertiser.companyName
+      });
+
+      // Auto-populate advertiser country and company
+      if (selectedAdvertiser.country) {
+        onChange('advertiserCountry', selectedAdvertiser.country);
+      }
+      if (selectedAdvertiser.companyName) {
+        onChange('advertiserCompany', selectedAdvertiser.companyName);
+      }
     }
   };
 
@@ -529,7 +634,7 @@ const BasicInformation = forwardRef(({
         setUseDealOwnerSearchMode(true);
         setLastDealOwnerSearchTerm(searchTerm);
         
-        // console.log($2
+        console.log('🔍 [SEARCH] Deal owner search results:', data.options?.length || 0);
       } else {
         throw new Error("Invalid deal owner search response");
       }
@@ -561,7 +666,7 @@ const BasicInformation = forwardRef(({
         const data = response.response.data;
         setDealOwners(data.options || DEAL_OWNER_OPTIONS);
         setDealOwnerHasMore(data.hasMore || false);
-        // console.log($2
+        console.log('🔍 [DEFAULT] Loaded default deal owners:', data.options?.length || 0);
       } else {
         throw new Error("Invalid response from deal owner server");
       }
@@ -607,7 +712,7 @@ const BasicInformation = forwardRef(({
         setUseCustomerServiceSearchMode(true);
         setLastCustomerServiceSearchTerm(searchTerm);
         
-        // console.log($2
+        console.log('🔍 [SEARCH] Customer service search results:', options?.length || 0);
       } else {
         throw new Error("Invalid customer service search response");
       }
@@ -644,7 +749,7 @@ const BasicInformation = forwardRef(({
         }));
         setCustomerServices(options);
         setCustomerServiceHasMore(data.hasMore || false);
-        // console.log($2
+        console.log('🔍 [DEFAULT] Loaded default customer services:', options?.length || 0);
       } else {
         throw new Error("Invalid response from customer service server");
       }
@@ -685,7 +790,7 @@ const BasicInformation = forwardRef(({
         setUseContactSearchMode(true);
         setLastContactSearchTerm(searchTerm);
         
-        // console.log($2
+        console.log('🔍 [SEARCH] Contact search results:', data.options?.length || 0);
       } else {
         throw new Error("Invalid contact search response");
       }
@@ -717,7 +822,7 @@ const BasicInformation = forwardRef(({
         const data = response.response.data;
         setContacts(data.options || [{ label: "Select Contact", value: "" }]);
         setContactHasMore(data.hasMore || false);
-        // console.log($2
+        console.log('🔍 [DEFAULT] Loaded default contacts:', data.options?.length || 0);
       } else {
         throw new Error("Invalid response from contact server");
       }
@@ -742,6 +847,8 @@ const BasicInformation = forwardRef(({
     if (selectedAdvertiser && selectedAdvertiser.value !== "" && selectedAdvertiser.value !== "new") {
       setAdvertiserSearchTerm(selectedAdvertiser.label);
       setUseAdvertiserSearchMode(false);
+
+      console.log(`🔧 [MANUAL CHANGE] Auto-populating from manual selection:`, selectedAdvertiser);
 
       // Auto-populate advertiser country and company
       if (selectedAdvertiser.country) {
