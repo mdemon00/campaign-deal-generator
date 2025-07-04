@@ -565,34 +565,48 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
             </Flex>
           </Box>
 
-          {/* Show all errors under Save/Cancel */}
-          {isEditMode && saveErrors.length > 0 && (
-            <Box>
-              {saveErrors.map((err, idx) => (
-                <Alert key={idx} variant="error">{err}</Alert>
-              ))}
-            </Box>
-          )}
-
-          {/* GLOBAL ACTIONS - EDIT MODE ONLY */}
-          {isEditMode && (
-            <Box>
-              <Flex gap="medium" justify="space-between" align="center">
+          {/* UNIFIED STATUS DISPLAY - BELOW SAVE BUTTON */}
+          <Box marginTop="medium">
+            <Flex direction="column" gap="small" align="center">
+              {/* Show save errors */}
+              {isEditMode && saveErrors.length > 0 && (
                 <Box>
-                  {(basicInfoSaveStatus.lastSaved || commercialAgreementSaveStatus.lastSaved || lineItemsSaveStatus.lastSaved) && (
-                    <Text variant="microcopy" format={{ color: 'medium' }}>
-                      Last saved:
-                      {basicInfoSaveStatus.lastSaved && ` Basic Info (${basicInfoSaveStatus.lastSaved})`}
-                      {(basicInfoSaveStatus.lastSaved && (commercialAgreementSaveStatus.lastSaved || lineItemsSaveStatus.lastSaved)) && `, `}
-                      {commercialAgreementSaveStatus.lastSaved && ` Commercial Agreement (${commercialAgreementSaveStatus.lastSaved})`}
-                      {(commercialAgreementSaveStatus.lastSaved && lineItemsSaveStatus.lastSaved) && `, `}
-                      {lineItemsSaveStatus.lastSaved && ` Line Items (${lineItemsSaveStatus.lastSaved})`}
-                    </Text>
-                  )}
+                  {saveErrors.map((err, idx) => (
+                    <Alert key={idx} variant="error">{err}</Alert>
+                  ))}
                 </Box>
-              </Flex>
-            </Box>
-          )}
+              )}
+              
+              {/* Show overall save status */}
+              {isEditMode && (
+                <Text variant="microcopy" format={{ color: 'medium' }} align="center">
+                  {isSaving ? (
+                    "Saving all sections..."
+                  ) : hasUnsavedChanges ? (
+                    "You have unsaved changes"
+                  ) : progressInfo.percentage === 100 ? (
+                    "All sections saved"
+                  ) : progressInfo.percentage > 0 ? (
+                    `Progress: ${progressInfo.percentage}% complete`
+                  ) : (
+                    "Ready to fill information"
+                  )}
+                </Text>
+              )}
+              
+              {/* Show last saved info */}
+              {!isEditMode && (basicInfoSaveStatus.lastSaved || commercialAgreementSaveStatus.lastSaved || lineItemsSaveStatus.lastSaved) && (
+                <Text variant="microcopy" format={{ color: 'medium' }} align="center">
+                  View Mode - Last saved:
+                  {basicInfoSaveStatus.lastSaved && ` Basic Info (${basicInfoSaveStatus.lastSaved})`}
+                  {(basicInfoSaveStatus.lastSaved && (commercialAgreementSaveStatus.lastSaved || lineItemsSaveStatus.lastSaved)) && `, `}
+                  {commercialAgreementSaveStatus.lastSaved && ` Commercial Agreement (${commercialAgreementSaveStatus.lastSaved})`}
+                  {(commercialAgreementSaveStatus.lastSaved && lineItemsSaveStatus.lastSaved) && `, `}
+                  {lineItemsSaveStatus.lastSaved && ` Line Items (${lineItemsSaveStatus.lastSaved})`}
+                </Text>
+              )}
+            </Flex>
+          </Box>
         </>
       )}
 

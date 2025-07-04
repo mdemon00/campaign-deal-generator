@@ -778,14 +778,6 @@ const BasicInformation = forwardRef(({
       <Heading>Basic Information</Heading>
       <Divider />
 
-      {/* Save Error Alert - Only show in Edit Mode */}
-      {isEditMode && saveError && (
-        <Box marginTop="small" marginBottom="medium">
-          <Alert variant="error">
-            {saveError}
-          </Alert>
-        </Box>
-      )}
 
       <Box marginTop="medium">
         {/* ROW 1: Campaign Name + Tax ID */}

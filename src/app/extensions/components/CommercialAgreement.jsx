@@ -536,41 +536,9 @@ const CommercialAgreement = forwardRef(({
 
   return (
     <Tile>
-      <Flex justify="space-between" align="center">
-        <Heading>Commercial Agreement</Heading>
-
-        {/* Save Status Display - Only show in Edit Mode */}
-        {isEditMode && (
-          <Flex align="center" gap="small">
-            <Text
-              variant="microcopy"
-              format={{ color: statusDisplay.color }}
-            >
-              {statusDisplay.message}
-            </Text>
-            {saveState === COMPONENT_SAVE_STATES.SAVING && <LoadingSpinner size="xs" />}
-            {saveState === COMPONENT_SAVE_STATES.LOADING && <LoadingSpinner size="xs" />}
-          </Flex>
-        )}
-
-        {/* VIEW MODE INDICATOR */}
-        {!isEditMode && (
-          <Text variant="microcopy" format={{ color: 'medium' }}>
-            👁️ View Mode - Read Only
-          </Text>
-        )}
-      </Flex>
-
+      <Heading>Commercial Agreement</Heading>
       <Divider />
 
-      {/* Save Error Alert - Only show in Edit Mode */}
-      {isEditMode && saveError && (
-        <Box marginTop="small" marginBottom="medium">
-          <Alert variant="error">
-            {saveError}
-          </Alert>
-        </Box>
-      )}
 
       <Box marginTop="medium">
         <Flex direction="row" gap="medium" wrap="wrap">
