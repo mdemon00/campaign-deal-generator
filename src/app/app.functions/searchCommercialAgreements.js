@@ -41,45 +41,63 @@ exports.main = async (context) => {
  * 🆕 FIXED: Use Search API for recently created records first
  */
 async function searchAgreementsWithAPI(hubspotClient, objectId, searchTerm) {
-  // console.log($2
+  console.log(`🔍 [SEARCH] Starting commercial agreement search for: "${searchTerm}"`);
 
   try {
-    // 🔧 FIX: Use Search API with sorting to get recent records
-    const searchRequest = {
-      limit: 100,
-      properties: ['status'],
-      sorts: [
-        {
-          propertyName: "createdate", // Sort by creation date
-          direction: "DESCENDING"     // Newest first
-        }
-      ],
-      filterGroups: [
-        {
-          filters: [
-            {
-              propertyName: "status",
-              operator: "CONTAINS_TOKEN", // Use CONTAINS_TOKEN for partial matches
-              value: searchTerm
-            }
-          ]
-        }
-      ]
-    };
+    // Search through ALL commercial agreements by paginating through the Search API
+    let allAgreements = [];
+    let hasMore = true;
+    let after = undefined;
+    const batchSize = 100;
+    
+    while (hasMore && allAgreements.length < 1000) { // Safety limit of 1000 agreements
+      const searchRequest = {
+        limit: batchSize,
+        properties: ['status'],
+        sorts: [
+          {
+            propertyName: "createdate", // Sort by creation date
+            direction: "DESCENDING"     // Newest first
+          }
+        ]
+        // No filters - get all records, then filter client-side
+      };
+      
+      if (after) {
+        searchRequest.after = after;
+      }
 
-    // console.log($2
+      const searchResponse = await hubspotClient.apiRequest({
+        method: 'POST',
+        path: `/crm/v3/objects/${objectId}/search`,
+        body: searchRequest
+      });
 
-    // Use Search API endpoint
-    const searchResponse = await hubspotClient.apiRequest({
-      method: 'POST',
-      path: `/crm/v3/objects/${objectId}/search`,
-      body: searchRequest
-    });
+      const searchData = await searchResponse.json();
+      
+      if (!searchData.results || searchData.results.length === 0) {
+        break;
+      }
+      
+      allAgreements.push(...searchData.results);
+      
+      // Check if there are more pages
+      if (searchData.paging && searchData.paging.next && searchData.paging.next.after) {
+        after = searchData.paging.next.after;
+      } else {
+        hasMore = false;
+      }
+      
+      // If we got less than the batch size, we've reached the end
+      if (searchData.results.length < batchSize) {
+        hasMore = false;
+      }
+    }
 
-    const searchData = await searchResponse.json();
-    // console.log($2
+    console.log(`🔍 [SEARCH] Fetched ${allAgreements.length} total commercial agreements from HubSpot`);
 
-    if (!searchData.results || searchData.results.length === 0) {
+    if (allAgreements.length === 0) {
+      console.warn(`⚠️ [SEARCH] No commercial agreements found in system`);
       return {
         status: "SUCCESS",
         data: {
@@ -93,14 +111,33 @@ async function searchAgreementsWithAPI(hubspotClient, objectId, searchTerm) {
       };
     }
 
+    // Filter agreements by search term (case-insensitive) - search across multiple fields
+    const filteredAgreements = allAgreements.filter((agreement) => {
+      const searchableFields = [
+        agreement.properties.status,
+        agreement.properties.name,
+        agreement.properties.agreement_name,
+        agreement.properties.title,
+        agreement.properties.label,
+        agreement.properties.display_name,
+        agreement.id
+      ];
+
+      return searchableFields.some(field => 
+        field && field.toString().toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    });
+
+    console.log(`🔍 [SEARCH] Filtered to ${filteredAgreements.length} matching commercial agreements`);
+
     // Process each agreement with company information
     const processedAgreements = await Promise.all(
-      searchData.results.map((agreement, index) =>
+      filteredAgreements.map((agreement, index) =>
         processAgreementWithCompany(hubspotClient, agreement, index)
       )
     );
 
-    // Sort by name (already sorted by date from API)
+    // Sort by name
     processedAgreements.sort((a, b) => a.label.localeCompare(b.label));
 
     const options = [
@@ -108,7 +145,7 @@ async function searchAgreementsWithAPI(hubspotClient, objectId, searchTerm) {
       ...processedAgreements
     ];
 
-    // console.log($2
+    console.log(`✅ [SEARCH] Final search results: ${processedAgreements.length} commercial agreements`);
 
     return {
       status: "SUCCESS",
@@ -124,9 +161,80 @@ async function searchAgreementsWithAPI(hubspotClient, objectId, searchTerm) {
 
   } catch (error) {
     console.error("❌ [SEARCH API] Error in searchAgreementsWithAPI:", error);
-    // Fallback to basic API if search fails
-    // console.log($2
-    return await searchAgreementsBasic(hubspotClient, objectId, searchTerm);
+    
+    // Fallback to limited search if full pagination fails
+    console.log(`🔄 [SEARCH] Falling back to limited commercial agreement search`);
+    try {
+      const searchRequest = {
+        limit: 200,
+        properties: ['status'],
+        sorts: [
+          {
+            propertyName: "createdate",
+            direction: "DESCENDING"
+          }
+        ]
+      };
+
+      const searchResponse = await hubspotClient.apiRequest({
+        method: 'POST',
+        path: `/crm/v3/objects/${objectId}/search`,
+        body: searchRequest
+      });
+
+      const searchData = await searchResponse.json();
+      
+      if (!searchData.results || searchData.results.length === 0) {
+        throw new Error("No commercial agreements found in fallback search");
+      }
+
+      const filteredAgreements = searchData.results.filter((agreement) => {
+        const searchableFields = [
+          agreement.properties.status,
+          agreement.properties.name,
+          agreement.properties.agreement_name,
+          agreement.properties.title,
+          agreement.properties.label,
+          agreement.properties.display_name,
+          agreement.id
+        ];
+
+        return searchableFields.some(field => 
+          field && field.toString().toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      });
+
+      const processedAgreements = await Promise.all(
+        filteredAgreements.map((agreement, index) =>
+          processAgreementWithCompany(hubspotClient, agreement, index)
+        )
+      );
+
+      processedAgreements.sort((a, b) => a.label.localeCompare(b.label));
+
+      const options = [
+        { label: "Select Commercial Agreement", value: "" },
+        ...processedAgreements
+      ];
+
+      console.log(`✅ [FALLBACK] Fallback search results: ${processedAgreements.length} commercial agreements`);
+
+      return {
+        status: "SUCCESS",
+        data: {
+          options: options,
+          totalCount: processedAgreements.length,
+          searchTerm: searchTerm,
+          isSearchResult: true,
+          hasMore: false,
+          timestamp: Date.now()
+        }
+      };
+
+    } catch (fallbackError) {
+      console.error(`❌ [FALLBACK] Fallback search also failed:`, fallbackError);
+      throw error; // Throw original error
+    }
   }
 }
 

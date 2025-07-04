@@ -46,7 +46,6 @@ const CommercialAgreement = forwardRef(({
   const [isAgreementLoading, setIsAgreementLoading] = useState(false);
   const [isAgreementSearching, setIsAgreementSearching] = useState(false);
   const [agreementErrorMessage, setAgreementErrorMessage] = useState("");
-  const [useAgreementSearchMode, setUseAgreementSearchMode] = useState(false);
   const [agreementHasMore, setAgreementHasMore] = useState(false);
   const [lastAgreementSearchTerm, setLastAgreementSearchTerm] = useState("");
   const [companyStatus, setCompanyStatus] = useState("");
@@ -72,12 +71,7 @@ const CommercialAgreement = forwardRef(({
     }
   }, [context?.crm?.objectId, runServerless, isEditMode]);
 
-  // Load default agreements (only in edit mode)
-  useEffect(() => {
-    if (runServerless && isEditMode) {
-      loadDefaultAgreements(formData.commercialAgreement);
-    }
-  }, [runServerless, isEditMode, formData.commercialAgreement]);
+  // Skip loading default agreements - we'll only load when user searches
 
   // Update display labels in edit mode when arrays are populated
   useEffect(() => {
@@ -373,7 +367,6 @@ const CommercialAgreement = forwardRef(({
         const data = response.response.data;
         setAgreements(data.options || COMMERCIAL_AGREEMENTS);
         setAgreementHasMore(data.hasMore || false);
-        setUseAgreementSearchMode(true);
         setLastAgreementSearchTerm(searchTerm);
         
         // console.log($2
@@ -388,37 +381,7 @@ const CommercialAgreement = forwardRef(({
     }
   };
 
-  const loadDefaultAgreements = async (initialSelectedAgreementId = "") => {
-    if (!runServerless || !isEditMode) return;
-
-    setIsAgreementLoading(true);
-    setAgreementErrorMessage("");
-
-    try {
-      const response = await runServerless({
-        name: "searchCommercialAgreements",
-        parameters: {
-          loadAll: false,
-          limit: 20,
-          selectedAgreementId: initialSelectedAgreementId
-        }
-      });
-
-      if (response && response.status === "SUCCESS" && response.response && response.response.data) {
-        const data = response.response.data;
-        setAgreements(data.options || COMMERCIAL_AGREEMENTS);
-        setAgreementHasMore(data.hasMore || false);
-      } else {
-        throw new Error("Invalid response from server");
-      }
-    } catch (error) {
-      console.error("Error loading agreements:", error);
-      setAgreementErrorMessage(`Error: ${error.message}`);
-      setAgreements(COMMERCIAL_AGREEMENTS);
-    } finally {
-      setIsAgreementLoading(false);
-    }
-  };
+  // Removed loadDefaultAgreements - commercial agreements are now loaded only through search
 
   // === EVENT HANDLERS ===
   const handleCommercialAgreementChange = (value) => {
@@ -430,7 +393,6 @@ const CommercialAgreement = forwardRef(({
 
     if (selectedAgreement && selectedAgreement.value !== "") {
       setAgreementSearchTerm(selectedAgreement.label);
-      setUseAgreementSearchMode(false);
 
       // Clear existing products first
       if (lineItemsRef?.current?.updateAgreementProducts) {
@@ -466,27 +428,13 @@ const CommercialAgreement = forwardRef(({
   const clearAgreementSearch = () => {
     if (!isEditMode) return;
     setAgreementSearchTerm("");
-    setUseAgreementSearchMode(false);
     setAgreementErrorMessage("");
     setLastAgreementSearchTerm("");
-    loadDefaultAgreements(formData.commercialAgreement);
+    setAgreements(COMMERCIAL_AGREEMENTS);
   };
 
   // === MODE CONTROL FUNCTIONS ===
-  const switchAgreementToBrowseMode = () => {
-    if (!isEditMode) return;
-    setUseAgreementSearchMode(false);
-    setAgreementSearchTerm("");
-    setLastAgreementSearchTerm("");
-    loadDefaultAgreements(formData.commercialAgreement);
-  };
-
-  const switchAgreementToSearchMode = () => {
-    if (!isEditMode) return;
-    setUseAgreementSearchMode(true);
-    setAgreementSearchTerm("");
-    setLastAgreementSearchTerm("");
-  };
+  // Removed browse/search mode switching for commercial agreements
 
   // === UI HELPER FUNCTIONS ===
   const getSaveStatusDisplay = () => {
@@ -520,13 +468,9 @@ const CommercialAgreement = forwardRef(({
     if (!isEditMode) return "";
     if (isAgreementSearching) return "Searching agreements...";
     if (isAgreementLoading) return "Loading agreements...";
-    if (useAgreementSearchMode && lastAgreementSearchTerm) {
+    if (lastAgreementSearchTerm) {
       const count = agreements.length > 1 ? agreements.length - 1 : 0;
       return `${count} results for "${lastAgreementSearchTerm}"`;
-    }
-    if (agreements.length > 1) {
-      const count = agreements.length - 1;
-      return `${count} agreements available${agreementHasMore ? ' (load more below)' : ''}`;
     }
     return "";
   };
@@ -589,37 +533,6 @@ const CommercialAgreement = forwardRef(({
         <Flex direction="row" gap="medium" wrap="wrap">
           {/* COMMERCIAL AGREEMENTS - VIEW/EDIT MODE */}
           <Box flex={1} minWidth="250px">
-            {/* Mode Controls - Only show in Edit Mode */}
-            {isEditMode && (
-              <Flex gap="small" marginBottom="small" wrap="wrap">
-                <Button
-                  variant={!useAgreementSearchMode ? "primary" : "secondary"}
-                  size="xs"
-                  onClick={switchAgreementToBrowseMode}
-                  disabled={isAgreementLoading}
-                >
-                  📋 Browse
-                </Button>
-                <Button
-                  variant={useAgreementSearchMode ? "primary" : "secondary"}
-                  size="xs"
-                  onClick={switchAgreementToSearchMode}
-                  disabled={isAgreementLoading}
-                >
-                  🔍 Search
-                </Button>
-                {useAgreementSearchMode && (
-                  <Button
-                    variant="secondary"
-                    size="xs"
-                    onClick={clearAgreementSearch}
-                  >
-                    ✕ Clear
-                  </Button>
-                )}
-              </Flex>
-            )}
-
             {/* View Mode: Simple Input Display */}
             {!isEditMode && (
               <Input
@@ -634,78 +547,86 @@ const CommercialAgreement = forwardRef(({
               />
             )}
 
-            {/* Edit Mode: Search or Select */}
-            {isEditMode && useAgreementSearchMode ? (
-              <Flex gap="small" direction="row" align="end">
-                <Box flex={1}>
-                  <Input
-                    label="Search Commercial Agreements *"
-                    name="searchAgreements"
-                    placeholder="Enter agreement name..."
-                    value={agreementSearchTerm}
-                    onChange={(value) => setAgreementSearchTerm(value)}
-                    disabled={isAgreementLoading || isAgreementSearching}
-                  />
-                </Box>
-                <Box>
-                  <Button 
-                    onClick={performAgreementSearch}
-                    disabled={!agreementSearchTerm.trim() || isAgreementSearching || isAgreementLoading}
-                  >
-                    {isAgreementSearching ? <LoadingSpinner size="xs" /> : "🔍"}
-                  </Button>
-                </Box>
-              </Flex>
-            ) : isEditMode ? (
-              <Select
-                label="Commercial Agreement *"
-                name="commercialAgreement"
-                options={agreements}
-                value={formData.commercialAgreement}
-                onChange={(value) => handleCommercialAgreementChange(value)}
-                required
-                disabled={isAgreementLoading}
-              />
-            ) : null}
+            {/* Edit Mode: Simple Search Interface */}
+            {isEditMode && (
+              <>
+                <Flex gap="small" direction="row" align="end">
+                  <Box flex={1}>
+                    <Input
+                      label="Search Commercial Agreements *"
+                      name="searchAgreements"
+                      placeholder="Enter agreement name or ID..."
+                      value={agreementSearchTerm}
+                      onChange={(value) => setAgreementSearchTerm(value)}
+                      disabled={isAgreementLoading || isAgreementSearching}
+                    />
+                  </Box>
+                  <Box>
+                    <Button 
+                      onClick={performAgreementSearch}
+                      disabled={!agreementSearchTerm.trim() || isAgreementSearching || isAgreementLoading}
+                    >
+                      {isAgreementSearching ? <LoadingSpinner size="xs" /> : "🔍 Search"}
+                    </Button>
+                  </Box>
+                  {lastAgreementSearchTerm && (
+                    <Box>
+                      <Button
+                        variant="secondary"
+                        size="xs"
+                        onClick={clearAgreementSearch}
+                      >
+                        ✕ Clear
+                      </Button>
+                    </Box>
+                  )}
+                </Flex>
 
-            {/* Search Results Select - Only in Edit Mode */}
-            {isEditMode && useAgreementSearchMode && lastAgreementSearchTerm && agreements.length > 1 && (
-              <Box marginTop="small">
-                <Select
-                  label="Select from search results"
-                  name="searchResults"
-                  options={agreements}
-                  value={formData.commercialAgreement}
-                  onChange={(value) => handleCommercialAgreementChange(value)}
-                  disabled={isAgreementSearching}
-                />
-              </Box>
-            )}
+                {/* Search Results */}
+                {lastAgreementSearchTerm && agreements.length > 1 && (
+                  <Box marginTop="small">
+                    <Select
+                      label="Select from search results"
+                      name="searchResults"
+                      options={agreements}
+                      value={formData.commercialAgreement}
+                      onChange={(value) => handleCommercialAgreementChange(value)}
+                      disabled={isAgreementSearching}
+                    />
+                  </Box>
+                )}
 
-            {/* Status Messages - Only in Edit Mode */}
-            {getAgreementStatusMessage() && (
-              <Text variant="microcopy" format={{ color: 'medium' }}>
-                {getAgreementStatusMessage()}
-              </Text>
-            )}
+                {/* Status Messages */}
+                {getAgreementStatusMessage() && (
+                  <Text variant="microcopy" format={{ color: 'medium' }}>
+                    {getAgreementStatusMessage()}
+                  </Text>
+                )}
 
-            {/* Error Messages - Only in Edit Mode */}
-            {isEditMode && agreementErrorMessage && (
-              <Box marginTop="extra-small">
-                <Text variant="microcopy" format={{ color: 'error' }}>
-                  {agreementErrorMessage}
-                </Text>
-                <Box marginTop="extra-small">
-                  <Button
-                    variant="secondary"
-                    size="xs"
-                    onClick={() => loadDefaultAgreements(formData.commercialAgreement)}
-                    disabled={isAgreementLoading}
-                  >
-                    Retry
-                  </Button>
-                </Box>
-              </Box>
+                {/* Error Messages */}
+                {agreementErrorMessage && (
+                  <Box marginTop="extra-small">
+                    <Text variant="microcopy" format={{ color: 'error' }}>
+                      {agreementErrorMessage}
+                    </Text>
+                    <Box marginTop="extra-small">
+                      <Button
+                        variant="secondary"
+                        size="xs"
+                        onClick={() => {
+                          setAgreementErrorMessage("");
+                          if (lastAgreementSearchTerm) {
+                            performAgreementSearch();
+                          }
+                        }}
+                        disabled={isAgreementLoading}
+                      >
+                        Retry
+                      </Button>
+                    </Box>
+                  </Box>
+                )}
+              </>
             )}
           </Box>
         </Flex>
