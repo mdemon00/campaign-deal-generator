@@ -124,7 +124,7 @@ const BasicInformation = forwardRef(({
   // Track form changes (only in edit mode)
   useEffect(() => {
     if (initialFormData && saveState === COMPONENT_SAVE_STATES.SAVED && isEditMode) {
-      const basicFields = ['campaignName', 'advertiser', 'advertiserCountry', 'advertiserCompany', 'dealOwner', 'assignedCustomerService', 'contact', 'campaignType', 'linkToGoogleDrive'];
+      const basicFields = ['campaignName', 'taxId', 'advertiser', 'advertiserCountry', 'advertiserCompany', 'dealOwner', 'assignedCustomerService', 'contact', 'campaignType', 'linkToGoogleDrive'];
       const hasChanges = basicFields.some(key =>
         formData[key] !== initialFormData[key]
       );
@@ -273,7 +273,7 @@ const BasicInformation = forwardRef(({
         const data = response.response.data;
 
         // Populate form with loaded data
-        const basicFields = ['campaignName', 'advertiser', 'advertiserCountry', 'advertiserCompany', 'dealOwner', 'assignedCustomerService', 'contact', 'campaignType', 'linkToGoogleDrive'];
+        const basicFields = ['campaignName', 'taxId', 'advertiser', 'advertiserCountry', 'advertiserCompany', 'dealOwner', 'assignedCustomerService', 'contact', 'campaignType', 'linkToGoogleDrive'];
         basicFields.forEach(key => {
           if (data.formData[key] !== formData[key]) {
             onChange(key, data.formData[key]);
@@ -323,7 +323,7 @@ const BasicInformation = forwardRef(({
           onSaveStatusChange({
             status: data.saveStatus,
             lastSaved: data.metadata?.lastSaved,
-            hasData: !!(data.formData.campaignName || data.formData.advertiser)
+            hasData: !!(data.formData.campaignName || data.formData.taxId || data.formData.advertiser)
           });
         }
 
@@ -349,6 +349,7 @@ const BasicInformation = forwardRef(({
         parameters: {
           campaignDealId: context.crm.objectId,
           campaignName: formData.campaignName,
+          taxId: formData.taxId,
           advertiser: formData.advertiser,
           advertiserCountry: formData.advertiserCountry,
           advertiserCompany: formData.advertiserCompany,
@@ -365,7 +366,7 @@ const BasicInformation = forwardRef(({
         const data = response.response.data;
 
         // Update tracking state
-        const basicFields = ['campaignName', 'advertiser', 'advertiserCountry', 'advertiserCompany', 'dealOwner', 'assignedCustomerService', 'contact', 'campaignType', 'linkToGoogleDrive'];
+        const basicFields = ['campaignName', 'taxId', 'advertiser', 'advertiserCountry', 'advertiserCompany', 'dealOwner', 'assignedCustomerService', 'contact', 'campaignType', 'linkToGoogleDrive'];
         const basicFormData = {};
         basicFields.forEach(key => {
           basicFormData[key] = formData[key];
@@ -697,6 +698,7 @@ const BasicInformation = forwardRef(({
     return saveState === COMPONENT_SAVE_STATES.SAVING ||
       saveState === COMPONENT_SAVE_STATES.LOADING ||
       !formData.campaignName ||
+      !formData.taxId ||
       !formData.advertiser ||
       !formData.dealOwner ||
       !formData.assignedCustomerService ||
@@ -755,7 +757,7 @@ const BasicInformation = forwardRef(({
   useImperativeHandle(ref, () => ({
     save: async () => {
       // Validate required fields
-      const requiredFields = ['campaignName', 'advertiser', 'dealOwner', 'assignedCustomerService', 'contact', 'campaignType'];
+      const requiredFields = ['campaignName', 'taxId', 'advertiser', 'dealOwner', 'assignedCustomerService', 'contact', 'campaignType'];
       const missingFields = requiredFields.filter(field => !formData[field]);
 
       if (missingFields.length > 0) {
@@ -808,17 +810,33 @@ const BasicInformation = forwardRef(({
       )}
 
       <Box marginTop="medium">
-        {/* ROW 1: Campaign Name (Full Row) */}
+        {/* ROW 1: Campaign Name + Tax ID */}
         <Box marginBottom="extra-large">
-          <Input
-            label="Campaign Name *"
-            name="campaignName"
-            placeholder={isEditMode ? "Enter campaign name" : "No campaign name"}
-            value={formData.campaignName}
-            onChange={isEditMode ? (value) => handleFieldChange("campaignName", value) : undefined}
-            readOnly={!isEditMode}
-            required={isEditMode}
-          />
+          <Flex direction="row" gap="medium" wrap="wrap">
+            <Box flex={1} minWidth="250px">
+              <Input
+                label="Campaign Name *"
+                name="campaignName"
+                placeholder={isEditMode ? "Enter campaign name" : "No campaign name"}
+                value={formData.campaignName}
+                onChange={isEditMode ? (value) => handleFieldChange("campaignName", value) : undefined}
+                readOnly={!isEditMode}
+                required={isEditMode}
+              />
+            </Box>
+
+            <Box flex={1} minWidth="250px">
+              <Input
+                label="Tax ID *"
+                name="taxId"
+                placeholder={isEditMode ? "Enter or create new Tax ID" : "No tax ID"}
+                value={formData.taxId}
+                onChange={isEditMode ? (value) => handleFieldChange("taxId", value) : undefined}
+                readOnly={!isEditMode}
+                required={isEditMode}
+              />
+            </Box>
+          </Flex>
         </Box>
 
         <Divider></ Divider>

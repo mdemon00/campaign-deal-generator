@@ -36,14 +36,6 @@
       "file": "checkSaveStatus.js",
       "secrets": []
     },
-    "saveCampaignDetails": {
-      "file": "saveCampaignDetails.js",
-      "secrets": []
-    },
-    "loadCampaignDetails": {
-      "file": "loadCampaignDetails.js",
-      "secrets": []
-    },
     "saveLineItems": {
       "file": "saveLineItems.js",
       "secrets": []

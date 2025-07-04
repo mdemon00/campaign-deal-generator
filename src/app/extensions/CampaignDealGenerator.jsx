@@ -18,7 +18,6 @@ import {
 import TestConnection from './components/TestConnection.jsx';
 import BasicInformation from './components/BasicInformation.jsx';
 import CommercialAgreement from './components/CommercialAgreement.jsx';
-import CampaignDetails from './components/CampaignDetails.jsx';
 import LineItems from './components/LineItems.jsx';
 
 // Import utilities
@@ -70,11 +69,6 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
     hasData: false
   });
 
-  const [campaignDetailsSaveStatus, setCampaignDetailsSaveStatus] = useState({
-    status: 'not_saved',
-    lastSaved: null,
-    hasData: false
-  });
 
   const [lineItemsSaveStatus, setLineItemsSaveStatus] = useState({
     status: 'not_saved',
@@ -85,7 +79,6 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
   // === CHILD COMPONENT REFS FOR SAVE ===
   const basicInfoRef = useRef();
   const commercialAgreementRef = useRef();
-  const campaignDetailsRef = useRef();
   const lineItemsRef = useRef();
 
   // === ERROR STATE FOR UNIFIED SAVE ===
@@ -105,11 +98,10 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
     const hasChanges = (
       (basicInfoSaveStatus.hasData && basicInfoSaveStatus.status !== 'Saved') ||
       (commercialAgreementSaveStatus.hasData && commercialAgreementSaveStatus.status !== 'Saved') ||
-      (campaignDetailsSaveStatus.hasData && campaignDetailsSaveStatus.status !== 'Saved') ||
       (lineItemsSaveStatus.hasData && lineItemsSaveStatus.status !== 'Saved')
     );
     setHasUnsavedChanges(hasChanges);
-  }, [basicInfoSaveStatus, commercialAgreementSaveStatus, campaignDetailsSaveStatus, lineItemsSaveStatus]);
+  }, [basicInfoSaveStatus, commercialAgreementSaveStatus, lineItemsSaveStatus]);
 
   // === DATA LOADING FOR VIEW MODE ===
   const loadAllDataForViewMode = async () => {
@@ -118,7 +110,6 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
       await Promise.all([
         loadBasicInfoQuietly(),
         loadCommercialAgreementQuietly(),
-        loadCampaignDetailsQuietly(),
         loadLineItemsQuietly()
       ]);
       setHasLoadedData(true);
@@ -184,7 +175,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
         }
 
         // Update form data with auto-populated data
-        const basicFields = ['campaignName', 'advertiser', 'advertiserCountry', 'advertiserCompany', 'dealOwner', 'assignedCustomerService', 'contact', 'campaignType', 'linkToGoogleDrive'];
+        const basicFields = ['campaignName', 'taxId', 'advertiser', 'advertiserCountry', 'advertiserCompany', 'dealOwner', 'assignedCustomerService', 'contact', 'campaignType', 'linkToGoogleDrive'];
         basicFields.forEach(key => {
           if (data.formData[key] !== formData[key]) {
             setFormData(prev => ({ ...prev, [key]: data.formData[key] }));
@@ -194,7 +185,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
         setBasicInfoSaveStatus({
           status: data.saveStatus || 'not_saved',
           lastSaved: data.metadata?.lastSaved,
-          hasData: !!(data.formData.campaignName || data.formData.advertiser)
+          hasData: !!(data.formData.campaignName || data.formData.taxId || data.formData.advertiser)
         });
 
         console.log('🔍 [PARENT] Basic info loaded with auto-populated data:', data.formData);
@@ -235,35 +226,6 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
     }
   };
 
-  const loadCampaignDetailsQuietly = async () => {
-    try {
-      const response = await runServerless({
-        name: "loadCampaignDetails",
-        parameters: { campaignDealId: context.crm.objectId }
-      });
-
-      if (response?.status === "SUCCESS" && response?.response?.data) {
-        const data = response.response.data;
-
-        const campaignDetailsFields = ['taxId', 'businessName'];
-        campaignDetailsFields.forEach(key => {
-          if (data.formData[key] !== formData[key]) {
-            setFormData(prev => ({ ...prev, [key]: data.formData[key] }));
-          }
-        });
-
-        setCampaignDetailsSaveStatus({
-          status: data.saveStatus || 'not_saved',
-          lastSaved: data.metadata?.lastSaved,
-          hasData: !!(data.formData.taxId || data.formData.businessName)
-        });
-
-        console.log('🔍 [PARENT] Campaign details loaded:', data.formData);
-      }
-    } catch (error) {
-      console.warn("Could not load campaign details for view mode:", error);
-    }
-  };
 
   const loadLineItemsQuietly = async () => {
     try {
@@ -359,16 +321,6 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
     }
   };
 
-  const handleCampaignDetailsSaveStatusChange = (statusData) => {
-    setCampaignDetailsSaveStatus(statusData);
-
-    if (statusData.status === 'Saved') {
-      sendAlert({
-        message: "Campaign details saved successfully",
-        variant: "success"
-      });
-    }
-  };
 
   const handleLineItemsSaveStatusChange = (statusData) => {
     setLineItemsSaveStatus(statusData);
@@ -397,10 +349,6 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
       if (err) errors.push(...(Array.isArray(err) ? err : [err]));
     }
     
-    if (campaignDetailsRef.current && campaignDetailsRef.current.save) {
-      const err = await campaignDetailsRef.current.save();
-      if (err) errors.push(...(Array.isArray(err) ? err : [err]));
-    }
     
     if (lineItemsRef.current && lineItemsRef.current.save) {
       const err = await lineItemsRef.current.save();
@@ -439,11 +387,6 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
       lastSaved: null,
       hasData: false
     });
-    setCampaignDetailsSaveStatus({
-      status: 'not_saved',
-      lastSaved: null,
-      hasData: false
-    });
     setLineItemsSaveStatus({
       status: 'not_saved',
       lastSaved: null,
@@ -458,7 +401,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
   // === UI STATE CALCULATIONS ===
   const getOverallProgress = () => {
     let progress = 0;
-    let total = 4;
+    let total = 3;
 
     if (basicInfoSaveStatus.status === 'Saved') {
       progress += 1;
@@ -469,12 +412,6 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
     if (commercialAgreementSaveStatus.status === 'Saved') {
       progress += 1;
     } else if (commercialAgreementSaveStatus.hasData) {
-      progress += 0.5;
-    }
-
-    if (campaignDetailsSaveStatus.status === 'Saved') {
-      progress += 1;
-    } else if (campaignDetailsSaveStatus.hasData) {
       progress += 0.5;
     }
 
@@ -561,27 +498,6 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
             </Box>
           )}
 
-          {/* CAMPAIGN DETAILS */}
-          <Box>
-            <CampaignDetails
-              ref={campaignDetailsRef}
-              formData={formData}
-              onChange={handleFormChange}
-              runServerless={runServerless}
-              context={context}
-              onSaveStatusChange={handleCampaignDetailsSaveStatusChange}
-              isEditMode={isEditMode}
-            />
-          </Box>
-
-          {/* Campaign Details Status Alert */}
-          {isEditMode && campaignDetailsSaveStatus.status !== 'Saved' && campaignDetailsSaveStatus.hasData && (
-            <Box>
-              <Alert variant="warning">
-                Campaign Details have unsaved changes. Please save to lock in your progress.
-              </Alert>
-            </Box>
-          )}
 
           {/* ENHANCED LINE ITEMS SECTION */}
           <Box>
@@ -660,15 +576,13 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
             <Box>
               <Flex gap="medium" justify="space-between" align="center">
                 <Box>
-                  {(basicInfoSaveStatus.lastSaved || commercialAgreementSaveStatus.lastSaved || campaignDetailsSaveStatus.lastSaved || lineItemsSaveStatus.lastSaved) && (
+                  {(basicInfoSaveStatus.lastSaved || commercialAgreementSaveStatus.lastSaved || lineItemsSaveStatus.lastSaved) && (
                     <Text variant="microcopy" format={{ color: 'medium' }}>
                       Last saved:
                       {basicInfoSaveStatus.lastSaved && ` Basic Info (${basicInfoSaveStatus.lastSaved})`}
-                      {(basicInfoSaveStatus.lastSaved && (commercialAgreementSaveStatus.lastSaved || campaignDetailsSaveStatus.lastSaved || lineItemsSaveStatus.lastSaved)) && `, `}
+                      {(basicInfoSaveStatus.lastSaved && (commercialAgreementSaveStatus.lastSaved || lineItemsSaveStatus.lastSaved)) && `, `}
                       {commercialAgreementSaveStatus.lastSaved && ` Commercial Agreement (${commercialAgreementSaveStatus.lastSaved})`}
-                      {(commercialAgreementSaveStatus.lastSaved && (campaignDetailsSaveStatus.lastSaved || lineItemsSaveStatus.lastSaved)) && `, `}
-                      {campaignDetailsSaveStatus.lastSaved && ` Details (${campaignDetailsSaveStatus.lastSaved})`}
-                      {(campaignDetailsSaveStatus.lastSaved && lineItemsSaveStatus.lastSaved) && `, `}
+                      {(commercialAgreementSaveStatus.lastSaved && lineItemsSaveStatus.lastSaved) && `, `}
                       {lineItemsSaveStatus.lastSaved && ` Line Items (${lineItemsSaveStatus.lastSaved})`}
                     </Text>
                   )}
