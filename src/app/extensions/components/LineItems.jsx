@@ -343,19 +343,33 @@ const LineItems = forwardRef(({
         }
       });
 
-      if (response?.status === "SUCCESS" && response?.response) {
+      console.log('🔍 Raw response from fetchProductsForDeal:', response);
+
+      if (response?.status === "SUCCESS") {
+        console.log('🔍 Response.response:', response.response);
+        console.log('🔍 Response.response type:', typeof response.response);
+        console.log('🔍 Response.response isArray:', Array.isArray(response.response));
+        
         const products = Array.isArray(response.response) ? response.response : [];
         setAgreementProducts(products);
         
         if (products.length > 0) {
-          console.log(`✅ Loaded ${products.length} agreement products:`, products.map(p => ({
-            name: p.values?.name,
-            media: p.values?.media,
-            contentType: p.values?.content_type,
-            buyingModel: p.values?.buying_model,
-            price: p.values?.pircing,
-            currency: p.values?.currency
-          })));
+          console.log(`✅ Loaded ${products.length} agreement products`);
+          // Safely map through products
+          try {
+            const productSummary = products.map(p => ({
+              name: p?.values?.name || 'Unknown',
+              media: p?.values?.media || 'Unknown',
+              contentType: p?.values?.content_type || 'Unknown',
+              buyingModel: p?.values?.buying_model || 'Unknown',
+              price: p?.values?.pircing || 0,
+              currency: p?.values?.currency || 'Unknown'
+            }));
+            console.log('📋 Product details:', productSummary);
+          } catch (mapError) {
+            console.error('❌ Error mapping product details:', mapError);
+            console.log('🔍 Products data:', products);
+          }
         } else {
           console.log(`ℹ️ No agreement products found for commercial agreement: ${commercialAgreementId}`);
         }
@@ -365,7 +379,9 @@ const LineItems = forwardRef(({
           await loadProductCatalog();
         }
       } else {
-        console.log('❌ Failed to load agreement products:', response?.message);
+        console.log('❌ Failed to load agreement products. Status:', response?.status);
+        console.log('❌ Response message:', response?.message);
+        console.log('❌ Full response:', response);
         setAgreementProducts([]);
       }
     } catch (error) {

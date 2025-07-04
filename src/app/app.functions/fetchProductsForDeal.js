@@ -50,18 +50,27 @@ exports.main = async (context) => {
 
   try {
     const dealId = context.parameters.dealId;
+    console.log(`🔍 fetchProductsForDeal called with dealId: ${dealId}`);
+    console.log(`🔍 dealId type: ${typeof dealId}`);
+    
     const products = await fetchProductsForDeal(hubspotClient, dealId);
-    console.log(`Found ${products.length} products for Deal ID ${dealId}`);
+    console.log(`🔍 Found ${products.length} products for Deal/Agreement ID ${dealId}`);
+    console.log(`🔍 Products data:`, products);
 
-    return {
+    const response = {
       status: "SUCCESS",
       response: products
     };
+    
+    console.log(`🔍 Returning response:`, response);
+    return response;
   } catch (error) {
-    console.error("Error in fetchProductsForDeal function:", error.message);
+    console.error("❌ Error in fetchProductsForDeal function:", error.message);
+    console.error("❌ Full error:", error);
     return {
       status: "ERROR",
-      message: error.message
+      message: error.message,
+      error: error.toString()
     };
   }
 };
