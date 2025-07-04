@@ -98,12 +98,21 @@ const CommercialAgreement = forwardRef(({
     }
   }, [formData, initialFormData, saveState, hasUnsavedChanges, isEditMode]);
 
-  // Fetch agreement dates when commercial agreement is initially loaded (edit mode only)
+  // Fetch agreement dates and products when commercial agreement is initially loaded (edit mode only)
   useEffect(() => {
     if (isEditMode && formData.commercialAgreement && formData.commercialAgreement !== "" && 
-        saveState === COMPONENT_SAVE_STATES.SAVED && lineItemsRef?.current?.updateAgreementDates) {
-      console.log(`🔄 Initial load: Fetching dates for loaded commercial agreement: ${formData.commercialAgreement}`);
-      fetchAgreementDates(formData.commercialAgreement);
+        saveState === COMPONENT_SAVE_STATES.SAVED && lineItemsRef?.current) {
+      console.log(`🔄 Initial load: Fetching dates and products for loaded commercial agreement: ${formData.commercialAgreement}`);
+      
+      // Fetch agreement dates
+      if (lineItemsRef.current.updateAgreementDates) {
+        fetchAgreementDates(formData.commercialAgreement);
+      }
+      
+      // Load agreement products for pricing overrides
+      if (lineItemsRef.current.loadAgreementProducts) {
+        lineItemsRef.current.loadAgreementProducts(formData.commercialAgreement);
+      }
     }
   }, [isEditMode, formData.commercialAgreement, saveState, lineItemsRef]);
 
@@ -444,6 +453,12 @@ const CommercialAgreement = forwardRef(({
       // Fetch currency and company info from the agreement
       fetchCompanyAndCurrencyFromAgreement(value);
 
+      // Load agreement products for pricing overrides in LineItems component
+      if (lineItemsRef?.current?.loadAgreementProducts) {
+        console.log(`🔄 Loading agreement products for selected agreement: ${value}`);
+        lineItemsRef.current.loadAgreementProducts(value);
+      }
+
       if (selectedAgreement.hasCompany === false) {
         onChange('company', 'Not found');
         setCompanyStatus("");
@@ -462,6 +477,13 @@ const CommercialAgreement = forwardRef(({
           endDate: null
         });
       }
+      
+      // Clear agreement products when no agreement is selected
+      if (lineItemsRef?.current?.loadAgreementProducts) {
+        console.log(`🔄 Clearing agreement products - no agreement selected`);
+        lineItemsRef.current.loadAgreementProducts(null);
+      }
+      
       onChange('company', '');
       onChange('currency', '');
       setCompanyStatus("");

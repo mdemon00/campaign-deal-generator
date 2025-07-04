@@ -325,7 +325,56 @@ const LineItems = forwardRef(({
     }
   }, [agreementProducts, currency]); // Watch for changes to agreement products
 
-  // Expose save method and agreement dates update to parent
+  // Function to load agreement products when commercial agreement is selected
+  const loadAgreementProducts = async (commercialAgreementId) => {
+    if (!runServerless || !commercialAgreementId) {
+      console.log('🔄 Clearing agreement products - no commercial agreement selected');
+      setAgreementProducts([]);
+      return;
+    }
+
+    try {
+      console.log(`🔄 Loading agreement products for commercial agreement: ${commercialAgreementId}`);
+      
+      const response = await runServerless({
+        name: "fetchProductsForDeal",
+        parameters: {
+          dealId: commercialAgreementId // Use commercial agreement ID to fetch products
+        }
+      });
+
+      if (response?.status === "SUCCESS" && response?.response) {
+        const products = Array.isArray(response.response) ? response.response : [];
+        setAgreementProducts(products);
+        
+        if (products.length > 0) {
+          console.log(`✅ Loaded ${products.length} agreement products:`, products.map(p => ({
+            name: p.values?.name,
+            media: p.values?.media,
+            contentType: p.values?.content_type,
+            buyingModel: p.values?.buying_model,
+            price: p.values?.pircing,
+            currency: p.values?.currency
+          })));
+        } else {
+          console.log(`ℹ️ No agreement products found for commercial agreement: ${commercialAgreementId}`);
+        }
+
+        // Reload product catalog to apply agreement pricing overrides
+        if (hasProductsLoaded) {
+          await loadProductCatalog();
+        }
+      } else {
+        console.log('❌ Failed to load agreement products:', response?.message);
+        setAgreementProducts([]);
+      }
+    } catch (error) {
+      console.error('❌ Error loading agreement products:', error);
+      setAgreementProducts([]);
+    }
+  };
+
+  // Expose save method, agreement dates update, and agreement products loading to parent
   useImperativeHandle(ref, () => ({
     save: async () => {
       if (!lineItems || lineItems.length === 0) {
@@ -336,7 +385,8 @@ const LineItems = forwardRef(({
       if (saveState === COMPONENT_SAVE_STATES.ERROR) return "Failed to save Line Items.";
       return null;
     },
-    updateAgreementDates: updateAgreementDates
+    updateAgreementDates: updateAgreementDates,
+    loadAgreementProducts: loadAgreementProducts
   }));
 
   // === PRODUCT CATALOG FUNCTIONS ===
