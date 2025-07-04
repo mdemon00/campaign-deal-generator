@@ -344,6 +344,45 @@ const CommercialAgreement = forwardRef(({
     }
   };
 
+  // === CURRENCY FETCH FUNCTION ===
+  const fetchCompanyAndCurrencyFromAgreement = async (agreementId) => {
+    if (!runServerless || !agreementId) return;
+
+    try {
+      console.log(`💰 Fetching currency for Commercial Agreement ID: ${agreementId}`);
+      
+      // Save the commercial agreement to trigger the fetchCompanyFromAgreement function
+      const response = await runServerless({
+        name: "saveBasicInformation",
+        parameters: {
+          campaignDealId: context.crm.objectId,
+          commercialAgreement: agreementId,
+          createdBy: `${context?.user?.firstName || ''} ${context?.user?.lastName || ''}`.trim()
+        }
+      });
+
+      if (response?.status === "SUCCESS" && response?.response?.data) {
+        const data = response.response.data;
+        
+        // Update company/currency from response
+        if (data.companyInfo) {
+          console.log(`✅ Found currency: ${data.companyInfo.currency} for Agreement ID ${agreementId}`);
+          onChange('company', data.companyInfo.companyName || 'Not found');
+          onChange('currency', data.companyInfo.currency || 'Not found');
+        } else {
+          console.log(`⚠️ No company info found for Agreement ID ${agreementId}`);
+          onChange('currency', 'Not found');
+        }
+      } else {
+        console.log(`❌ Failed to fetch currency for Agreement ID ${agreementId}:`, response);
+        onChange('currency', 'Not found');
+      }
+    } catch (error) {
+      console.error(`❌ Error fetching currency for Agreement ID ${agreementId}:`, error);
+      onChange('currency', 'Not found');
+    }
+  };
+
   // === COMMERCIAL AGREEMENTS SEARCH FUNCTIONS ===
   const performAgreementSearch = async () => {
     if (!runServerless || !isEditMode || !agreementSearchTerm.trim()) return;
@@ -402,17 +441,17 @@ const CommercialAgreement = forwardRef(({
       // Fetch products for the selected commercial agreement
       fetchProductsForCommercialAgreement(value);
 
+      // Fetch currency and company info from the agreement
+      fetchCompanyAndCurrencyFromAgreement(value);
+
       if (selectedAgreement.hasCompany === false) {
         onChange('company', 'Not found');
-        onChange('currency', 'Not found');
         setCompanyStatus("");
       } else if (selectedAgreement.company && selectedAgreement.company !== 'No company found') {
         onChange('company', selectedAgreement.company);
-        onChange('currency', selectedAgreement.currency || 'Not found');
         setCompanyStatus("");
       } else {
         onChange('company', 'Not found');
-        onChange('currency', 'Not found');
         setCompanyStatus("");
       }
     } else {
