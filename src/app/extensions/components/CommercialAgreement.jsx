@@ -403,15 +403,17 @@ const CommercialAgreement = forwardRef(({
       fetchProductsForCommercialAgreement(value);
 
       if (selectedAgreement.hasCompany === false) {
-        onChange('company', 'No company found');
+        onChange('company', 'Not found');
         onChange('currency', 'Not found');
+        setCompanyStatus("");
       } else if (selectedAgreement.company && selectedAgreement.company !== 'No company found') {
         onChange('company', selectedAgreement.company);
         onChange('currency', selectedAgreement.currency || 'Not found');
+        setCompanyStatus("");
       } else {
-        onChange('company', 'Loading company...');
-        setCompanyStatus("🔄 Fetching company information...");
+        onChange('company', 'Not found');
         onChange('currency', 'Not found');
+        setCompanyStatus("");
       }
     } else {
       // Clear agreement products when no agreement is selected
@@ -638,7 +640,7 @@ const CommercialAgreement = forwardRef(({
               <Input
                 label="Company"
                 name="company"
-                placeholder={isEditMode ? "Auto-populated from agreement" : "No company information"}
+                placeholder={isEditMode ? "Company from agreement or Not found" : "No company information"}
                 value={formData.company}
                 readOnly={true}
               />
