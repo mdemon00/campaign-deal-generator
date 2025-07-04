@@ -135,6 +135,78 @@ const LineItems = forwardRef(({
         price: p.values.pircing,
         currency: p.values.currency
       })));
+
+      // Auto-apply common agreement dates immediately when agreement is selected
+      applyCommonAgreementDates(products);
+    } else {
+      // Clear agreement dates when no agreement products
+      setNewLineItem(prev => ({
+        ...prev,
+        startDate: null,
+        endDate: null,
+        hasAgreementDates: false
+      }));
+    }
+  };
+
+  // Function to apply common agreement dates to the form
+  const applyCommonAgreementDates = (products) => {
+    if (!products || products.length === 0) return;
+
+    // Find common start and end dates across all agreement products
+    let commonStartDate = null;
+    let commonEndDate = null;
+    let hasConsistentDates = true;
+
+    for (const product of products) {
+      const values = product.values;
+      
+      if (values.start_date) {
+        const startDate = new Date(parseInt(values.start_date));
+        const startDateObj = {
+          year: startDate.getFullYear(),
+          month: startDate.getMonth(),
+          date: startDate.getDate()
+        };
+
+        if (!commonStartDate) {
+          commonStartDate = startDateObj;
+        } else if (JSON.stringify(commonStartDate) !== JSON.stringify(startDateObj)) {
+          hasConsistentDates = false;
+          break;
+        }
+      }
+
+      if (values.end_date) {
+        const endDate = new Date(parseInt(values.end_date));
+        const endDateObj = {
+          year: endDate.getFullYear(),
+          month: endDate.getMonth(),
+          date: endDate.getDate()
+        };
+
+        if (!commonEndDate) {
+          commonEndDate = endDateObj;
+        } else if (JSON.stringify(commonEndDate) !== JSON.stringify(endDateObj)) {
+          hasConsistentDates = false;
+          break;
+        }
+      }
+    }
+
+    // Apply dates if they are consistent across all products
+    if (hasConsistentDates && (commonStartDate || commonEndDate)) {
+      console.log('📅 Applying common agreement dates:', {
+        startDate: commonStartDate,
+        endDate: commonEndDate
+      });
+
+      setNewLineItem(prev => ({
+        ...prev,
+        startDate: commonStartDate,
+        endDate: commonEndDate,
+        hasAgreementDates: !!(commonStartDate || commonEndDate)
+      }));
     }
   };
 
@@ -855,11 +927,15 @@ const LineItems = forwardRef(({
                   value={newLineItem.startDate}
                   onChange={(value) => handleNewLineItemChange("startDate", value)}
                 />
-                {newLineItem.hasAgreementDates && newLineItem.startDate && (
+                {newLineItem.hasAgreementDates && newLineItem.startDate ? (
                   <Text variant="microcopy" format={{ color: 'success' }} marginTop="extra-small">
                     Agreement start date applied
                   </Text>
-                )}
+                ) : newLineItem.startDate && !newLineItem.hasAgreementDates ? (
+                  <Text variant="microcopy" format={{ color: 'medium' }} marginTop="extra-small">
+                    Custom start date
+                  </Text>
+                ) : null}
               </Box>
               <Box flex={1} minWidth="150px">
                 <DateInput
@@ -868,11 +944,15 @@ const LineItems = forwardRef(({
                   value={newLineItem.endDate}
                   onChange={(value) => handleNewLineItemChange("endDate", value)}
                 />
-                {newLineItem.hasAgreementDates && newLineItem.endDate && (
+                {newLineItem.hasAgreementDates && newLineItem.endDate ? (
                   <Text variant="microcopy" format={{ color: 'success' }} marginTop="extra-small">
                     Agreement end date applied
                   </Text>
-                )}
+                ) : newLineItem.endDate && !newLineItem.hasAgreementDates ? (
+                  <Text variant="microcopy" format={{ color: 'medium' }} marginTop="extra-small">
+                    Custom end date
+                  </Text>
+                ) : null}
               </Box>
               <Box flex={1} minWidth="120px">
                 <NumberInput
@@ -883,11 +963,15 @@ const LineItems = forwardRef(({
                   onChange={(value) => handleNewLineItemChange("price", value)}
                   precision={2}
                 />
-                {newLineItem.hasAgreementPricing && (
+                {newLineItem.hasAgreementPricing ? (
                   <Text variant="microcopy" format={{ color: 'success' }} marginTop="extra-small">
                     Agreement price applied
                   </Text>
-                )}
+                ) : newLineItem.selectedProduct && newLineItem.price > 0 ? (
+                  <Text variant="microcopy" format={{ color: 'medium' }} marginTop="extra-small">
+                    Default price applied
+                  </Text>
+                ) : null}
               </Box>
               <Box flex={1} minWidth="120px">
                 <NumberInput
