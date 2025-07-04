@@ -653,7 +653,6 @@ const BasicInformation = forwardRef(({
         const data = response.response.data;
         setContacts(data.options || [{ label: "Select Contact", value: "" }]);
         setContactHasMore(data.hasMore || false);
-        setUseContactSearchMode(true);
         setLastContactSearchTerm(searchTerm);
 
         console.log('🔍 [SEARCH] Contact search results:', data.options?.length || 0);
