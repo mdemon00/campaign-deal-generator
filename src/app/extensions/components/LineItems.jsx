@@ -1043,7 +1043,7 @@ const LineItems = forwardRef(({
           <Box marginTop="medium">
             <Flex justify="space-between" align="center" marginBottom="medium">
               <Text format={{ fontWeight: "bold" }}>
-                {isFormInEditMode ? "✏️ Edit Line Item" : "➕ Add New Line Item"}
+                {isFormInEditMode ? "Edit Line Item" : "Add New Line Item"}
               </Text>
               {isFormInEditMode && (
                 <Button
@@ -1055,10 +1055,6 @@ const LineItems = forwardRef(({
                 </Button>
               )}
             </Flex>
-            
-            <Text format={{ fontWeight: "bold" }} marginBottom="small">
-              📦 Select Product
-            </Text>
 
             {/* Product Selection */}
             <Box marginBottom="medium">
