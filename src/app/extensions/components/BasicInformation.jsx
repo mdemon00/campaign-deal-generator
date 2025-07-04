@@ -58,18 +58,16 @@ const BasicInformation = forwardRef(({
   const [isDealOwnerSearching, setIsDealOwnerSearching] = useState(false);
   const [hasDealOwnerLoaded, setHasDealOwnerLoaded] = useState(false);
   const [dealOwnerErrorMessage, setDealOwnerErrorMessage] = useState("");
-  const [useDealOwnerSearchMode, setUseDealOwnerSearchMode] = useState(false);
   const [dealOwnerHasMore, setDealOwnerHasMore] = useState(false);
   const [lastDealOwnerSearchTerm, setLastDealOwnerSearchTerm] = useState("");
 
-  // === ASSIGNED CUSTOMER SERVICE STATE ===
-  const [customerServices, setCustomerServices] = useState([{ label: "Select CS Representative", value: "" }]);
+  // === DEAL CS STATE ===
+  const [customerServices, setCustomerServices] = useState([{ label: "Select Deal CS", value: "" }]);
   const [customerServiceSearchTerm, setCustomerServiceSearchTerm] = useState("");
   const [isCustomerServiceLoading, setIsCustomerServiceLoading] = useState(false);
   const [isCustomerServiceSearching, setIsCustomerServiceSearching] = useState(false);
   const [hasCustomerServiceLoaded, setHasCustomerServiceLoaded] = useState(false);
   const [customerServiceErrorMessage, setCustomerServiceErrorMessage] = useState("");
-  const [useCustomerServiceSearchMode, setUseCustomerServiceSearchMode] = useState(false);
   const [customerServiceHasMore, setCustomerServiceHasMore] = useState(false);
   const [lastCustomerServiceSearchTerm, setLastCustomerServiceSearchTerm] = useState("");
 
@@ -114,12 +112,7 @@ const BasicInformation = forwardRef(({
       if (!hasAdvertiserLoaded) {
         loadDefaultAdvertisers();
       }
-      if (!hasDealOwnerLoaded) {
-        loadDefaultDealOwners();
-      }
-      if (!hasCustomerServiceLoaded) {
-        loadDefaultCustomerServices();
-      }
+      // Skip loading default deal owners and customer services - we'll only load when user searches
       // Skip loading default contacts - we'll only load when user searches
     }
   }, [runServerless, isEditMode, hasAdvertiserLoaded, hasDealOwnerLoaded, hasCustomerServiceLoaded, hasContactLoaded]);
@@ -499,7 +492,6 @@ const BasicInformation = forwardRef(({
         const data = response.response.data;
         setDealOwners(data.options || DEAL_OWNER_OPTIONS);
         setDealOwnerHasMore(data.hasMore || false);
-        setUseDealOwnerSearchMode(true);
         setLastDealOwnerSearchTerm(searchTerm);
       } else {
         throw new Error("Invalid deal owner search response");
@@ -512,39 +504,7 @@ const BasicInformation = forwardRef(({
     }
   };
 
-  const loadDefaultDealOwners = async () => {
-    if (!runServerless || !isEditMode) return;
-
-    setIsDealOwnerLoading(true);
-    setDealOwnerErrorMessage("");
-
-    try {
-      const response = await runServerless({
-        name: "searchDealOwners",
-        parameters: {
-          loadAll: false,
-          limit: 20,
-          includeInactive: false
-        }
-      });
-
-      if (response && response.status === "SUCCESS" && response.response && response.response.data) {
-        const data = response.response.data;
-        setDealOwners(data.options || DEAL_OWNER_OPTIONS);
-        setDealOwnerHasMore(data.hasMore || false);
-        console.log('🔍 [DEFAULT] Loaded default deal owners:', data.options?.length || 0);
-      } else {
-        throw new Error("Invalid response from deal owner server");
-      }
-    } catch (error) {
-      console.error("Error loading deal owners:", error);
-      setDealOwnerErrorMessage(`Error: ${error.message}`);
-      setDealOwners(DEAL_OWNER_OPTIONS);
-    } finally {
-      setIsDealOwnerLoading(false);
-      setHasDealOwnerLoaded(true);
-    }
-  };
+  // Removed loadDefaultDealOwners - deal owners are now loaded only through search
 
   // === CUSTOMER SERVICE SEARCH FUNCTIONS ===
   const performCustomerServiceSearch = async () => {
@@ -568,14 +528,13 @@ const BasicInformation = forwardRef(({
 
       if (response && response.status === "SUCCESS" && response.response && response.response.data) {
         const data = response.response.data;
-        // Update labels to reflect CS role
+        // Update labels to reflect Deal CS role
         const options = data.options.map(option => ({
           ...option,
-          label: option.label === "Select Deal Owner" ? "Select CS Representative" : option.label
+          label: option.label === "Select Deal Owner" ? "Select Deal CS" : option.label
         }));
         setCustomerServices(options);
         setCustomerServiceHasMore(data.hasMore || false);
-        setUseCustomerServiceSearchMode(true);
         setLastCustomerServiceSearchTerm(searchTerm);
 
         console.log('🔍 [SEARCH] Customer service search results:', options?.length || 0);
@@ -590,44 +549,7 @@ const BasicInformation = forwardRef(({
     }
   };
 
-  const loadDefaultCustomerServices = async () => {
-    if (!runServerless || !isEditMode) return;
-
-    setIsCustomerServiceLoading(true);
-    setCustomerServiceErrorMessage("");
-
-    try {
-      const response = await runServerless({
-        name: "searchDealOwners", // Reuse deal owners for customer service
-        parameters: {
-          loadAll: false,
-          limit: 20,
-          includeInactive: false
-        }
-      });
-
-      if (response && response.status === "SUCCESS" && response.response && response.response.data) {
-        const data = response.response.data;
-        // Update labels to reflect CS role
-        const options = data.options.map(option => ({
-          ...option,
-          label: option.label === "Select Deal Owner" ? "Select CS Representative" : option.label
-        }));
-        setCustomerServices(options);
-        setCustomerServiceHasMore(data.hasMore || false);
-        console.log('🔍 [DEFAULT] Loaded default customer services:', options?.length || 0);
-      } else {
-        throw new Error("Invalid response from customer service server");
-      }
-    } catch (error) {
-      console.error("Error loading customer services:", error);
-      setCustomerServiceErrorMessage(`Error: ${error.message}`);
-      setCustomerServices([{ label: "Select CS Representative", value: "" }]);
-    } finally {
-      setIsCustomerServiceLoading(false);
-      setHasCustomerServiceLoaded(true);
-    }
-  };
+  // Removed loadDefaultCustomerServices - deal CS are now loaded only through search
 
   // === CONTACT SEARCH FUNCTIONS ===
   const performContactSearch = async () => {
@@ -706,7 +628,6 @@ const BasicInformation = forwardRef(({
 
     if (selectedDealOwner && selectedDealOwner.value !== "") {
       setDealOwnerSearchTerm(selectedDealOwner.label);
-      setUseDealOwnerSearchMode(false);
     }
   };
 
@@ -719,7 +640,6 @@ const BasicInformation = forwardRef(({
 
     if (selectedCS && selectedCS.value !== "") {
       setCustomerServiceSearchTerm(selectedCS.label);
-      setUseCustomerServiceSearchMode(false);
     }
   };
 
@@ -764,19 +684,17 @@ const BasicInformation = forwardRef(({
   const clearDealOwnerSearch = () => {
     if (!isEditMode) return;
     setDealOwnerSearchTerm("");
-    setUseDealOwnerSearchMode(false);
     setDealOwnerErrorMessage("");
     setLastDealOwnerSearchTerm("");
-    loadDefaultDealOwners();
+    setDealOwners(DEAL_OWNER_OPTIONS);
   };
 
   const clearCustomerServiceSearch = () => {
     if (!isEditMode) return;
     setCustomerServiceSearchTerm("");
-    setUseCustomerServiceSearchMode(false);
     setCustomerServiceErrorMessage("");
     setLastCustomerServiceSearchTerm("");
-    loadDefaultCustomerServices();
+    setCustomerServices([{ label: "Select Deal CS", value: "" }]);
   };
 
   const clearContactSearch = () => {
@@ -803,35 +721,7 @@ const BasicInformation = forwardRef(({
     setLastAdvertiserSearchTerm("");
   };
 
-  const switchDealOwnerToBrowseMode = () => {
-    if (!isEditMode) return;
-    setUseDealOwnerSearchMode(false);
-    setDealOwnerSearchTerm("");
-    setLastDealOwnerSearchTerm("");
-    loadDefaultDealOwners();
-  };
-
-  const switchDealOwnerToSearchMode = () => {
-    if (!isEditMode) return;
-    setUseDealOwnerSearchMode(true);
-    setDealOwnerSearchTerm("");
-    setLastDealOwnerSearchTerm("");
-  };
-
-  const switchCustomerServiceToBrowseMode = () => {
-    if (!isEditMode) return;
-    setUseCustomerServiceSearchMode(false);
-    setCustomerServiceSearchTerm("");
-    setLastCustomerServiceSearchTerm("");
-    loadDefaultCustomerServices();
-  };
-
-  const switchCustomerServiceToSearchMode = () => {
-    if (!isEditMode) return;
-    setUseCustomerServiceSearchMode(true);
-    setCustomerServiceSearchTerm("");
-    setLastCustomerServiceSearchTerm("");
-  };
+  // Removed browse/search mode switching for deal owners and customer service
 
   // Removed browse/search mode switching for contacts
 
@@ -887,28 +777,20 @@ const BasicInformation = forwardRef(({
     if (!isEditMode) return "";
     if (isDealOwnerSearching) return "Searching deal owners...";
     if (isDealOwnerLoading) return "Loading deal owners...";
-    if (useDealOwnerSearchMode && lastDealOwnerSearchTerm) {
+    if (lastDealOwnerSearchTerm) {
       const count = dealOwners.length > 1 ? dealOwners.length - 1 : 0;
       return `${count} results for "${lastDealOwnerSearchTerm}"`;
-    }
-    if (dealOwners.length > 1) {
-      const count = dealOwners.length - 1;
-      return `${count} deal owners available${dealOwnerHasMore ? ' (load more below)' : ''}`;
     }
     return "";
   };
 
   const getCustomerServiceStatusMessage = () => {
     if (!isEditMode) return "";
-    if (isCustomerServiceSearching) return "Searching CS representatives...";
-    if (isCustomerServiceLoading) return "Loading CS representatives...";
-    if (useCustomerServiceSearchMode && lastCustomerServiceSearchTerm) {
+    if (isCustomerServiceSearching) return "Searching deal CS...";
+    if (isCustomerServiceLoading) return "Loading deal CS...";
+    if (lastCustomerServiceSearchTerm) {
       const count = customerServices.length > 1 ? customerServices.length - 1 : 0;
       return `${count} results for "${lastCustomerServiceSearchTerm}"`;
-    }
-    if (customerServices.length > 1) {
-      const count = customerServices.length - 1;
-      return `${count} CS representatives available${customerServiceHasMore ? ' (load more below)' : ''}`;
     }
     return "";
   };
@@ -1147,39 +1029,8 @@ const BasicInformation = forwardRef(({
 
         <Divider></ Divider>
 
-        {/* ROW 4: Deal Owner (Full Row - Has Browse/Search) */}
+        {/* ROW 4: Deal Owner (Simple Search Interface) */}
         <Box marginBottom="extra-large">
-          {/* Mode Controls - Only show in Edit Mode */}
-          {isEditMode && (
-            <Flex gap="small" marginBottom="small" wrap="wrap">
-              <Button
-                variant={!useDealOwnerSearchMode ? "primary" : "secondary"}
-                size="xs"
-                onClick={switchDealOwnerToBrowseMode}
-                disabled={isDealOwnerLoading}
-              >
-                📋 Browse
-              </Button>
-              <Button
-                variant={useDealOwnerSearchMode ? "primary" : "secondary"}
-                size="xs"
-                onClick={switchDealOwnerToSearchMode}
-                disabled={isDealOwnerLoading}
-              >
-                🔍 Search
-              </Button>
-              {useDealOwnerSearchMode && (
-                <Button
-                  variant="secondary"
-                  size="xs"
-                  onClick={clearDealOwnerSearch}
-                >
-                  ✕ Clear
-                </Button>
-              )}
-            </Flex>
-          )}
-
           {/* View Mode: Simple Input Display */}
           {!isEditMode && (
             <Input
@@ -1194,202 +1045,187 @@ const BasicInformation = forwardRef(({
             />
           )}
 
-          {/* Edit Mode: Search or Select */}
-          {isEditMode && useDealOwnerSearchMode ? (
-            <Flex gap="small" direction="row" align="end">
-              <Box flex={1}>
-                <Input
-                  label="Search Deal Owners *"
-                  name="searchDealOwners"
-                  placeholder="Enter owner name..."
-                  value={dealOwnerSearchTerm}
-                  onChange={(value) => setDealOwnerSearchTerm(value)}
-                  disabled={isDealOwnerLoading || isDealOwnerSearching}
-                />
-              </Box>
-              <Box>
-                <Button
-                  onClick={performDealOwnerSearch}
-                  disabled={!dealOwnerSearchTerm.trim() || isDealOwnerSearching || isDealOwnerLoading}
-                >
-                  {isDealOwnerSearching ? <LoadingSpinner size="xs" /> : "🔍"}
-                </Button>
-              </Box>
-            </Flex>
-          ) : isEditMode ? (
-            <Select
-              label="Deal Owner *"
-              name="dealOwner"
-              options={dealOwners}
-              value={formData.dealOwner}
-              onChange={(value) => handleFieldChange("dealOwner", value)}
-              required
-              disabled={isDealOwnerLoading}
-            />
-          ) : null}
+          {/* Edit Mode: Simple Search Interface */}
+          {isEditMode && (
+            <>
+              <Flex gap="small" direction="row" align="end">
+                <Box flex={1}>
+                  <Input
+                    label="Search Deal Owners *"
+                    name="searchDealOwners"
+                    placeholder="Enter owner name or email..."
+                    value={dealOwnerSearchTerm}
+                    onChange={(value) => setDealOwnerSearchTerm(value)}
+                    disabled={isDealOwnerLoading || isDealOwnerSearching}
+                  />
+                </Box>
+                <Box>
+                  <Button
+                    onClick={performDealOwnerSearch}
+                    disabled={!dealOwnerSearchTerm.trim() || isDealOwnerSearching || isDealOwnerLoading}
+                  >
+                    {isDealOwnerSearching ? <LoadingSpinner size="xs" /> : "🔍 Search"}
+                  </Button>
+                </Box>
+                {lastDealOwnerSearchTerm && (
+                  <Box>
+                    <Button
+                      variant="secondary"
+                      size="xs"
+                      onClick={clearDealOwnerSearch}
+                    >
+                      ✕ Clear
+                    </Button>
+                  </Box>
+                )}
+              </Flex>
 
-          {/* Search Results - Only in Edit Mode */}
-          {isEditMode && useDealOwnerSearchMode && lastDealOwnerSearchTerm && dealOwners.length > 1 && (
-            <Box marginTop="small">
-              <Select
-                label="Select from search results"
-                name="dealOwnerSearchResults"
-                options={dealOwners}
-                value={formData.dealOwner}
-                onChange={(value) => handleFieldChange("dealOwner", value)}
-                disabled={isDealOwnerSearching}
-              />
-            </Box>
-          )}
+              {/* Search Results */}
+              {lastDealOwnerSearchTerm && dealOwners.length > 1 && (
+                <Box marginTop="small">
+                  <Select
+                    label="Select from search results"
+                    name="dealOwnerSearchResults"
+                    options={dealOwners}
+                    value={formData.dealOwner}
+                    onChange={(value) => handleFieldChange("dealOwner", value)}
+                    disabled={isDealOwnerSearching}
+                  />
+                </Box>
+              )}
 
-          {/* Status Messages - Only in Edit Mode */}
-          {getDealOwnerStatusMessage() && (
-            <Text variant="microcopy" format={{ color: 'medium' }}>
-              {getDealOwnerStatusMessage()}
-            </Text>
-          )}
+              {/* Status Messages */}
+              {getDealOwnerStatusMessage() && (
+                <Text variant="microcopy" format={{ color: 'medium' }}>
+                  {getDealOwnerStatusMessage()}
+                </Text>
+              )}
 
-          {/* Error Messages - Only in Edit Mode */}
-          {isEditMode && dealOwnerErrorMessage && (
-            <Box marginTop="extra-small">
-              <Text variant="microcopy" format={{ color: 'error' }}>
-                {dealOwnerErrorMessage}
-              </Text>
-              <Box marginTop="extra-small">
-                <Button
-                  variant="secondary"
-                  size="xs"
-                  onClick={loadDefaultDealOwners}
-                  disabled={isDealOwnerLoading}
-                >
-                  Retry
-                </Button>
-              </Box>
-            </Box>
+              {/* Error Messages */}
+              {dealOwnerErrorMessage && (
+                <Box marginTop="extra-small">
+                  <Text variant="microcopy" format={{ color: 'error' }}>
+                    {dealOwnerErrorMessage}
+                  </Text>
+                  <Box marginTop="extra-small">
+                    <Button
+                      variant="secondary"
+                      size="xs"
+                      onClick={() => {
+                        setDealOwnerErrorMessage("");
+                        if (lastDealOwnerSearchTerm) {
+                          performDealOwnerSearch();
+                        }
+                      }}
+                      disabled={isDealOwnerLoading}
+                    >
+                      Retry
+                    </Button>
+                  </Box>
+                </Box>
+              )}
+            </>
           )}
         </Box>
 
         <Divider></ Divider>
 
-        {/* ROW 5: Assigned Customer Service (Full Row - Has Browse/Search) */}
+        {/* ROW 5: Deal CS (Simple Search Interface) */}
         <Box marginBottom="extra-large">
-          {/* Mode Controls - Only show in Edit Mode */}
-          {isEditMode && (
-            <Flex gap="small" marginBottom="small" wrap="wrap">
-              <Button
-                variant={!useCustomerServiceSearchMode ? "primary" : "secondary"}
-                size="xs"
-                onClick={switchCustomerServiceToBrowseMode}
-                disabled={isCustomerServiceLoading}
-              >
-                📋 Browse
-              </Button>
-              <Button
-                variant={useCustomerServiceSearchMode ? "primary" : "secondary"}
-                size="xs"
-                onClick={switchCustomerServiceToSearchMode}
-                disabled={isCustomerServiceLoading}
-              >
-                🔍 Search
-              </Button>
-              {useCustomerServiceSearchMode && (
-                <Button
-                  variant="secondary"
-                  size="xs"
-                  onClick={clearCustomerServiceSearch}
-                >
-                  ✕ Clear
-                </Button>
-              )}
-            </Flex>
-          )}
-
           {/* View Mode: Simple Input Display */}
           {!isEditMode && (
             <Input
-              label="Assigned Customer Service *"
+              label="Deal CS *"
               name="assignedCustomerService"
-              placeholder="No CS representative selected"
+              placeholder="No deal CS selected"
               value={
                 displayLabels.assignedCustomerService ||
-                (formData.assignedCustomerService ? `CS Rep (${formData.assignedCustomerService})` : "")
+                (formData.assignedCustomerService ? `Deal CS (${formData.assignedCustomerService})` : "")
               }
               readOnly={true}
             />
           )}
 
-          {/* Edit Mode: Search or Select */}
-          {isEditMode && useCustomerServiceSearchMode ? (
-            <Flex gap="small" direction="row" align="end">
-              <Box flex={1}>
-                <Input
-                  label="Search CS Representatives *"
-                  name="searchCustomerService"
-                  placeholder="Enter CS rep name..."
-                  value={customerServiceSearchTerm}
-                  onChange={(value) => setCustomerServiceSearchTerm(value)}
-                  disabled={isCustomerServiceLoading || isCustomerServiceSearching}
-                />
-              </Box>
-              <Box>
-                <Button
-                  onClick={performCustomerServiceSearch}
-                  disabled={!customerServiceSearchTerm.trim() || isCustomerServiceSearching || isCustomerServiceLoading}
-                >
-                  {isCustomerServiceSearching ? <LoadingSpinner size="xs" /> : "🔍"}
-                </Button>
-              </Box>
-            </Flex>
-          ) : isEditMode ? (
-            <Select
-              label="Assigned Customer Service *"
-              name="assignedCustomerService"
-              options={customerServices}
-              value={formData.assignedCustomerService}
-              onChange={(value) => handleFieldChange("assignedCustomerService", value)}
-              required
-              disabled={isCustomerServiceLoading}
-            />
-          ) : null}
+          {/* Edit Mode: Simple Search Interface */}
+          {isEditMode && (
+            <>
+              <Flex gap="small" direction="row" align="end">
+                <Box flex={1}>
+                  <Input
+                    label="Search Deal CS *"
+                    name="searchCustomerService"
+                    placeholder="Enter deal CS name or email..."
+                    value={customerServiceSearchTerm}
+                    onChange={(value) => setCustomerServiceSearchTerm(value)}
+                    disabled={isCustomerServiceLoading || isCustomerServiceSearching}
+                  />
+                </Box>
+                <Box>
+                  <Button
+                    onClick={performCustomerServiceSearch}
+                    disabled={!customerServiceSearchTerm.trim() || isCustomerServiceSearching || isCustomerServiceLoading}
+                  >
+                    {isCustomerServiceSearching ? <LoadingSpinner size="xs" /> : "🔍 Search"}
+                  </Button>
+                </Box>
+                {lastCustomerServiceSearchTerm && (
+                  <Box>
+                    <Button
+                      variant="secondary"
+                      size="xs"
+                      onClick={clearCustomerServiceSearch}
+                    >
+                      ✕ Clear
+                    </Button>
+                  </Box>
+                )}
+              </Flex>
 
-          {/* Search Results - Only in Edit Mode */}
-          {isEditMode && useCustomerServiceSearchMode && lastCustomerServiceSearchTerm && customerServices.length > 1 && (
-            <Box marginTop="small">
-              <Select
-                label="Select from search results"
-                name="customerServiceSearchResults"
-                options={customerServices}
-                value={formData.assignedCustomerService}
-                onChange={(value) => handleFieldChange("assignedCustomerService", value)}
-                disabled={isCustomerServiceSearching}
-              />
-            </Box>
-          )}
+              {/* Search Results */}
+              {lastCustomerServiceSearchTerm && customerServices.length > 1 && (
+                <Box marginTop="small">
+                  <Select
+                    label="Select from search results"
+                    name="customerServiceSearchResults"
+                    options={customerServices}
+                    value={formData.assignedCustomerService}
+                    onChange={(value) => handleFieldChange("assignedCustomerService", value)}
+                    disabled={isCustomerServiceSearching}
+                  />
+                </Box>
+              )}
 
-          {/* Status Messages - Only in Edit Mode */}
-          {getCustomerServiceStatusMessage() && (
-            <Text variant="microcopy" format={{ color: 'medium' }}>
-              {getCustomerServiceStatusMessage()}
-            </Text>
-          )}
+              {/* Status Messages */}
+              {getCustomerServiceStatusMessage() && (
+                <Text variant="microcopy" format={{ color: 'medium' }}>
+                  {getCustomerServiceStatusMessage()}
+                </Text>
+              )}
 
-          {/* Error Messages - Only in Edit Mode */}
-          {isEditMode && customerServiceErrorMessage && (
-            <Box marginTop="extra-small">
-              <Text variant="microcopy" format={{ color: 'error' }}>
-                {customerServiceErrorMessage}
-              </Text>
-              <Box marginTop="extra-small">
-                <Button
-                  variant="secondary"
-                  size="xs"
-                  onClick={loadDefaultCustomerServices}
-                  disabled={isCustomerServiceLoading}
-                >
-                  Retry
-                </Button>
-              </Box>
-            </Box>
+              {/* Error Messages */}
+              {customerServiceErrorMessage && (
+                <Box marginTop="extra-small">
+                  <Text variant="microcopy" format={{ color: 'error' }}>
+                    {customerServiceErrorMessage}
+                  </Text>
+                  <Box marginTop="extra-small">
+                    <Button
+                      variant="secondary"
+                      size="xs"
+                      onClick={() => {
+                        setCustomerServiceErrorMessage("");
+                        if (lastCustomerServiceSearchTerm) {
+                          performCustomerServiceSearch();
+                        }
+                      }}
+                      disabled={isCustomerServiceLoading}
+                    >
+                      Retry
+                    </Button>
+                  </Box>
+                </Box>
+              )}
+            </>
           )}
         </Box>
 
