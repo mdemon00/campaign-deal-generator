@@ -47,7 +47,6 @@ const BasicInformation = forwardRef(({
   const [isAdvertiserSearching, setIsAdvertiserSearching] = useState(false);
   const [hasAdvertiserLoaded, setHasAdvertiserLoaded] = useState(false);
   const [advertiserErrorMessage, setAdvertiserErrorMessage] = useState("");
-  const [useAdvertiserSearchMode, setUseAdvertiserSearchMode] = useState(false);
   const [advertiserHasMore, setAdvertiserHasMore] = useState(false);
   const [lastAdvertiserSearchTerm, setLastAdvertiserSearchTerm] = useState("");
 
@@ -109,9 +108,7 @@ const BasicInformation = forwardRef(({
   // Load default data for all search components (only in edit mode)
   useEffect(() => {
     if (runServerless && isEditMode) {
-      if (!hasAdvertiserLoaded) {
-        loadDefaultAdvertisers();
-      }
+      // Skip loading default advertisers - we'll only load when user searches
       // Skip loading default deal owners and customer services - we'll only load when user searches
       // Skip loading default contacts - we'll only load when user searches
     }
@@ -419,7 +416,6 @@ const BasicInformation = forwardRef(({
         const data = response.response.data;
         setAdvertisers(data.options || [{ label: "Select Advertiser", value: "" }]);
         setAdvertiserHasMore(data.hasMore || false);
-        setUseAdvertiserSearchMode(true);
         setLastAdvertiserSearchTerm(searchTerm);
       } else {
         throw new Error("Invalid advertiser search response");
@@ -432,41 +428,7 @@ const BasicInformation = forwardRef(({
     }
   };
 
-  const loadDefaultAdvertisers = async () => {
-    if (!runServerless || !isEditMode) return;
-
-    setIsAdvertiserLoading(true);
-    setAdvertiserErrorMessage("");
-
-    try {
-      const response = await runServerless({
-        name: "searchAdvertisers",
-        parameters: {
-          loadAll: false,
-          limit: 20
-        }
-      });
-
-      if (response && response.status === "SUCCESS" && response.response && response.response.data) {
-        const data = response.response.data;
-        setAdvertisers(data.options || [{ label: "Select Advertiser", value: "" }]);
-        setAdvertiserHasMore(data.hasMore || false);
-      } else {
-        throw new Error("Invalid response from advertiser server");
-      }
-    } catch (error) {
-      console.error("Error loading advertisers:", error);
-      setAdvertiserErrorMessage(`Error: ${error.message}`);
-      setAdvertisers([
-        { label: "Select Advertiser", value: "" },
-        { label: "Lancome", value: "lancome" },
-        { label: "L'Oreal", value: "loreal" },
-      ]);
-    } finally {
-      setIsAdvertiserLoading(false);
-      setHasAdvertiserLoaded(true);
-    }
-  };
+  // Removed loadDefaultAdvertisers - advertisers are now loaded only through search
 
   // === DEAL OWNERS SEARCH FUNCTIONS ===
   const performDealOwnerSearch = async () => {
@@ -601,7 +563,6 @@ const BasicInformation = forwardRef(({
 
     if (selectedAdvertiser && selectedAdvertiser.value !== "" && selectedAdvertiser.value !== "new") {
       setAdvertiserSearchTerm(selectedAdvertiser.label);
-      setUseAdvertiserSearchMode(false);
 
       console.log(`🔧 [EDIT MODE] Auto-populating from advertiser selection:`, selectedAdvertiser);
 
@@ -675,10 +636,9 @@ const BasicInformation = forwardRef(({
   const clearAdvertiserSearch = () => {
     if (!isEditMode) return;
     setAdvertiserSearchTerm("");
-    setUseAdvertiserSearchMode(false);
     setAdvertiserErrorMessage("");
     setLastAdvertiserSearchTerm("");
-    loadDefaultAdvertisers();
+    setAdvertisers([{ label: "Select Advertiser", value: "" }]);
   };
 
   const clearDealOwnerSearch = () => {
@@ -706,20 +666,7 @@ const BasicInformation = forwardRef(({
   };
 
   // === MODE CONTROL FUNCTIONS ===
-  const switchAdvertiserToBrowseMode = () => {
-    if (!isEditMode) return;
-    setUseAdvertiserSearchMode(false);
-    setAdvertiserSearchTerm("");
-    setLastAdvertiserSearchTerm("");
-    loadDefaultAdvertisers();
-  };
-
-  const switchAdvertiserToSearchMode = () => {
-    if (!isEditMode) return;
-    setUseAdvertiserSearchMode(true);
-    setAdvertiserSearchTerm("");
-    setLastAdvertiserSearchTerm("");
-  };
+  // Removed browse/search mode switching for advertisers
 
   // Removed browse/search mode switching for deal owners and customer service
 
@@ -762,13 +709,9 @@ const BasicInformation = forwardRef(({
     if (!isEditMode) return "";
     if (isAdvertiserSearching) return "Searching advertisers...";
     if (isAdvertiserLoading) return "Loading advertisers...";
-    if (useAdvertiserSearchMode && lastAdvertiserSearchTerm) {
+    if (lastAdvertiserSearchTerm) {
       const count = advertisers.length > 1 ? advertisers.length - 1 : 0;
       return `${count} results for "${lastAdvertiserSearchTerm}"`;
-    }
-    if (advertisers.length > 1) {
-      const count = advertisers.length - 1;
-      return `${count} advertisers available${advertiserHasMore ? ' (load more below)' : ''}`;
     }
     return "";
   };
@@ -880,39 +823,8 @@ const BasicInformation = forwardRef(({
 
         <Divider></ Divider>
 
-        {/* ROW 2: Advertiser (Full Row - Has Browse/Search) */}
+        {/* ROW 2: Advertiser (Simple Search Interface) */}
         <Box marginBottom="extra-large">
-          {/* Mode Controls - Only show in Edit Mode */}
-          {isEditMode && (
-            <Flex gap="small" marginBottom="small" wrap="wrap">
-              <Button
-                variant={!useAdvertiserSearchMode ? "primary" : "secondary"}
-                size="xs"
-                onClick={switchAdvertiserToBrowseMode}
-                disabled={isAdvertiserLoading}
-              >
-                📋 Browse
-              </Button>
-              <Button
-                variant={useAdvertiserSearchMode ? "primary" : "secondary"}
-                size="xs"
-                onClick={switchAdvertiserToSearchMode}
-                disabled={isAdvertiserLoading}
-              >
-                🔍 Search
-              </Button>
-              {useAdvertiserSearchMode && (
-                <Button
-                  variant="secondary"
-                  size="xs"
-                  onClick={clearAdvertiserSearch}
-                >
-                  ✕ Clear
-                </Button>
-              )}
-            </Flex>
-          )}
-
           {/* View Mode: Simple Input Display */}
           {!isEditMode && (
             <Input
@@ -927,78 +839,86 @@ const BasicInformation = forwardRef(({
             />
           )}
 
-          {/* Edit Mode: Search or Select */}
-          {isEditMode && useAdvertiserSearchMode ? (
-            <Flex gap="small" direction="row" align="end">
-              <Box flex={1}>
-                <Input
-                  label="Search Advertisers *"
-                  name="searchAdvertisers"
-                  placeholder="Enter advertiser name..."
-                  value={advertiserSearchTerm}
-                  onChange={(value) => setAdvertiserSearchTerm(value)}
-                  disabled={isAdvertiserLoading || isAdvertiserSearching}
-                />
-              </Box>
-              <Box>
-                <Button
-                  onClick={performAdvertiserSearch}
-                  disabled={!advertiserSearchTerm.trim() || isAdvertiserSearching || isAdvertiserLoading}
-                >
-                  {isAdvertiserSearching ? <LoadingSpinner size="xs" /> : "🔍"}
-                </Button>
-              </Box>
-            </Flex>
-          ) : isEditMode ? (
-            <Select
-              label="Advertiser *"
-              name="advertiser"
-              options={advertisers}
-              value={formData.advertiser}
-              onChange={(value) => handleFieldChange("advertiser", value)}
-              required
-              disabled={isAdvertiserLoading}
-            />
-          ) : null}
+          {/* Edit Mode: Simple Search Interface */}
+          {isEditMode && (
+            <>
+              <Flex gap="small" direction="row" align="end">
+                <Box flex={1}>
+                  <Input
+                    label="Search Advertisers *"
+                    name="searchAdvertisers"
+                    placeholder="Enter advertiser or company name..."
+                    value={advertiserSearchTerm}
+                    onChange={(value) => setAdvertiserSearchTerm(value)}
+                    disabled={isAdvertiserLoading || isAdvertiserSearching}
+                  />
+                </Box>
+                <Box>
+                  <Button
+                    onClick={performAdvertiserSearch}
+                    disabled={!advertiserSearchTerm.trim() || isAdvertiserSearching || isAdvertiserLoading}
+                  >
+                    {isAdvertiserSearching ? <LoadingSpinner size="xs" /> : "🔍 Search"}
+                  </Button>
+                </Box>
+                {lastAdvertiserSearchTerm && (
+                  <Box>
+                    <Button
+                      variant="secondary"
+                      size="xs"
+                      onClick={clearAdvertiserSearch}
+                    >
+                      ✕ Clear
+                    </Button>
+                  </Box>
+                )}
+              </Flex>
 
-          {/* Search Results - Only in Edit Mode */}
-          {isEditMode && useAdvertiserSearchMode && lastAdvertiserSearchTerm && advertisers.length > 1 && (
-            <Box marginTop="small">
-              <Select
-                label="Select from search results"
-                name="advertiserSearchResults"
-                options={advertisers}
-                value={formData.advertiser}
-                onChange={(value) => handleFieldChange("advertiser", value)}
-                disabled={isAdvertiserSearching}
-              />
-            </Box>
-          )}
+              {/* Search Results */}
+              {lastAdvertiserSearchTerm && advertisers.length > 1 && (
+                <Box marginTop="small">
+                  <Select
+                    label="Select from search results"
+                    name="advertiserSearchResults"
+                    options={advertisers}
+                    value={formData.advertiser}
+                    onChange={(value) => handleFieldChange("advertiser", value)}
+                    disabled={isAdvertiserSearching}
+                  />
+                </Box>
+              )}
 
-          {/* Status Messages - Only in Edit Mode */}
-          {getAdvertiserStatusMessage() && (
-            <Text variant="microcopy" format={{ color: 'medium' }}>
-              {getAdvertiserStatusMessage()}
-            </Text>
-          )}
+              {/* Status Messages */}
+              {getAdvertiserStatusMessage() && (
+                <Text variant="microcopy" format={{ color: 'medium' }}>
+                  {getAdvertiserStatusMessage()}
+                </Text>
+              )}
 
-          {/* Error Messages - Only in Edit Mode */}
-          {isEditMode && advertiserErrorMessage && (
-            <Box marginTop="extra-small">
-              <Text variant="microcopy" format={{ color: 'error' }}>
-                {advertiserErrorMessage}
-              </Text>
-              <Box marginTop="extra-small">
-                <Button
-                  variant="secondary"
-                  size="xs"
-                  onClick={loadDefaultAdvertisers}
-                  disabled={isAdvertiserLoading}
-                >
-                  Retry
-                </Button>
-              </Box>
-            </Box>
+              {/* Error Messages */}
+              {advertiserErrorMessage && (
+                <Box marginTop="extra-small">
+                  <Text variant="microcopy" format={{ color: 'error' }}>
+                    {advertiserErrorMessage}
+                  </Text>
+                  <Box marginTop="extra-small">
+                    <Button
+                      variant="secondary"
+                      size="xs"
+                      onClick={() => {
+                        setAdvertiserErrorMessage("");
+                        if (lastAdvertiserSearchTerm) {
+                          performAdvertiserSearch();
+                        }
+                      }}
+                      disabled={isAdvertiserLoading}
+                    >
+                      Retry
+                    </Button>
+                  </Box>
+                </Box>
+              )}
+            </>
           )}
         </Box>
 

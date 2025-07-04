@@ -192,17 +192,48 @@ async function getCustomProperties(hubspotClient, objectId) {
  * Search advertisers by term
  */
 async function searchAdvertisers(hubspotClient, objectId, searchTerm) {
+  console.log(`🔍 [SEARCH] Starting advertiser search for: "${searchTerm}"`);
+  
   try {
     const availableProperties = await getCustomProperties(hubspotClient, objectId);
     
-    const advertisers = await hubspotClient.crm.objects.basicApi.getPage(
-      objectId,
-      100,
-      undefined,
-      availableProperties.length > 0 ? availableProperties : undefined
-    );
+    // Fetch ALL advertisers by paginating through the API
+    let allAdvertisers = [];
+    let hasMore = true;
+    let after = undefined;
+    const batchSize = 100;
+    
+    while (hasMore && allAdvertisers.length < 1000) { // Safety limit of 1000 advertisers
+      const advertisers = await hubspotClient.crm.objects.basicApi.getPage(
+        objectId,
+        batchSize,
+        after,
+        availableProperties.length > 0 ? availableProperties : undefined
+      );
+      
+      if (!advertisers.results || advertisers.results.length === 0) {
+        break;
+      }
+      
+      allAdvertisers.push(...advertisers.results);
+      
+      // Check if there are more pages
+      if (advertisers.paging && advertisers.paging.next && advertisers.paging.next.after) {
+        after = advertisers.paging.next.after;
+      } else {
+        hasMore = false;
+      }
+      
+      // If we got less than the batch size, we've reached the end
+      if (advertisers.results.length < batchSize) {
+        hasMore = false;
+      }
+    }
 
-    if (!advertisers.results || advertisers.results.length === 0) {
+    console.log(`🔍 [SEARCH] Fetched ${allAdvertisers.length} total advertisers from HubSpot`);
+
+    if (allAdvertisers.length === 0) {
+      console.warn(`⚠️ [SEARCH] No advertisers found in system`);
       return {
         status: "SUCCESS",
         data: {
@@ -216,7 +247,8 @@ async function searchAdvertisers(hubspotClient, objectId, searchTerm) {
       };
     }
 
-    const filteredAdvertisers = advertisers.results.filter((advertiser) => {
+    // Filter advertisers by search term (case-insensitive)
+    const filteredAdvertisers = allAdvertisers.filter((advertiser) => {
       const searchableFields = [
         advertiser.properties.advertiser,
         advertiser.properties.name,
@@ -238,6 +270,8 @@ async function searchAdvertisers(hubspotClient, objectId, searchTerm) {
       );
     });
 
+    console.log(`🔍 [SEARCH] Filtered to ${filteredAdvertisers.length} matching advertisers`);
+
     const processedAdvertisers = await Promise.all(
       filteredAdvertisers.map((advertiser, index) => 
         processAdvertiserWithCompany(hubspotClient, advertiser, index)
@@ -250,6 +284,8 @@ async function searchAdvertisers(hubspotClient, objectId, searchTerm) {
       { label: "Select Advertiser", value: "" },
       ...processedAdvertisers,
     ];
+
+    console.log(`✅ [SEARCH] Final search results: ${processedAdvertisers.length} advertisers`);
 
     return {
       status: "SUCCESS",
@@ -264,8 +300,77 @@ async function searchAdvertisers(hubspotClient, objectId, searchTerm) {
     };
 
   } catch (error) {
-    console.error("Error in searchAdvertisers:", error);
-    throw error;
+    console.error(`❌ [SEARCH] Error in searchAdvertisers:`, error);
+    
+    // Fallback to limited search if full pagination fails
+    console.log(`🔄 [SEARCH] Falling back to limited advertiser search`);
+    try {
+      const availableProperties = await getCustomProperties(hubspotClient, objectId);
+      
+      const advertisers = await hubspotClient.crm.objects.basicApi.getPage(
+        objectId,
+        200,
+        undefined,
+        availableProperties.length > 0 ? availableProperties : undefined
+      );
+      
+      if (!advertisers.results || advertisers.results.length === 0) {
+        throw new Error("No advertisers found in fallback search");
+      }
+
+      const filteredAdvertisers = advertisers.results.filter((advertiser) => {
+        const searchableFields = [
+          advertiser.properties.advertiser,
+          advertiser.properties.name,
+          advertiser.properties.advertiser_name,
+          advertiser.properties.title,
+          advertiser.properties.label,
+          advertiser.properties.display_name,
+          advertiser.properties.company_name,
+          advertiser.properties.brand_name,
+          advertiser.properties.client_name,
+          advertiser.properties.account_name,
+          advertiser.properties.business_name,
+          advertiser.properties.organization_name,
+          advertiser.properties.domain
+        ];
+
+        return searchableFields.some(field => 
+          field && field.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      });
+
+      const processedAdvertisers = await Promise.all(
+        filteredAdvertisers.map((advertiser, index) => 
+          processAdvertiserWithCompany(hubspotClient, advertiser, index)
+        )
+      );
+
+      processedAdvertisers.sort((a, b) => a.label.localeCompare(b.label));
+
+      const options = [
+        { label: "Select Advertiser", value: "" },
+        ...processedAdvertisers,
+      ];
+
+      console.log(`✅ [FALLBACK] Fallback search results: ${processedAdvertisers.length} advertisers`);
+
+      return {
+        status: "SUCCESS",
+        data: {
+          options: options,
+          totalCount: processedAdvertisers.length,
+          searchTerm: searchTerm,
+          isSearchResult: true,
+          hasMore: false,
+          timestamp: Date.now()
+        }
+      };
+
+    } catch (fallbackError) {
+      console.error(`❌ [FALLBACK] Fallback search also failed:`, fallbackError);
+      throw error; // Throw original error
+    }
   }
 }
 
