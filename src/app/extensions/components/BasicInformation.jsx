@@ -80,7 +80,6 @@ const BasicInformation = forwardRef(({
   const [isContactSearching, setIsContactSearching] = useState(false);
   const [hasContactLoaded, setHasContactLoaded] = useState(false);
   const [contactErrorMessage, setContactErrorMessage] = useState("");
-  const [useContactSearchMode, setUseContactSearchMode] = useState(false);
   const [contactHasMore, setContactHasMore] = useState(false);
   const [lastContactSearchTerm, setLastContactSearchTerm] = useState("");
 
@@ -121,9 +120,7 @@ const BasicInformation = forwardRef(({
       if (!hasCustomerServiceLoaded) {
         loadDefaultCustomerServices();
       }
-      if (!hasContactLoaded) {
-        loadDefaultContacts();
-      }
+      // Skip loading default contacts - we'll only load when user searches
     }
   }, [runServerless, isEditMode, hasAdvertiserLoaded, hasDealOwnerLoaded, hasCustomerServiceLoaded, hasContactLoaded]);
 
@@ -671,39 +668,7 @@ const BasicInformation = forwardRef(({
     }
   };
 
-  const loadDefaultContacts = async () => {
-    if (!runServerless || !isEditMode) return;
-
-    setIsContactLoading(true);
-    setContactErrorMessage("");
-
-    try {
-      const response = await runServerless({
-        name: "searchContacts",
-        parameters: {
-          loadAll: false,
-          limit: 20,
-          includeInactive: false
-        }
-      });
-
-      if (response && response.status === "SUCCESS" && response.response && response.response.data) {
-        const data = response.response.data;
-        setContacts(data.options || [{ label: "Select Contact", value: "" }]);
-        setContactHasMore(data.hasMore || false);
-        console.log('🔍 [DEFAULT] Loaded default contacts:', data.options?.length || 0);
-      } else {
-        throw new Error("Invalid response from contact server");
-      }
-    } catch (error) {
-      console.error("Error loading contacts:", error);
-      setContactErrorMessage(`Error: ${error.message}`);
-      setContacts([{ label: "Select Contact", value: "" }]);
-    } finally {
-      setIsContactLoading(false);
-      setHasContactLoaded(true);
-    }
-  };
+  // Removed loadDefaultContacts - contacts are now loaded only through search
 
   // === EVENT HANDLERS ===
   const handleAdvertiserChange = (value) => {
@@ -768,7 +733,6 @@ const BasicInformation = forwardRef(({
 
     if (selectedContact && selectedContact.value !== "") {
       setContactSearchTerm(selectedContact.label);
-      setUseContactSearchMode(false);
     }
   };
 
@@ -819,10 +783,9 @@ const BasicInformation = forwardRef(({
   const clearContactSearch = () => {
     if (!isEditMode) return;
     setContactSearchTerm("");
-    setUseContactSearchMode(false);
     setContactErrorMessage("");
     setLastContactSearchTerm("");
-    loadDefaultContacts();
+    setContacts([{ label: "Select Contact", value: "" }]);
   };
 
   // === MODE CONTROL FUNCTIONS ===
@@ -871,20 +834,7 @@ const BasicInformation = forwardRef(({
     setLastCustomerServiceSearchTerm("");
   };
 
-  const switchContactToBrowseMode = () => {
-    if (!isEditMode) return;
-    setUseContactSearchMode(false);
-    setContactSearchTerm("");
-    setLastContactSearchTerm("");
-    loadDefaultContacts();
-  };
-
-  const switchContactToSearchMode = () => {
-    if (!isEditMode) return;
-    setUseContactSearchMode(true);
-    setContactSearchTerm("");
-    setLastContactSearchTerm("");
-  };
+  // Removed browse/search mode switching for contacts
 
   // === UI HELPER FUNCTIONS ===
   const getSaveStatusDisplay = () => {
@@ -968,13 +918,9 @@ const BasicInformation = forwardRef(({
     if (!isEditMode) return "";
     if (isContactSearching) return "Searching contacts...";
     if (isContactLoading) return "Loading contacts...";
-    if (useContactSearchMode && lastContactSearchTerm) {
+    if (lastContactSearchTerm) {
       const count = contacts.length > 1 ? contacts.length - 1 : 0;
       return `${count} results for "${lastContactSearchTerm}"`;
-    }
-    if (contacts.length > 1) {
-      const count = contacts.length - 1;
-      return `${count} contacts available${contactHasMore ? ' (load more below)' : ''}`;
     }
     return "";
   };
@@ -1450,39 +1396,8 @@ const BasicInformation = forwardRef(({
 
         <Divider></ Divider>
 
-        {/* ROW 6: Contact (Full Row - Has Browse/Search) */}
+        {/* ROW 6: Contact (Simple Search Interface) */}
         <Box marginBottom="extra-large">
-          {/* Mode Controls - Only show in Edit Mode */}
-          {isEditMode && (
-            <Flex gap="small" marginBottom="small" wrap="wrap">
-              <Button
-                variant={!useContactSearchMode ? "primary" : "secondary"}
-                size="xs"
-                onClick={switchContactToBrowseMode}
-                disabled={isContactLoading}
-              >
-                📋 Browse
-              </Button>
-              <Button
-                variant={useContactSearchMode ? "primary" : "secondary"}
-                size="xs"
-                onClick={switchContactToSearchMode}
-                disabled={isContactLoading}
-              >
-                🔍 Search
-              </Button>
-              {useContactSearchMode && (
-                <Button
-                  variant="secondary"
-                  size="xs"
-                  onClick={clearContactSearch}
-                >
-                  ✕ Clear
-                </Button>
-              )}
-            </Flex>
-          )}
-
           {/* View Mode: Simple Input Display */}
           {!isEditMode && (
             <Input
@@ -1497,78 +1412,86 @@ const BasicInformation = forwardRef(({
             />
           )}
 
-          {/* Edit Mode: Search or Select */}
-          {isEditMode && useContactSearchMode ? (
-            <Flex gap="small" direction="row" align="end">
-              <Box flex={1}>
-                <Input
-                  label="Search Contacts *"
-                  name="searchContacts"
-                  placeholder="Enter contact name..."
-                  value={contactSearchTerm}
-                  onChange={(value) => setContactSearchTerm(value)}
-                  disabled={isContactLoading || isContactSearching}
-                />
-              </Box>
-              <Box>
-                <Button
-                  onClick={performContactSearch}
-                  disabled={!contactSearchTerm.trim() || isContactSearching || isContactLoading}
-                >
-                  {isContactSearching ? <LoadingSpinner size="xs" /> : "🔍"}
-                </Button>
-              </Box>
-            </Flex>
-          ) : isEditMode ? (
-            <Select
-              label="Contact *"
-              name="contact"
-              options={contacts}
-              value={formData.contact}
-              onChange={(value) => handleFieldChange("contact", value)}
-              required
-              disabled={isContactLoading}
-            />
-          ) : null}
+          {/* Edit Mode: Simple Search Interface */}
+          {isEditMode && (
+            <>
+              <Flex gap="small" direction="row" align="end">
+                <Box flex={1}>
+                  <Input
+                    label="Search Contacts *"
+                    name="searchContacts"
+                    placeholder="Enter contact name, email, or company..."
+                    value={contactSearchTerm}
+                    onChange={(value) => setContactSearchTerm(value)}
+                    disabled={isContactLoading || isContactSearching}
+                  />
+                </Box>
+                <Box>
+                  <Button
+                    onClick={performContactSearch}
+                    disabled={!contactSearchTerm.trim() || isContactSearching || isContactLoading}
+                  >
+                    {isContactSearching ? <LoadingSpinner size="xs" /> : "🔍 Search"}
+                  </Button>
+                </Box>
+                {lastContactSearchTerm && (
+                  <Box>
+                    <Button
+                      variant="secondary"
+                      size="xs"
+                      onClick={clearContactSearch}
+                    >
+                      ✕ Clear
+                    </Button>
+                  </Box>
+                )}
+              </Flex>
 
-          {/* Search Results - Only in Edit Mode */}
-          {isEditMode && useContactSearchMode && lastContactSearchTerm && contacts.length > 1 && (
-            <Box marginTop="small">
-              <Select
-                label="Select from search results"
-                name="contactSearchResults"
-                options={contacts}
-                value={formData.contact}
-                onChange={(value) => handleFieldChange("contact", value)}
-                disabled={isContactSearching}
-              />
-            </Box>
-          )}
+              {/* Search Results */}
+              {lastContactSearchTerm && contacts.length > 1 && (
+                <Box marginTop="small">
+                  <Select
+                    label="Select from search results"
+                    name="contactSearchResults"
+                    options={contacts}
+                    value={formData.contact}
+                    onChange={(value) => handleFieldChange("contact", value)}
+                    disabled={isContactSearching}
+                  />
+                </Box>
+              )}
 
-          {/* Status Messages - Only in Edit Mode */}
-          {getContactStatusMessage() && (
-            <Text variant="microcopy" format={{ color: 'medium' }}>
-              {getContactStatusMessage()}
-            </Text>
-          )}
+              {/* Status Messages */}
+              {getContactStatusMessage() && (
+                <Text variant="microcopy" format={{ color: 'medium' }}>
+                  {getContactStatusMessage()}
+                </Text>
+              )}
 
-          {/* Error Messages - Only in Edit Mode */}
-          {isEditMode && contactErrorMessage && (
-            <Box marginTop="extra-small">
-              <Text variant="microcopy" format={{ color: 'error' }}>
-                {contactErrorMessage}
-              </Text>
-              <Box marginTop="extra-small">
-                <Button
-                  variant="secondary"
-                  size="xs"
-                  onClick={loadDefaultContacts}
-                  disabled={isContactLoading}
-                >
-                  Retry
-                </Button>
-              </Box>
-            </Box>
+              {/* Error Messages */}
+              {contactErrorMessage && (
+                <Box marginTop="extra-small">
+                  <Text variant="microcopy" format={{ color: 'error' }}>
+                    {contactErrorMessage}
+                  </Text>
+                  <Box marginTop="extra-small">
+                    <Button
+                      variant="secondary"
+                      size="xs"
+                      onClick={() => {
+                        setContactErrorMessage("");
+                        if (lastContactSearchTerm) {
+                          performContactSearch();
+                        }
+                      }}
+                      disabled={isContactLoading}
+                    >
+                      Retry
+                    </Button>
+                  </Box>
+                </Box>
+              )}
+            </>
           )}
         </Box>
 

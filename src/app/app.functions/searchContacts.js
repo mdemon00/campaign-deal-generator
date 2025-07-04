@@ -180,14 +180,25 @@ async function fetchContacts(hubspotClient, limit = 20, after = undefined, inclu
  * Search contacts by term
  */
 async function searchContacts(hubspotClient, searchTerm, includeInactive) {
-  // console.log($2
+  console.log(`🔍 [SEARCH] Starting contact search for: "${searchTerm}"`);
 
   try {
-    // Fetch contacts using standard contacts API
-    const contactsData = await fetchContacts(hubspotClient, 100, undefined, includeInactive);
+    // Use HubSpot Search API to search across ALL contacts
+    const searchResponse = await hubspotClient.apiRequest({
+      method: 'POST',
+      path: '/crm/v3/objects/contacts/search',
+      body: {
+        query: searchTerm,
+        limit: 100,
+        sorts: [{ propertyName: 'createdate', direction: 'DESCENDING' }],
+        properties: ['firstname', 'lastname', 'email', 'company', 'phone']
+      }
+    });
 
-    if (!contactsData.results || contactsData.results.length === 0) {
-      console.warn(`⚠️ [SEARCH] No contacts found in system`);
+    const searchData = await searchResponse.json();
+
+    if (!searchData.results || searchData.results.length === 0) {
+      console.warn(`⚠️ [SEARCH] No contacts found for search term: "${searchTerm}"`);
       return {
         status: "SUCCESS",
         data: {
@@ -201,34 +212,10 @@ async function searchContacts(hubspotClient, searchTerm, includeInactive) {
       };
     }
 
-    // console.log($2
-
-    // Filter contacts by search term (case-insensitive)
-    const filteredContacts = contactsData.results.filter((contact, index) => {
-      const searchableFields = [
-        contact.properties.firstname,
-        contact.properties.lastname,
-        contact.properties.email,
-        contact.properties.company,
-        `${contact.properties.firstname || ''} ${contact.properties.lastname || ''}`.trim(),
-        `${contact.properties.lastname || ''} ${contact.properties.firstname || ''}`.trim()
-      ];
-
-      const matches = searchableFields.some(field =>
-        field && field.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-
-      if (matches) {
-        // console.log($2
-      }
-
-      return matches;
-    });
-
-    // console.log($2
+    console.log(`🔍 [SEARCH] HubSpot Search API returned ${searchData.results.length} contacts for "${searchTerm}"`);
 
     // Process each contact
-    const processedContacts = filteredContacts.map((contact, index) => {
+    const processedContacts = searchData.results.map((contact, index) => {
       return processContactData(contact, index);
     });
 
@@ -240,7 +227,7 @@ async function searchContacts(hubspotClient, searchTerm, includeInactive) {
       ...processedContacts
     ];
 
-    // console.log($2
+    console.log(`✅ [SEARCH] Final search results: ${processedContacts.length} contacts`);
 
     return {
       status: "SUCCESS",
@@ -249,14 +236,68 @@ async function searchContacts(hubspotClient, searchTerm, includeInactive) {
         totalCount: processedContacts.length,
         searchTerm: searchTerm,
         isSearchResult: true,
-        hasMore: false,
+        hasMore: searchData.total > searchData.results.length,
         timestamp: Date.now()
       }
     };
 
   } catch (error) {
     console.error(`❌ [SEARCH] Error in searchContacts:`, error);
-    throw error;
+    
+    // Fallback to standard API search if Search API fails
+    console.log(`🔄 [SEARCH] Falling back to standard API search`);
+    try {
+      const contactsData = await fetchContacts(hubspotClient, 200, undefined, includeInactive);
+      
+      if (!contactsData.results || contactsData.results.length === 0) {
+        throw new Error("No contacts found in fallback search");
+      }
+
+      // Filter contacts by search term (case-insensitive)
+      const filteredContacts = contactsData.results.filter((contact, index) => {
+        const searchableFields = [
+          contact.properties.firstname,
+          contact.properties.lastname,
+          contact.properties.email,
+          contact.properties.company,
+          `${contact.properties.firstname || ''} ${contact.properties.lastname || ''}`.trim(),
+          `${contact.properties.lastname || ''} ${contact.properties.firstname || ''}`.trim()
+        ];
+
+        return searchableFields.some(field =>
+          field && field.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      });
+
+      const processedContacts = filteredContacts.map((contact, index) => {
+        return processContactData(contact, index);
+      });
+
+      processedContacts.sort((a, b) => a.displayName.localeCompare(b.displayName));
+
+      const options = [
+        { label: "Select Contact", value: "" },
+        ...processedContacts
+      ];
+
+      console.log(`✅ [FALLBACK] Fallback search results: ${processedContacts.length} contacts`);
+
+      return {
+        status: "SUCCESS",
+        data: {
+          options: options,
+          totalCount: processedContacts.length,
+          searchTerm: searchTerm,
+          isSearchResult: true,
+          hasMore: false,
+          timestamp: Date.now()
+        }
+      };
+
+    } catch (fallbackError) {
+      console.error(`❌ [FALLBACK] Fallback search also failed:`, fallbackError);
+      throw error; // Throw original error
+    }
   }
 }
 
