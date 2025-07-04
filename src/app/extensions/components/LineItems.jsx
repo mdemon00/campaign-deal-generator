@@ -584,7 +584,8 @@ const LineItems = forwardRef(({
           onSaveStatusChange({
             status: data.saveStatus,
             lastSaved: data.metadata?.lastSaved,
-            hasData: data.lineItems && data.lineItems.length > 0
+            hasData: data.lineItems && data.lineItems.length > 0,
+            isUserSave: false // This is loading existing data, not a save action
           });
         }
 
@@ -627,7 +628,8 @@ const LineItems = forwardRef(({
           onSaveStatusChange({
             status: 'Saved',
             lastSaved: data.savedAt,
-            hasData: lineItems.length > 0
+            hasData: lineItems.length > 0,
+            isUserSave: true // This is a user-initiated save action
           });
         }
 

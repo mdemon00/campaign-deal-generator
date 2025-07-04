@@ -302,7 +302,8 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
   const handleBasicInfoSaveStatusChange = (statusData) => {
     setBasicInfoSaveStatus(statusData);
 
-    if (statusData.status === 'Saved') {
+    // Only show success notification for actual save actions, not data loading
+    if (statusData.status === 'Saved' && statusData.isUserSave) {
       sendAlert({
         message: "Basic information saved successfully",
         variant: "success"
@@ -313,7 +314,8 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
   const handleCommercialAgreementSaveStatusChange = (statusData) => {
     setCommercialAgreementSaveStatus(statusData);
 
-    if (statusData.status === 'Saved') {
+    // Only show success notification for actual save actions, not data loading
+    if (statusData.status === 'Saved' && statusData.isUserSave) {
       sendAlert({
         message: "Commercial agreement saved successfully",
         variant: "success"
@@ -325,7 +327,8 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
   const handleLineItemsSaveStatusChange = (statusData) => {
     setLineItemsSaveStatus(statusData);
 
-    if (statusData.status === 'Saved') {
+    // Only show success notification for actual save actions, not data loading
+    if (statusData.status === 'Saved' && statusData.isUserSave) {
       sendAlert({
         message: "Line items saved successfully",
         variant: "success"

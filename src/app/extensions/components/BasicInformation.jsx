@@ -318,12 +318,13 @@ const BasicInformation = forwardRef(({
         setSaveState(data.saveStatus === 'Saved' ? COMPONENT_SAVE_STATES.SAVED : COMPONENT_SAVE_STATES.NOT_SAVED);
         setHasUnsavedChanges(false);
 
-        // Notify parent component
+        // Notify parent component (loading existing data, not a user save)
         if (onSaveStatusChange) {
           onSaveStatusChange({
             status: data.saveStatus,
             lastSaved: data.metadata?.lastSaved,
-            hasData: !!(data.formData.campaignName || data.formData.taxId || data.formData.advertiser)
+            hasData: !!(data.formData.campaignName || data.formData.taxId || data.formData.advertiser),
+            isUserSave: false // This is loading existing data, not a save action
           });
         }
 
@@ -376,12 +377,13 @@ const BasicInformation = forwardRef(({
         setSaveState(COMPONENT_SAVE_STATES.SAVED);
         setHasUnsavedChanges(false);
 
-        // Notify parent component
+        // Notify parent component (user initiated save action)
         if (onSaveStatusChange) {
           onSaveStatusChange({
             status: 'Saved',
             lastSaved: data.savedAt,
-            hasData: true
+            hasData: true,
+            isUserSave: true // This is a user-initiated save action
           });
         }
       } else {
