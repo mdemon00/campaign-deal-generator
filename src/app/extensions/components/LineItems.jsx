@@ -330,6 +330,11 @@ const LineItems = forwardRef(({
     if (!runServerless || !commercialAgreementId) {
       console.log('🔄 Clearing agreement products - no commercial agreement selected');
       setAgreementProducts([]);
+      
+      // Reload product catalog without agreement products
+      if (hasProductsLoaded) {
+        await loadProductCatalogWithAgreementProducts([]);
+      }
       return;
     }
 
@@ -350,7 +355,15 @@ const LineItems = forwardRef(({
         console.log('🔍 Response.response type:', typeof response.response);
         console.log('🔍 Response.response isArray:', Array.isArray(response.response));
         
-        const products = Array.isArray(response.response) ? response.response : [];
+        // Handle double-wrapped response structure
+        let products = [];
+        if (Array.isArray(response.response)) {
+          products = response.response;
+        } else if (response.response?.response && Array.isArray(response.response.response)) {
+          products = response.response.response;
+          console.log('🔍 Found double-wrapped response, using inner array');
+        }
+        
         setAgreementProducts(products);
         
         if (products.length > 0) {
@@ -375,8 +388,9 @@ const LineItems = forwardRef(({
         }
 
         // Reload product catalog to apply agreement pricing overrides
+        // Pass the products directly since state update is asynchronous
         if (hasProductsLoaded) {
-          await loadProductCatalog();
+          await loadProductCatalogWithAgreementProducts(products);
         }
       } else {
         console.log('❌ Failed to load agreement products. Status:', response?.status);
@@ -406,6 +420,56 @@ const LineItems = forwardRef(({
   }));
 
   // === PRODUCT CATALOG FUNCTIONS ===
+
+  const loadProductCatalogWithAgreementProducts = async (agreementProductsToUse = null) => {
+    if (!runServerless || !isEditMode) return;
+
+    setIsProductsLoading(true);
+
+    // Use provided agreement products or fall back to state
+    const productsToUse = agreementProductsToUse || agreementProducts;
+
+    try {
+      console.log(`🔄 Loading product catalog with ${productsToUse.length} agreement products`);
+      
+      const response = await runServerless({
+        name: "getProductCatalog",
+        parameters: {
+          currency: currency,
+          limit: 100,
+          agreementProducts: productsToUse // Pass agreement products for pricing overrides
+        }
+      });
+
+      if (response?.status === "SUCCESS" && response?.response?.data) {
+        const data = response.response.data;
+
+        // Add default "Select Product" option
+        const productOptions = [
+          { label: "Select Product", value: "", isAvailable: true, hasStandardPricing: true },
+          ...data.products
+        ];
+
+        setProducts(productOptions);
+        setHasProductsLoaded(true);
+
+        console.log(`✅ Product catalog loaded with ${productsToUse.length} agreement pricing overrides`);
+      } else {
+        throw new Error(response?.response?.message || "Failed to load product catalog");
+      }
+    } catch (error) {
+      console.error("❌ Error loading product catalog:", error);
+      onAlert({
+        message: `Failed to load product catalog: ${error.message}`,
+        variant: "error"
+      });
+
+      // Set fallback empty state
+      setProducts([{ label: "Select Product", value: "", isAvailable: true, hasStandardPricing: true }]);
+    } finally {
+      setIsProductsLoading(false);
+    }
+  };
 
   const loadProductCatalog = async () => {
     if (!runServerless || !isEditMode) return;

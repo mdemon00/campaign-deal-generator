@@ -17,7 +17,11 @@ exports.main = async (context) => {
 
     // Create agreement pricing map for quick lookup
     const agreementPricingMap = {};
-    if (agreementProducts && agreementProducts.length > 0) {
+    console.log(`🔍 getProductCatalog received agreementProducts:`, agreementProducts);
+    console.log(`🔍 agreementProducts type:`, typeof agreementProducts);
+    console.log(`🔍 agreementProducts isArray:`, Array.isArray(agreementProducts));
+    
+    if (agreementProducts && Array.isArray(agreementProducts) && agreementProducts.length > 0) {
       console.log(`Processing ${agreementProducts.length} agreement products for pricing overrides`);
       
       agreementProducts.forEach(product => {
