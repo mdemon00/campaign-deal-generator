@@ -761,7 +761,39 @@ const LineItems = forwardRef(({
             <Box marginBottom="medium">
               <Select
                 label="Product *"
-                options={products}
+                options={products.map(product => {
+                  if (!product.value) {
+                    return product; // Keep "Select Product" option unchanged
+                  }
+                  
+                  // Check if this product has agreement pricing override
+                  let hasAgreementPricing = false;
+                  let agreementPrice = null;
+                  
+                  if (agreementProducts && agreementProducts.length > 0) {
+                    const lookupKey = `${product.category}_${product.media}_${product.contentType}_${product.buyingModel}`.toLowerCase();
+                    const matchingAgreementProduct = agreementProducts.find(agreementProduct => {
+                      const values = agreementProduct.values;
+                      const agreementKey = `${values.name}_${values.media}_${values.content_type}_${values.buying_model}`.toLowerCase();
+                      return agreementKey === lookupKey;
+                    });
+                    
+                    if (matchingAgreementProduct) {
+                      hasAgreementPricing = true;
+                      agreementPrice = matchingAgreementProduct.values.pircing;
+                    }
+                  }
+                  
+                  // Create enhanced label showing pricing type
+                  const priceDisplay = hasAgreementPricing 
+                    ? `${agreementPrice || 0} ${currency} (Agreement Price)`
+                    : `${product.price || 0} ${currency} (Default Price)`;
+                  
+                  return {
+                    ...product,
+                    label: `${product.label} - ${priceDisplay}`
+                  };
+                })}
                 value={newLineItem.productId}
                 onChange={(value) => handleNewLineItemChange("productId", value)}
                 disabled={isProductsLoading || !hasProductsLoaded}
