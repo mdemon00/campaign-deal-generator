@@ -775,31 +775,7 @@ const BasicInformation = forwardRef(({
 
   return (
     <Tile>
-      <Flex justify="space-between" align="center">
-        <Heading>Basic Information</Heading>
-
-        {/* Save Status Display - Only show in Edit Mode */}
-        {isEditMode && (
-          <Flex align="center" gap="small">
-            <Text
-              variant="microcopy"
-              format={{ color: statusDisplay.color }}
-            >
-              {statusDisplay.message}
-            </Text>
-            {saveState === COMPONENT_SAVE_STATES.SAVING && <LoadingSpinner size="xs" />}
-            {saveState === COMPONENT_SAVE_STATES.LOADING && <LoadingSpinner size="xs" />}
-          </Flex>
-        )}
-
-        {/* VIEW MODE INDICATOR */}
-        {!isEditMode && (
-          <Text variant="microcopy" format={{ color: 'medium' }}>
-            👁️ View Mode - Read Only
-          </Text>
-        )}
-      </Flex>
-
+      <Heading>Basic Information</Heading>
       <Divider />
 
       {/* Save Error Alert - Only show in Edit Mode */}
@@ -949,7 +925,7 @@ const BasicInformation = forwardRef(({
               <Input
                 label="Advertiser Country"
                 name="advertiserCountry"
-                placeholder={isEditMode ? "Auto-populated from advertiser" : "No country information"}
+                placeholder={isEditMode ? (formData.advertiserCountry ? "Auto-populated from advertiser" : "Not found") : "No country information"}
                 value={formData.advertiserCountry}
                 readOnly={true}
               />
@@ -959,7 +935,7 @@ const BasicInformation = forwardRef(({
               <Input
                 label="Advertiser Company"
                 name="advertiserCompany"
-                placeholder={isEditMode ? "Auto-populated from advertiser" : "No company information"}
+                placeholder={isEditMode ? (formData.advertiserCompany ? "Auto-populated from advertiser" : "Not found") : "No company information"}
                 value={formData.advertiserCompany}
                 readOnly={true}
               />

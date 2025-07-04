@@ -77,6 +77,10 @@ const LineItems = forwardRef(({
 
   const [lineItemCounter, setLineItemCounter] = useState(0);
 
+  // === EDIT MODE STATE ===
+  const [editingItemIndex, setEditingItemIndex] = useState(null);
+  const [isFormInEditMode, setIsFormInEditMode] = useState(false);
+
   // === PRODUCT CATALOG STATE ===
   const [products, setProducts] = useState([]);
   const [isProductsLoading, setIsProductsLoading] = useState(false);
@@ -553,6 +557,236 @@ const LineItems = forwardRef(({
     });
   };
 
+  // === EDIT MODE FUNCTIONS ===
+
+  const startEditingLineItem = (index) => {
+    if (!isEditMode) return;
+
+    const itemToEdit = lineItems[index];
+    if (!itemToEdit) return;
+
+    // Ensure products are loaded before editing
+    if (!hasProductsLoaded) {
+      onAlert({
+        message: "Please wait for products to load before editing",
+        variant: "warning"
+      });
+      return;
+    }
+
+    // Get product ID from multiple possible sources (for backward compatibility)
+    const productId = itemToEdit.productInfo?.productId || itemToEdit.productId || "";
+    
+    // Find the selected product from the products list
+    let selectedProduct = null;
+    
+    if (productId) {
+      selectedProduct = products.find(p => p.value === productId) || null;
+    }
+    
+    // If no productId or product not found, try to match by product characteristics
+    if (!selectedProduct && (itemToEdit.category || itemToEdit.buyingModel)) {
+      selectedProduct = products.find(p => 
+        p.category === itemToEdit.category && 
+        p.buyingModel === itemToEdit.buyingModel &&
+        p.units === itemToEdit.units
+      ) || null;
+      
+      if (selectedProduct) {
+        console.log('🔍 Found product by matching characteristics:', selectedProduct.label);
+      }
+    }
+    
+    // If still not found, try to match by parsing the product name
+    if (!selectedProduct && itemToEdit.name) {
+      // Parse the name format: "Product Name - Media Type (Buying Model)"
+      // Example: "DSP Display Branding - Web & Mobile Display (CPM)"
+      
+      selectedProduct = products.find(p => {
+        if (!p.label || p.value === "") return false;
+        
+        // Try exact name match first
+        if (p.label === itemToEdit.name) return true;
+        
+        // Try matching parts of the name
+        const itemNameLower = itemToEdit.name.toLowerCase();
+        const productLabelLower = p.label.toLowerCase();
+        
+        // Check if the product label is contained in the item name
+        return itemNameLower.includes(productLabelLower) || productLabelLower.includes(itemNameLower);
+      }) || null;
+      
+      if (selectedProduct) {
+        console.log('🎯 Found product by name matching:', {
+          itemName: itemToEdit.name,
+          foundProduct: selectedProduct.label
+        });
+      } else {
+        // Log available products to help debug
+        console.log('❌ Could not match product. Available products:', products.map(p => ({
+          value: p.value,
+          label: p.label,
+          category: p.category,
+          buyingModel: p.buyingModel
+        })));
+        console.log('❌ Trying to match item:', {
+          name: itemToEdit.name,
+          category: itemToEdit.category,
+          buyingModel: itemToEdit.buyingModel
+        });
+      }
+    }
+    
+    // If still not found, reconstruct it from stored data
+    if (!selectedProduct && (productId || itemToEdit.category)) {
+      selectedProduct = {
+        value: productId || `custom_${Date.now()}`,
+        label: itemToEdit.name || 'Unknown Product',
+        category: itemToEdit.category || '',
+        buyingModel: itemToEdit.buyingModel || '',
+        units: itemToEdit.units || '',
+        price: itemToEdit.productInfo?.originalPrice || itemToEdit.price || 0,
+        hasStandardPricing: itemToEdit.productInfo?.hasStandardPricing || false
+      };
+      console.log('⚠️ Product not found in catalog, reconstructed from stored data:', selectedProduct);
+    }
+
+    // Populate form with existing item data
+    setNewLineItem({
+      name: itemToEdit.name || "",
+      country: itemToEdit.country || "MX",
+      type: itemToEdit.type || "initial",
+      startDate: itemToEdit.startDate || null,
+      endDate: itemToEdit.endDate || null,
+      productId: productId,
+      selectedProduct: selectedProduct,
+      price: itemToEdit.price || 0,
+      buyingModel: itemToEdit.buyingModel || "",
+      units: itemToEdit.units || "",
+      category: itemToEdit.category || "",
+      billable: itemToEdit.billable || 0,
+      bonus: itemToEdit.bonus || 0,
+      hasAgreementPricing: itemToEdit.hasAgreementPricing || false,
+      hasAgreementDates: itemToEdit.hasAgreementDates || false
+    });
+
+    setEditingItemIndex(index);
+    setIsFormInEditMode(true);
+
+    console.log('📝 Starting edit for line item:', {
+      index,
+      productId: productId,
+      selectedProduct: selectedProduct?.label,
+      itemData: {
+        name: itemToEdit.name,
+        category: itemToEdit.category,
+        buyingModel: itemToEdit.buyingModel,
+        hasProductInfo: !!itemToEdit.productInfo
+      }
+    });
+
+    onAlert({
+      message: `Editing line item: ${itemToEdit.name || 'Unnamed item'}`,
+      variant: "info"
+    });
+  };
+
+  const cancelEditLineItem = () => {
+    if (!isEditMode) return;
+
+    // Reset form to empty state
+    setNewLineItem({
+      name: "",
+      country: "MX",
+      type: "initial",
+      startDate: null,
+      endDate: null,
+      productId: "",
+      selectedProduct: null,
+      price: 0,
+      buyingModel: "",
+      units: "",
+      category: "",
+      billable: 0,
+      bonus: 0,
+      hasAgreementPricing: false,
+      hasAgreementDates: false
+    });
+
+    setEditingItemIndex(null);
+    setIsFormInEditMode(false);
+
+    onAlert({
+      message: "Edit cancelled",
+      variant: "info"
+    });
+  };
+
+  const updateLineItem = () => {
+    if (!isEditMode || editingItemIndex === null) return;
+
+    // Enhanced validation including product selection
+    if (!newLineItem.productId || newLineItem.productId === "") {
+      onAlert({
+        message: "Please select a product from the catalog",
+        variant: "error"
+      });
+      return;
+    }
+
+    // Validate price is entered
+    if (newLineItem.price <= 0) {
+      onAlert({
+        message: "Please enter a price for this line item",
+        variant: "error"
+      });
+      return;
+    }
+
+    // Validate other required fields
+    const validation = validateLineItem(newLineItem);
+    if (!validation.isValid) {
+      onAlert({
+        message: `Please fix the following errors: ${validation.errors.join(', ')}`,
+        variant: "error"
+      });
+      return;
+    }
+
+    const totals = calculateLineItemTotals(newLineItem);
+    const originalItem = lineItems[editingItemIndex];
+
+    const updatedItem = {
+      ...originalItem,
+      ...newLineItem,
+      ...totals,
+      id: originalItem.id, // Keep original ID
+
+      // Store product information
+      productInfo: {
+        productId: newLineItem.productId,
+        category: newLineItem.category,
+        buyingModel: newLineItem.buyingModel,
+        units: newLineItem.units,
+        originalPrice: newLineItem.price,
+        hasStandardPricing: newLineItem.selectedProduct?.hasStandardPricing || false
+      }
+    };
+
+    // Update the line items array
+    const updatedItems = [...lineItems];
+    updatedItems[editingItemIndex] = updatedItem;
+    onLineItemsChange(updatedItems);
+
+    // Reset form and edit state
+    cancelEditLineItem();
+
+    onAlert({
+      message: "Line item updated successfully!",
+      variant: "success"
+    });
+  };
+
   // === EXISTING FUNCTIONS ===
 
   const loadLineItems = async () => {
@@ -737,9 +971,12 @@ const LineItems = forwardRef(({
       }
     };
 
+    // Highlight row if it's being edited
+    const isBeingEdited = isFormInEditMode && editingItemIndex === index;
+    
     return (
-      <TableRow key={item.id || `item-${index}`}>
-        <TableCell>{renderViewModeCell(item.id)}</TableCell>
+      <TableRow key={item.id || `item-${index}`} variant={isBeingEdited ? "selected" : undefined}>
+        <TableCell>{renderViewModeCell(item.id)}{isBeingEdited && " ✏️"}</TableCell>
         <TableCell>{renderViewModeCell(item.category || "DSP Display")}</TableCell>
         <TableCell>{renderViewModeCell(item.name)}</TableCell>
         <TableCell>{renderViewModeCell(item.buyingModel || "CPM")}</TableCell>
@@ -757,9 +994,18 @@ const LineItems = forwardRef(({
           <TableCell>
             <Flex gap="small">
               <Button
+                variant="primary"
+                size="xs"
+                onClick={() => startEditingLineItem(index)}
+                disabled={isFormInEditMode && editingItemIndex !== index}
+              >
+                ✏️ Edit
+              </Button>
+              <Button
                 variant="secondary"
                 size="xs"
                 onClick={() => removeLineItem(index)}
+                disabled={isFormInEditMode}
               >
                 🗑️ Remove
               </Button>
@@ -822,11 +1068,26 @@ const LineItems = forwardRef(({
         </Box>
       )}
 
-      {/* PRODUCT CATALOG & ADD NEW LINE ITEM FORM - Only show in Edit Mode */}
+      {/* PRODUCT CATALOG & ADD/EDIT LINE ITEM FORM - Only show in Edit Mode */}
       {isEditMode && (
         <Tile>
-          {/* Product Catalog Section */}
+          {/* Form Header */}
           <Box marginTop="medium">
+            <Flex justify="space-between" align="center" marginBottom="medium">
+              <Text format={{ fontWeight: "bold" }}>
+                {isFormInEditMode ? "✏️ Edit Line Item" : "➕ Add New Line Item"}
+              </Text>
+              {isFormInEditMode && (
+                <Button
+                  variant="secondary"
+                  size="xs"
+                  onClick={cancelEditLineItem}
+                >
+                  ✕ Cancel Edit
+                </Button>
+              )}
+            </Flex>
+            
             <Text format={{ fontWeight: "bold" }} marginBottom="small">
               📦 Select Product
             </Text>
@@ -892,10 +1153,15 @@ const LineItems = forwardRef(({
                 <Input
                   label="Line Item Name"
                   name="newItemName"
-                  placeholder="Auto-filled from product selection"
+                  placeholder={isFormInEditMode ? "Enter line item name" : "Auto-filled from product selection"}
                   value={newLineItem.name}
                   onChange={(value) => handleNewLineItemChange("name", value)}
                 />
+                {isFormInEditMode && (
+                  <Text variant="microcopy" format={{ color: 'info' }} marginTop="extra-small">
+                    Editing line item #{editingItemIndex + 1}
+                  </Text>
+                )}
               </Box>
               <Box flex={1} minWidth="200px">
                 <Select
@@ -999,13 +1265,23 @@ const LineItems = forwardRef(({
           <Divider></ Divider>
 
           <Box marginTop="medium">
-            <Button
-              onClick={addLineItem}
-              variant="primary"
-              disabled={!newLineItem.productId || newLineItem.price <= 0}
-            >
-              Add Line Item
-            </Button>
+            <Flex gap="medium" align="center">
+              <Button
+                onClick={isFormInEditMode ? updateLineItem : addLineItem}
+                variant="primary"
+                disabled={!newLineItem.productId || newLineItem.price <= 0}
+              >
+                {isFormInEditMode ? "Update Line Item" : "Add Line Item"}
+              </Button>
+              {isFormInEditMode && (
+                <Button
+                  onClick={cancelEditLineItem}
+                  variant="secondary"
+                >
+                  Cancel
+                </Button>
+              )}
+            </Flex>
             {newLineItem.price <= 0 && (
               <Text variant="microcopy" format={{ color: 'error' }} marginTop="small">
                 Please enter a price for this line item
