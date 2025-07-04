@@ -140,13 +140,40 @@ async function fetchOwners(hubspotClient, limit = 20, after = undefined, include
  * Search deal owners by term
  */
 async function searchDealOwners(hubspotClient, searchTerm, includeInactive) {
-  // console.log($2
+  console.log(`🔍 [SEARCH] Starting deal owner search for: "${searchTerm}"`);
 
   try {
-    // Fetch owners using direct API
-    const ownersData = await fetchOwners(hubspotClient, 100, undefined, includeInactive);
+    // Fetch ALL owners by paginating through the API
+    let allOwners = [];
+    let hasMore = true;
+    let after = undefined;
+    const batchSize = 100;
+    
+    while (hasMore && allOwners.length < 1000) { // Safety limit of 1000 owners
+      const ownersData = await fetchOwners(hubspotClient, batchSize, after, includeInactive);
+      
+      if (!ownersData.results || ownersData.results.length === 0) {
+        break;
+      }
+      
+      allOwners.push(...ownersData.results);
+      
+      // Check if there are more pages
+      if (ownersData.paging && ownersData.paging.next && ownersData.paging.next.after) {
+        after = ownersData.paging.next.after;
+      } else {
+        hasMore = false;
+      }
+      
+      // If we got less than the batch size, we've reached the end
+      if (ownersData.results.length < batchSize) {
+        hasMore = false;
+      }
+    }
 
-    if (!ownersData.results || ownersData.results.length === 0) {
+    console.log(`🔍 [SEARCH] Fetched ${allOwners.length} total owners from HubSpot`);
+
+    if (allOwners.length === 0) {
       console.warn(`⚠️ [SEARCH] No owners found in system`);
       return {
         status: "SUCCESS",
@@ -161,10 +188,8 @@ async function searchDealOwners(hubspotClient, searchTerm, includeInactive) {
       };
     }
 
-    // console.log($2
-
     // Filter owners by search term (case-insensitive)
-    const filteredOwners = ownersData.results.filter((owner, index) => {
+    const filteredOwners = allOwners.filter((owner, index) => {
       const searchableFields = [
         owner.firstName,
         owner.lastName,
@@ -177,14 +202,10 @@ async function searchDealOwners(hubspotClient, searchTerm, includeInactive) {
         field && field.toLowerCase().includes(searchTerm.toLowerCase())
       );
 
-      if (matches) {
-        // console.log($2
-      }
-
       return matches;
     });
 
-    // console.log($2
+    console.log(`🔍 [SEARCH] Filtered to ${filteredOwners.length} matching owners`);
 
     // Process each owner
     const processedOwners = filteredOwners.map((owner, index) => {
@@ -199,7 +220,7 @@ async function searchDealOwners(hubspotClient, searchTerm, includeInactive) {
       ...processedOwners
     ];
 
-    // console.log($2
+    console.log(`✅ [SEARCH] Final search results: ${processedOwners.length} deal owners`);
 
     return {
       status: "SUCCESS",
@@ -215,7 +236,60 @@ async function searchDealOwners(hubspotClient, searchTerm, includeInactive) {
 
   } catch (error) {
     console.error(`❌ [SEARCH] Error in searchDealOwners:`, error);
-    throw error;
+    
+    // Fallback to limited search if full pagination fails
+    console.log(`🔄 [SEARCH] Falling back to limited owner search`);
+    try {
+      const ownersData = await fetchOwners(hubspotClient, 200, undefined, includeInactive);
+      
+      if (!ownersData.results || ownersData.results.length === 0) {
+        throw new Error("No owners found in fallback search");
+      }
+
+      // Filter owners by search term (case-insensitive)
+      const filteredOwners = ownersData.results.filter((owner, index) => {
+        const searchableFields = [
+          owner.firstName,
+          owner.lastName,
+          owner.email,
+          `${owner.firstName || ''} ${owner.lastName || ''}`.trim(),
+          `${owner.lastName || ''} ${owner.firstName || ''}`.trim()
+        ];
+
+        return searchableFields.some(field =>
+          field && field.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      });
+
+      const processedOwners = filteredOwners.map((owner, index) => {
+        return processOwnerData(owner, index);
+      });
+
+      processedOwners.sort((a, b) => a.displayName.localeCompare(b.displayName));
+
+      const options = [
+        { label: "Select Deal Owner", value: "" },
+        ...processedOwners
+      ];
+
+      console.log(`✅ [FALLBACK] Fallback search results: ${processedOwners.length} deal owners`);
+
+      return {
+        status: "SUCCESS",
+        data: {
+          options: options,
+          totalCount: processedOwners.length,
+          searchTerm: searchTerm,
+          isSearchResult: true,
+          hasMore: false,
+          timestamp: Date.now()
+        }
+      };
+
+    } catch (fallbackError) {
+      console.error(`❌ [FALLBACK] Fallback search also failed:`, fallbackError);
+      throw error; // Throw original error
+    }
   }
 }
 
