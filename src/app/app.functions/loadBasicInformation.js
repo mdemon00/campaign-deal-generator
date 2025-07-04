@@ -17,6 +17,8 @@ exports.main = async (context) => {
       campaignDealId,
       [
         'campaign_name',
+        'tax_id',
+        'campaign_type',
         'commercial_agreement_id', 
         'advertiser_id',
         'deal_owner_id',
@@ -296,6 +298,8 @@ exports.main = async (context) => {
     // Step 7: Prepare form data
     const formData = {
       campaignName: properties.campaign_name || '',
+      taxId: properties.tax_id || '',
+      campaignType: properties.campaign_type || '',
       commercialAgreement: properties.commercial_agreement_id || '',
       company: companyInfo.companyName || '',
       advertiser: properties.advertiser_id || '',
@@ -347,6 +351,8 @@ exports.main = async (context) => {
       data: {
         formData: {
           campaignName: '',
+          taxId: '',
+          campaignType: '',
           commercialAgreement: '',
           company: '',
           advertiser: '',
