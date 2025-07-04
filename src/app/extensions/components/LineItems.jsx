@@ -122,28 +122,52 @@ const LineItems = forwardRef(({
     }
   }, [lineItems, initialLineItems, saveState, hasUnsavedChanges, isEditMode]);
 
-  // Function to update agreement products
-  const updateAgreementProducts = async (newAgreementProducts) => {
-    // Ensure we have a proper array
-    const products = Array.isArray(newAgreementProducts) ? newAgreementProducts : [];
-    console.log(`🔄 Updating agreement products: ${products.length} products received`);
-    setAgreementProducts(products);
+  // Function to update agreement dates
+  const updateAgreementDates = async (agreementDates) => {
+    console.log(`🔄 Updating agreement dates:`, agreementDates);
+    
+    if (agreementDates && (agreementDates.startDate || agreementDates.endDate)) {
+      // Convert HubSpot property dates to DateInput format
+      let startDateObj = null;
+      let endDateObj = null;
+      
+      if (agreementDates.startDate) {
+        // Parse HubSpot date format (YYYY-MM-DD or timestamp)
+        const startDate = new Date(agreementDates.startDate);
+        if (!isNaN(startDate.getTime())) {
+          startDateObj = {
+            year: startDate.getFullYear(),
+            month: startDate.getMonth(),
+            date: startDate.getDate()
+          };
+        }
+      }
+      
+      if (agreementDates.endDate) {
+        // Parse HubSpot date format (YYYY-MM-DD or timestamp)
+        const endDate = new Date(agreementDates.endDate);
+        if (!isNaN(endDate.getTime())) {
+          endDateObj = {
+            year: endDate.getFullYear(),
+            month: endDate.getMonth(),
+            date: endDate.getDate()
+          };
+        }
+      }
+      
+      console.log('📅 Applying agreement dates:', {
+        startDate: startDateObj,
+        endDate: endDateObj
+      });
 
-    // Log the agreement products for debugging
-    if (products.length > 0) {
-      console.log('✅ Agreement products stored:', products.map(p => ({
-        name: p.values.name,
-        media: p.values.media,
-        contentType: p.values.content_type,
-        buyingModel: p.values.buying_model,
-        price: p.values.pircing,
-        currency: p.values.currency
-      })));
-
-      // Auto-apply common agreement dates immediately when agreement is selected
-      applyCommonAgreementDates(products);
+      setNewLineItem(prev => ({
+        ...prev,
+        startDate: startDateObj,
+        endDate: endDateObj,
+        hasAgreementDates: !!(startDateObj || endDateObj)
+      }));
     } else {
-      // Clear agreement dates when no agreement products
+      // Clear agreement dates when no agreement dates
       setNewLineItem(prev => ({
         ...prev,
         startDate: null,
@@ -301,7 +325,7 @@ const LineItems = forwardRef(({
     }
   }, [agreementProducts, currency]); // Watch for changes to agreement products
 
-  // Expose save method and agreement products update to parent
+  // Expose save method and agreement dates update to parent
   useImperativeHandle(ref, () => ({
     save: async () => {
       if (!lineItems || lineItems.length === 0) {
@@ -312,7 +336,7 @@ const LineItems = forwardRef(({
       if (saveState === COMPONENT_SAVE_STATES.ERROR) return "Failed to save Line Items.";
       return null;
     },
-    updateAgreementProducts: updateAgreementProducts
+    updateAgreementDates: updateAgreementDates
   }));
 
   // === PRODUCT CATALOG FUNCTIONS ===

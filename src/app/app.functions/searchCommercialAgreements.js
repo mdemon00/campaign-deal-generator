@@ -53,7 +53,7 @@ async function searchAgreementsWithAPI(hubspotClient, objectId, searchTerm) {
     while (hasMore && allAgreements.length < 1000) { // Safety limit of 1000 agreements
       const searchRequest = {
         limit: batchSize,
-        properties: ['status', 'elegir_moneda'],
+        properties: ['status', 'elegir_moneda', 'fecha_de_finalizacion'],
         sorts: [
           {
             propertyName: "createdate", // Sort by creation date
@@ -167,7 +167,7 @@ async function searchAgreementsWithAPI(hubspotClient, objectId, searchTerm) {
     try {
       const searchRequest = {
         limit: 200,
-        properties: ['status', 'elegir_moneda'],
+        properties: ['status', 'elegir_moneda', 'fecha_de_finalizacion'],
         sorts: [
           {
             propertyName: "createdate",
@@ -251,7 +251,7 @@ async function getPaginatedAgreementsWithAPI(hubspotClient, objectId, page, limi
     // 🔧 FIX: Use Search API with sorting to get recent records
     const searchRequest = {
       limit: Math.min(offset + limit + 10, 100), // Get slightly more for accurate hasMore
-      properties: ['status', 'elegir_moneda'],
+      properties: ['status', 'elegir_moneda', 'fecha_de_finalizacion'],
       sorts: [
         {
           propertyName: "createdate", // Sort by creation date
@@ -358,7 +358,7 @@ async function getDefaultAgreementsWithAPI(hubspotClient, objectId, limit, selec
     // 🔧 FIX: Use Search API with sorting to get recent records
     const searchRequest = {
       limit: limit + 5, // Get slightly more to account for selected agreement
-      properties: ['status', 'elegir_moneda'],
+      properties: ['status', 'elegir_moneda', 'fecha_de_finalizacion'],
       sorts: [
         {
           propertyName: "createdate", // Sort by creation date
@@ -463,7 +463,7 @@ async function searchAgreementsBasic(hubspotClient, objectId, searchTerm) {
     objectId,
     100,
     undefined,
-    ['status']
+    ['status', 'fecha_de_finalizacion']
   );
 
   const filteredAgreements = agreements.results.filter(agreement => {
@@ -508,7 +508,7 @@ async function getPaginatedAgreementsBasic(hubspotClient, objectId, page, limit,
     objectId,
     Math.min(offset + limit + 1, 101),
     undefined,
-    ['status']
+    ['status', 'fecha_de_finalizacion']
   );
 
   let paginatedResults = agreements.results.slice(offset, offset + limit);
@@ -570,7 +570,7 @@ async function getDefaultAgreementsBasic(hubspotClient, objectId, limit, selecte
     objectId,
     limit,
     undefined,
-    ['status']
+    ['status', 'fecha_de_finalizacion']
   );
 
   let results = agreements.results;
@@ -632,7 +632,7 @@ async function fetchAssociatedCompany(hubspotClient, agreementId) {
     const agreement = await hubspotClient.crm.objects.basicApi.getById(
       "2-39552013", // Commercial Agreements object ID
       agreementId,
-      ['elegir_moneda'] // Fetch the currency field from agreement
+      ['elegir_moneda', 'fecha_de_finalizacion'] // Fetch the currency and end date fields from agreement
     );
 
     // 🔧 STEP 2: Get associated company (for company name)
@@ -655,7 +655,8 @@ async function fetchAssociatedCompany(hubspotClient, agreementId) {
         name: company.properties.name || 'Unnamed Company',
         domain: company.properties.domain || '',
         country: company.properties.country || '',
-        currency: agreement.properties.elegir_moneda || 'Not found' // 🔧 FIXED: Use agreement currency, show 'Not found' if empty
+        currency: agreement.properties.elegir_moneda || 'Not found', // 🔧 FIXED: Use agreement currency, show 'Not found' if empty
+        endDate: agreement.properties.fecha_de_finalizacion
       };
     }
 
@@ -665,7 +666,8 @@ async function fetchAssociatedCompany(hubspotClient, agreementId) {
       name: 'No company found',
       domain: '',
       country: '',
-      currency: agreement.properties.elegir_moneda || 'Not found' // 🔧 FIXED: Use agreement currency, show 'Not found' if empty
+      currency: agreement.properties.elegir_moneda || 'Not found', // 🔧 FIXED: Use agreement currency, show 'Not found' if empty
+      endDate: agreement.properties.fecha_de_finalizacion
     };
   } catch (error) {
     console.warn(`⚠️ Could not fetch company for agreement ${agreementId}:`, error.message);
@@ -678,9 +680,24 @@ async function fetchAssociatedCompany(hubspotClient, agreementId) {
  */
 async function processAgreementWithCompany(hubspotClient, agreement, index) {
   const status = agreement.properties.status;
+  const endDate = agreement.properties.fecha_de_finalizacion;
+  
+  // Calculate status based on end date
+  let agreementStatus = '';
+  if (endDate) {
+    const today = new Date();
+    const endDateObj = new Date(endDate);
+    
+    if (endDateObj >= today) {
+      agreementStatus = ' (Active)';
+    } else {
+      agreementStatus = ' (Expired)';
+    }
+  }
+  
   const displayName = status && status.trim() !== ''
-    ? status
-    : `Agreement ${agreement.id}`;
+    ? status + agreementStatus
+    : `Agreement ${agreement.id}${agreementStatus}`;
 
   // Get currency directly from agreement properties first
   const agreementCurrency = agreement.properties.elegir_moneda || 'Not found';
@@ -707,6 +724,8 @@ async function processAgreementWithCompany(hubspotClient, agreement, index) {
     currency: currency,
     country: country,
     hasCompany: !!associatedCompany,
-    companyId: associatedCompany?.id || null
+    companyId: associatedCompany?.id || null,
+    endDate: endDate,
+    isExpired: endDate ? new Date(endDate) < new Date() : false
   };
 }

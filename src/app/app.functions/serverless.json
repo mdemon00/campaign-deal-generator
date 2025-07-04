@@ -51,6 +51,10 @@
     "fetchProductsForDeal": {
       "file": "fetchProductsForDeal.js",
       "secrets": []
+    },
+    "fetchAgreementDates": {
+      "file": "fetchAgreementDates.js",
+      "secrets": []
     }
   }
 }

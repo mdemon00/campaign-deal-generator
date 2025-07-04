@@ -98,12 +98,12 @@ const CommercialAgreement = forwardRef(({
     }
   }, [formData, initialFormData, saveState, hasUnsavedChanges, isEditMode]);
 
-  // Fetch agreement products when commercial agreement is initially loaded (edit mode only)
+  // Fetch agreement dates when commercial agreement is initially loaded (edit mode only)
   useEffect(() => {
     if (isEditMode && formData.commercialAgreement && formData.commercialAgreement !== "" && 
-        saveState === COMPONENT_SAVE_STATES.SAVED && lineItemsRef?.current?.updateAgreementProducts) {
-      console.log(`🔄 Initial load: Fetching products for loaded commercial agreement: ${formData.commercialAgreement}`);
-      fetchProductsForCommercialAgreement(formData.commercialAgreement);
+        saveState === COMPONENT_SAVE_STATES.SAVED && lineItemsRef?.current?.updateAgreementDates) {
+      console.log(`🔄 Initial load: Fetching dates for loaded commercial agreement: ${formData.commercialAgreement}`);
+      fetchAgreementDates(formData.commercialAgreement);
     }
   }, [isEditMode, formData.commercialAgreement, saveState, lineItemsRef]);
 
@@ -315,34 +315,37 @@ const CommercialAgreement = forwardRef(({
     }
   };
 
-  // === PRODUCTS FETCH FUNCTION ===
-  const fetchProductsForCommercialAgreement = async (dealId) => {
-    if (!runServerless || !dealId) return;
+  // === AGREEMENT DATES FETCH FUNCTION ===
+  const fetchAgreementDates = async (agreementId) => {
+    if (!runServerless || !agreementId) return;
 
     try {
-      console.log(`🔍 Fetching products for Commercial Agreement ID: ${dealId}`);
+      console.log(`📅 Fetching agreement dates for Commercial Agreement ID: ${agreementId}`);
       
       const response = await runServerless({
-        name: "fetchProductsForDeal",
+        name: "fetchAgreementDates",
         parameters: {
-          dealId: dealId
+          agreementId: agreementId
         }
       });
 
       if (response?.status === "SUCCESS") {
-        const products = response.response?.response || [];
-        console.log(`✅ Found ${products.length} products for Deal ID ${dealId}`);
+        const agreementData = response.response?.data || {};
+        console.log(`✅ Found agreement dates for Agreement ID ${agreementId}:`, agreementData);
         
-        // Update LineItems component with agreement products
-        if (lineItemsRef?.current?.updateAgreementProducts) {
-          lineItemsRef.current.updateAgreementProducts(products);
-          console.log(`🔄 Updated LineItems with ${products.length} agreement products`);
+        // Update LineItems component with agreement dates
+        if (lineItemsRef?.current?.updateAgreementDates) {
+          lineItemsRef.current.updateAgreementDates({
+            startDate: agreementData.fecha_de_inicio,
+            endDate: agreementData.fecha_de_finalizacion
+          });
+          console.log(`🔄 Updated LineItems with agreement dates`);
         }
       } else {
-        console.log(`❌ Failed to fetch products for Deal ID ${dealId}:`, response);
+        console.log(`❌ Failed to fetch agreement dates for Agreement ID ${agreementId}:`, response);
       }
     } catch (error) {
-      console.error(`❌ Error fetching products for Deal ID ${dealId}:`, error);
+      console.error(`❌ Error fetching agreement dates for Agreement ID ${agreementId}:`, error);
     }
   };
 
@@ -435,13 +438,8 @@ const CommercialAgreement = forwardRef(({
     if (selectedAgreement && selectedAgreement.value !== "") {
       setAgreementSearchTerm(selectedAgreement.label);
 
-      // Clear existing products first
-      if (lineItemsRef?.current?.updateAgreementProducts) {
-        lineItemsRef.current.updateAgreementProducts([]);
-      }
-
-      // Fetch products for the selected commercial agreement
-      fetchProductsForCommercialAgreement(value);
+      // Fetch agreement dates for the selected commercial agreement
+      fetchAgreementDates(value);
 
       // Fetch currency and company info from the agreement
       fetchCompanyAndCurrencyFromAgreement(value);
@@ -457,9 +455,12 @@ const CommercialAgreement = forwardRef(({
         setCompanyStatus("");
       }
     } else {
-      // Clear agreement products when no agreement is selected
-      if (lineItemsRef?.current?.updateAgreementProducts) {
-        lineItemsRef.current.updateAgreementProducts([]);
+      // Clear agreement dates when no agreement is selected
+      if (lineItemsRef?.current?.updateAgreementDates) {
+        lineItemsRef.current.updateAgreementDates({
+          startDate: null,
+          endDate: null
+        });
       }
       onChange('company', '');
       onChange('currency', '');
