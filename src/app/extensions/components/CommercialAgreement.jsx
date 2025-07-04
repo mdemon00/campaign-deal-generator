@@ -404,14 +404,14 @@ const CommercialAgreement = forwardRef(({
 
       if (selectedAgreement.hasCompany === false) {
         onChange('company', 'No company found');
-        onChange('currency', '');
+        onChange('currency', 'Not found');
       } else if (selectedAgreement.company && selectedAgreement.company !== 'No company found') {
         onChange('company', selectedAgreement.company);
-        onChange('currency', selectedAgreement.currency || '');
+        onChange('currency', selectedAgreement.currency || 'Not found');
       } else {
         onChange('company', 'Loading company...');
         setCompanyStatus("🔄 Fetching company information...");
-        onChange('currency', '');
+        onChange('currency', 'Not found');
       }
     } else {
       // Clear agreement products when no agreement is selected
@@ -666,7 +666,8 @@ const CommercialAgreement = forwardRef(({
                 value={formData.currency}
                 placeholder={
                   !isEditMode ? "No currency information" :
-                  formData.company === 'No company found' ? 'No currency available' : 'Auto-populated'
+                  formData.company === 'No company found' ? 'No currency available' : 
+                  formData.currency ? 'Currency from agreement' : 'Not found'
                 }
                 readOnly={true}
               />

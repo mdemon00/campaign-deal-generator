@@ -53,7 +53,7 @@ async function searchAgreementsWithAPI(hubspotClient, objectId, searchTerm) {
     while (hasMore && allAgreements.length < 1000) { // Safety limit of 1000 agreements
       const searchRequest = {
         limit: batchSize,
-        properties: ['status'],
+        properties: ['status', 'elegir_moneda'],
         sorts: [
           {
             propertyName: "createdate", // Sort by creation date
@@ -167,7 +167,7 @@ async function searchAgreementsWithAPI(hubspotClient, objectId, searchTerm) {
     try {
       const searchRequest = {
         limit: 200,
-        properties: ['status'],
+        properties: ['status', 'elegir_moneda'],
         sorts: [
           {
             propertyName: "createdate",
@@ -251,7 +251,7 @@ async function getPaginatedAgreementsWithAPI(hubspotClient, objectId, page, limi
     // 🔧 FIX: Use Search API with sorting to get recent records
     const searchRequest = {
       limit: Math.min(offset + limit + 10, 100), // Get slightly more for accurate hasMore
-      properties: ['status'],
+      properties: ['status', 'elegir_moneda'],
       sorts: [
         {
           propertyName: "createdate", // Sort by creation date
@@ -358,7 +358,7 @@ async function getDefaultAgreementsWithAPI(hubspotClient, objectId, limit, selec
     // 🔧 FIX: Use Search API with sorting to get recent records
     const searchRequest = {
       limit: limit + 5, // Get slightly more to account for selected agreement
-      properties: ['status'],
+      properties: ['status', 'elegir_moneda'],
       sorts: [
         {
           propertyName: "createdate", // Sort by creation date
@@ -655,7 +655,7 @@ async function fetchAssociatedCompany(hubspotClient, agreementId) {
         name: company.properties.name || 'Unnamed Company',
         domain: company.properties.domain || '',
         country: company.properties.country || '',
-        currency: agreement.properties.elegir_moneda || 'USD' // 🔧 FIXED: Use agreement currency
+        currency: agreement.properties.elegir_moneda || 'Not found' // 🔧 FIXED: Use agreement currency, show 'Not found' if empty
       };
     }
 
@@ -665,7 +665,7 @@ async function fetchAssociatedCompany(hubspotClient, agreementId) {
       name: 'No company found',
       domain: '',
       country: '',
-      currency: agreement.properties.elegir_moneda || 'USD' // 🔧 FIXED: Use agreement currency
+      currency: agreement.properties.elegir_moneda || 'Not found' // 🔧 FIXED: Use agreement currency, show 'Not found' if empty
     };
   } catch (error) {
     console.warn(`⚠️ Could not fetch company for agreement ${agreementId}:`, error.message);
@@ -682,17 +682,21 @@ async function processAgreementWithCompany(hubspotClient, agreement, index) {
     ? status
     : `Agreement ${agreement.id}`;
 
+  // Get currency directly from agreement properties first
+  const agreementCurrency = agreement.properties.elegir_moneda || 'Not found';
+
   const associatedCompany = await fetchAssociatedCompany(hubspotClient, agreement.id);
 
   let companyName, currency, country;
 
   if (associatedCompany) {
     companyName = associatedCompany.name;
-    currency = associatedCompany.currency;
+    // Use agreement currency over company currency
+    currency = agreementCurrency;
     country = associatedCompany.country;
   } else {
     companyName = 'No company found';
-    currency = '';
+    currency = agreementCurrency;
     country = '';
   }
 
