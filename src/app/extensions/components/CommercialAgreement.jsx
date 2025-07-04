@@ -640,7 +640,7 @@ const CommercialAgreement = forwardRef(({
               <Input
                 label="Company"
                 name="company"
-                placeholder={isEditMode ? "Company from agreement or Not found" : "No company information"}
+                placeholder={isEditMode ? "Not found" : "No company information"}
                 value={formData.company}
                 readOnly={true}
               />
