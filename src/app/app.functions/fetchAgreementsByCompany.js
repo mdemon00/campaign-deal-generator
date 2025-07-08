@@ -61,6 +61,13 @@ exports.main = async (context) => {
               'hs_object_id'
             ]
           );
+          
+          console.log(`🔍 [fetchAgreementsByCompany] Agreement ${agreementId} details:`, {
+            id: agreement.id,
+            properties: agreement.properties,
+            availableProperties: Object.keys(agreement.properties || {})
+          });
+          
           return agreement;
         } catch (error) {
           console.error(`❌ Error fetching agreement ${agreementId}:`, error);

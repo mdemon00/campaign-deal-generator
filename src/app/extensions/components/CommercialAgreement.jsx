@@ -404,6 +404,33 @@ const CommercialAgreement = forwardRef(({
     try {
       console.log(`💰 Fetching currency for Commercial Agreement ID: ${agreementId}`);
       
+      // First try to get currency from agreement products
+      const productsResponse = await runServerless({
+        name: "fetchProductsForDeal",
+        parameters: {
+          dealId: agreementId
+        }
+      });
+
+      if (productsResponse?.status === "SUCCESS" && productsResponse?.response) {
+        let products = [];
+        
+        // Handle different response structures
+        if (Array.isArray(productsResponse.response)) {
+          products = productsResponse.response;
+        } else if (productsResponse.response?.response && Array.isArray(productsResponse.response.response)) {
+          products = productsResponse.response.response;
+        }
+        
+        if (products.length > 0 && products[0].values?.currency) {
+          const currency = products[0].values.currency;
+          console.log(`✅ Found currency from products: ${currency} for Agreement ID ${agreementId}`);
+          onChange('currency', currency);
+          return;
+        }
+      }
+      
+      // Fallback to agreement dates API
       const response = await runServerless({
         name: "fetchAgreementDates",
         parameters: {
@@ -414,20 +441,21 @@ const CommercialAgreement = forwardRef(({
       if (response?.status === "SUCCESS" && response?.response?.data) {
         const data = response.response.data;
         
-        if (data.currency_code) {
-          console.log(`✅ Found currency: ${data.currency_code} for Agreement ID ${agreementId}`);
-          onChange('currency', data.currency_code);
+        if (data.currency_code || data.moneda) {
+          const currency = data.currency_code || data.moneda;
+          console.log(`✅ Found currency from agreement: ${currency} for Agreement ID ${agreementId}`);
+          onChange('currency', currency);
         } else {
           console.log(`⚠️ No currency found for Agreement ID ${agreementId}`);
-          onChange('currency', 'Not found');
+          onChange('currency', 'MXN'); // Default fallback
         }
       } else {
         console.log(`❌ Failed to fetch currency for Agreement ID ${agreementId}:`, response);
-        onChange('currency', 'Not found');
+        onChange('currency', 'MXN'); // Default fallback
       }
     } catch (error) {
       console.error(`❌ Error fetching currency for Agreement ID ${agreementId}:`, error);
-      onChange('currency', 'Not found');
+      onChange('currency', 'MXN'); // Default fallback
     }
   };
 
