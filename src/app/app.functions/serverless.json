@@ -55,6 +55,14 @@
     "fetchAgreementDates": {
       "file": "fetchAgreementDates.js",
       "secrets": []
+    },
+    "searchCompanies": {
+      "file": "searchCompanies.js",
+      "secrets": []
+    },
+    "fetchAgreementsByCompany": {
+      "file": "fetchAgreementsByCompany.js",
+      "secrets": []
     }
   }
 }

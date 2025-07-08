@@ -40,18 +40,23 @@ const CommercialAgreement = forwardRef(({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [initialFormData, setInitialFormData] = useState(null);
 
+  // === COMPANY SEARCH STATE ===
+  const [companies, setCompanies] = useState([{ label: "Select Company", value: "" }]);
+  const [companySearchTerm, setCompanySearchTerm] = useState("");
+  const [isCompanyLoading, setIsCompanyLoading] = useState(false);
+  const [isCompanySearching, setIsCompanySearching] = useState(false);
+  const [companyErrorMessage, setCompanyErrorMessage] = useState("");
+  const [lastCompanySearchTerm, setLastCompanySearchTerm] = useState("");
+  const [selectedCompany, setSelectedCompany] = useState(null);
+
   // === COMMERCIAL AGREEMENTS STATE ===
-  const [agreements, setAgreements] = useState(COMMERCIAL_AGREEMENTS);
-  const [agreementSearchTerm, setAgreementSearchTerm] = useState("");
+  const [agreements, setAgreements] = useState([{ label: "Select Commercial Agreement", value: "" }]);
   const [isAgreementLoading, setIsAgreementLoading] = useState(false);
-  const [isAgreementSearching, setIsAgreementSearching] = useState(false);
   const [agreementErrorMessage, setAgreementErrorMessage] = useState("");
-  const [agreementHasMore, setAgreementHasMore] = useState(false);
-  const [lastAgreementSearchTerm, setLastAgreementSearchTerm] = useState("");
-  const [companyStatus, setCompanyStatus] = useState("");
 
   // === VIEW MODE DISPLAY LABELS ===
   const [displayLabels, setDisplayLabels] = useState({
+    company: "",
     commercialAgreement: ""
   });
 
@@ -78,7 +83,7 @@ const CommercialAgreement = forwardRef(({
     if (isEditMode) {
       updateDisplayLabels();
     }
-  }, [formData, agreements, isEditMode]);
+  }, [formData, companies, agreements, isEditMode]);
 
   // Track form changes (only in edit mode)
   useEffect(() => {
@@ -97,6 +102,18 @@ const CommercialAgreement = forwardRef(({
       }
     }
   }, [formData, initialFormData, saveState, hasUnsavedChanges, isEditMode]);
+
+  // Load agreements when a company is selected
+  useEffect(() => {
+    if (isEditMode && selectedCompany && selectedCompany.value) {
+      fetchAgreementsByCompany(selectedCompany.value);
+    } else if (isEditMode && !selectedCompany) {
+      // Clear agreements when no company is selected
+      setAgreements([{ label: "Select Commercial Agreement", value: "" }]);
+      onChange('commercialAgreement', '');
+      onChange('currency', '');
+    }
+  }, [selectedCompany, isEditMode]);
 
   // Fetch agreement dates and products when commercial agreement is initially loaded (edit mode only)
   useEffect(() => {
@@ -119,6 +136,13 @@ const CommercialAgreement = forwardRef(({
   // === DISPLAY LABEL FUNCTIONS ===
   const updateDisplayLabels = () => {
     const newLabels = { ...displayLabels };
+
+    // Company
+    if (!displayLabels.company || isEditMode) {
+      if (selectedCompany && selectedCompany.value) {
+        newLabels.company = selectedCompany.companyName || selectedCompany.label;
+      }
+    }
 
     // Commercial Agreement
     if (!displayLabels.commercialAgreement || isEditMode) {
@@ -156,6 +180,15 @@ const CommercialAgreement = forwardRef(({
 
         // Set display labels from association data with proper fallbacks
         const newDisplayLabels = {};
+        
+        // Company
+        if (data.associations?.company) {
+          newDisplayLabels.company = data.associations.company.label;
+        } else if (data.formData.company) {
+          newDisplayLabels.company = data.formData.company;
+        } else {
+          newDisplayLabels.company = "";
+        }
         
         // Commercial Agreement
         if (data.associations?.commercialAgreement) {
@@ -229,9 +262,19 @@ const CommercialAgreement = forwardRef(({
         // Update display labels from association data
         const newDisplayLabels = { ...displayLabels };
         
+        if (data.associations?.company) {
+          newDisplayLabels.company = data.associations.company.label;
+          setCompanySearchTerm(data.associations.company.label);
+          // Set selected company for agreement loading
+          setSelectedCompany({
+            value: data.formData.company,
+            label: data.associations.company.label,
+            companyName: data.associations.company.label
+          });
+        }
+        
         if (data.associations?.commercialAgreement) {
           newDisplayLabels.commercialAgreement = data.associations.commercialAgreement.label;
-          setAgreementSearchTerm(data.associations.commercialAgreement.label);
         }
         
         setDisplayLabels(newDisplayLabels);
@@ -251,7 +294,7 @@ const CommercialAgreement = forwardRef(({
           onSaveStatusChange({
             status: data.saveStatus,
             lastSaved: data.metadata?.lastSaved,
-            hasData: !!(data.formData.commercialAgreement),
+            hasData: !!(data.formData.company || data.formData.commercialAgreement),
             isUserSave: false // This is loading existing data, not a save action
           });
         }
@@ -278,19 +321,15 @@ const CommercialAgreement = forwardRef(({
         name: "saveBasicInformation", // Reuse existing function - will need to be updated
         parameters: {
           campaignDealId: context.crm.objectId,
+          company: formData.company,
           commercialAgreement: formData.commercialAgreement,
+          currency: formData.currency,
           createdBy: `${context?.user?.firstName || ''} ${context?.user?.lastName || ''}`.trim()
         }
       });
 
       if (response?.status === "SUCCESS" && response?.response?.data) {
         const data = response.response.data;
-
-        // Update company/currency from response
-        if (data.companyInfo) {
-          onChange('company', data.companyInfo.companyName);
-          onChange('currency', data.companyInfo.currency);
-        }
 
         // Update tracking state
         const commercialFields = ['commercialAgreement', 'company', 'currency'];
@@ -359,32 +398,27 @@ const CommercialAgreement = forwardRef(({
   };
 
   // === CURRENCY FETCH FUNCTION ===
-  const fetchCompanyAndCurrencyFromAgreement = async (agreementId) => {
+  const fetchCurrencyFromAgreement = async (agreementId) => {
     if (!runServerless || !agreementId) return;
 
     try {
       console.log(`💰 Fetching currency for Commercial Agreement ID: ${agreementId}`);
       
-      // Save the commercial agreement to trigger the fetchCompanyFromAgreement function
       const response = await runServerless({
-        name: "saveBasicInformation",
+        name: "fetchAgreementDates",
         parameters: {
-          campaignDealId: context.crm.objectId,
-          commercialAgreement: agreementId,
-          createdBy: `${context?.user?.firstName || ''} ${context?.user?.lastName || ''}`.trim()
+          agreementId: agreementId
         }
       });
 
       if (response?.status === "SUCCESS" && response?.response?.data) {
         const data = response.response.data;
         
-        // Update company/currency from response
-        if (data.companyInfo) {
-          console.log(`✅ Found currency: ${data.companyInfo.currency} for Agreement ID ${agreementId}`);
-          onChange('company', data.companyInfo.companyName || 'Not found');
-          onChange('currency', data.companyInfo.currency || 'Not found');
+        if (data.currency_code) {
+          console.log(`✅ Found currency: ${data.currency_code} for Agreement ID ${agreementId}`);
+          onChange('currency', data.currency_code);
         } else {
-          console.log(`⚠️ No company info found for Agreement ID ${agreementId}`);
+          console.log(`⚠️ No currency found for Agreement ID ${agreementId}`);
           onChange('currency', 'Not found');
         }
       } else {
@@ -397,18 +431,18 @@ const CommercialAgreement = forwardRef(({
     }
   };
 
-  // === COMMERCIAL AGREEMENTS SEARCH FUNCTIONS ===
-  const performAgreementSearch = async () => {
-    if (!runServerless || !isEditMode || !agreementSearchTerm.trim()) return;
+  // === COMPANY SEARCH FUNCTIONS ===
+  const performCompanySearch = async () => {
+    if (!runServerless || !isEditMode || !companySearchTerm.trim()) return;
 
-    setIsAgreementSearching(true);
-    setAgreementErrorMessage("");
+    setIsCompanySearching(true);
+    setCompanyErrorMessage("");
 
     try {
-      const searchTerm = agreementSearchTerm.trim();
+      const searchTerm = companySearchTerm.trim();
       
       const response = await runServerless({
-        name: "searchCommercialAgreements",
+        name: "searchCompanies",
         parameters: {
           searchTerm: searchTerm,
           page: 1,
@@ -418,25 +452,101 @@ const CommercialAgreement = forwardRef(({
 
       if (response && response.status === "SUCCESS" && response.response && response.response.data) {
         const data = response.response.data;
-        setAgreements(data.options || COMMERCIAL_AGREEMENTS);
-        setAgreementHasMore(data.hasMore || false);
-        setLastAgreementSearchTerm(searchTerm);
+        setCompanies(data.options || [{ label: "Select Company", value: "" }]);
+        setLastCompanySearchTerm(searchTerm);
         
-        // console.log($2
+        console.log(`✅ Found ${data.options.length - 1} companies for "${searchTerm}"`);
       } else {
         throw new Error("Invalid search response");
       }
     } catch (error) {
-      console.error("Agreement search error:", error);
-      setAgreementErrorMessage(`Search failed: ${error.message}`);
+      console.error("Company search error:", error);
+      setCompanyErrorMessage(`Search failed: ${error.message}`);
     } finally {
-      setIsAgreementSearching(false);
+      setIsCompanySearching(false);
     }
   };
 
-  // Removed loadDefaultAgreements - commercial agreements are now loaded only through search
+  // === AGREEMENTS BY COMPANY FUNCTION ===
+  const fetchAgreementsByCompany = async (companyId) => {
+    if (!runServerless || !companyId) {
+      setAgreements([{ label: "Select Commercial Agreement", value: "" }]);
+      return;
+    }
+
+    setIsAgreementLoading(true);
+    setAgreementErrorMessage("");
+
+    try {
+      console.log(`🔍 Fetching agreements for company: ${companyId}`);
+      
+      const response = await runServerless({
+        name: "fetchAgreementsByCompany",
+        parameters: {
+          companyId: companyId,
+          limit: 50
+        }
+      });
+
+      if (response && response.status === "SUCCESS" && response.response && response.response.data) {
+        const data = response.response.data;
+        setAgreements(data.options || [{ label: "Select Commercial Agreement", value: "" }]);
+        
+        console.log(`✅ Found ${data.options.length - 1} agreements for company ${companyId}`);
+      } else {
+        throw new Error("Invalid response");
+      }
+    } catch (error) {
+      console.error("Fetch agreements error:", error);
+      setAgreementErrorMessage(`Failed to load agreements: ${error.message}`);
+      setAgreements([{ label: "Select Commercial Agreement", value: "" }]);
+    } finally {
+      setIsAgreementLoading(false);
+    }
+  };
+
+  // Removed loadDefaultAgreements - commercial agreements are now loaded only when company is selected
 
   // === EVENT HANDLERS ===
+  const handleCompanyChange = (value) => {
+    if (!isEditMode) return;
+
+    const company = companies.find(c => c.value === value);
+    
+    if (company && company.value !== "") {
+      setSelectedCompany(company);
+      setCompanySearchTerm(company.label);
+      onChange('company', company.companyName || company.label);
+      
+      console.log(`🏢 Company selected: ${company.companyName || company.label}`);
+      
+      // Clear previous agreement selection
+      onChange('commercialAgreement', '');
+      onChange('currency', '');
+      
+      // Clear agreement-related data
+      if (lineItemsRef?.current?.updateAgreementDates) {
+        lineItemsRef.current.updateAgreementDates({ startDate: null, endDate: null });
+      }
+      if (lineItemsRef?.current?.loadAgreementProducts) {
+        lineItemsRef.current.loadAgreementProducts(null);
+      }
+    } else {
+      setSelectedCompany(null);
+      onChange('company', '');
+      onChange('commercialAgreement', '');
+      onChange('currency', '');
+      
+      // Clear agreement-related data
+      if (lineItemsRef?.current?.updateAgreementDates) {
+        lineItemsRef.current.updateAgreementDates({ startDate: null, endDate: null });
+      }
+      if (lineItemsRef?.current?.loadAgreementProducts) {
+        lineItemsRef.current.loadAgreementProducts(null);
+      }
+    }
+  };
+
   const handleCommercialAgreementChange = (value) => {
     if (!isEditMode) return;
 
@@ -445,37 +555,29 @@ const CommercialAgreement = forwardRef(({
     onChange('commercialAgreement', value);
 
     if (selectedAgreement && selectedAgreement.value !== "") {
-      setAgreementSearchTerm(selectedAgreement.label);
+      console.log(`📜 Agreement selected: ${selectedAgreement.label}`);
 
       // Fetch agreement dates for the selected commercial agreement
       fetchAgreementDates(value);
 
-      // Fetch currency and company info from the agreement
-      fetchCompanyAndCurrencyFromAgreement(value);
+      // Get currency from the selected agreement (not from company)
+      if (selectedAgreement.currency) {
+        onChange('currency', selectedAgreement.currency);
+        console.log(`💰 Currency set from agreement: ${selectedAgreement.currency}`);
+      } else {
+        // Fallback to fetching currency from agreement details
+        fetchCurrencyFromAgreement(value);
+      }
 
       // Load agreement products for pricing overrides in LineItems component
       if (lineItemsRef?.current?.loadAgreementProducts) {
         console.log(`🔄 Loading agreement products for selected agreement: ${value}`);
         lineItemsRef.current.loadAgreementProducts(value);
       }
-
-      if (selectedAgreement.hasCompany === false) {
-        onChange('company', 'Not found');
-        setCompanyStatus("");
-      } else if (selectedAgreement.company && selectedAgreement.company !== 'No company found') {
-        onChange('company', selectedAgreement.company);
-        setCompanyStatus("");
-      } else {
-        onChange('company', 'Not found');
-        setCompanyStatus("");
-      }
     } else {
       // Clear agreement dates when no agreement is selected
       if (lineItemsRef?.current?.updateAgreementDates) {
-        lineItemsRef.current.updateAgreementDates({
-          startDate: null,
-          endDate: null
-        });
+        lineItemsRef.current.updateAgreementDates({ startDate: null, endDate: null });
       }
       
       // Clear agreement products when no agreement is selected
@@ -484,19 +586,22 @@ const CommercialAgreement = forwardRef(({
         lineItemsRef.current.loadAgreementProducts(null);
       }
       
-      onChange('company', '');
       onChange('currency', '');
-      setCompanyStatus("");
     }
   };
 
   // === CLEAR SEARCH FUNCTIONS ===
-  const clearAgreementSearch = () => {
+  const clearCompanySearch = () => {
     if (!isEditMode) return;
-    setAgreementSearchTerm("");
-    setAgreementErrorMessage("");
-    setLastAgreementSearchTerm("");
-    setAgreements(COMMERCIAL_AGREEMENTS);
+    setCompanySearchTerm("");
+    setCompanyErrorMessage("");
+    setLastCompanySearchTerm("");
+    setCompanies([{ label: "Select Company", value: "" }]);
+    setSelectedCompany(null);
+    onChange('company', '');
+    onChange('commercialAgreement', '');
+    onChange('currency', '');
+    setAgreements([{ label: "Select Commercial Agreement", value: "" }]);
   };
 
   // === MODE CONTROL FUNCTIONS ===
@@ -526,17 +631,28 @@ const CommercialAgreement = forwardRef(({
   const isSaveDisabled = () => {
     return saveState === COMPONENT_SAVE_STATES.SAVING ||
            saveState === COMPONENT_SAVE_STATES.LOADING ||
+           !formData.company ||
            !formData.commercialAgreement;
   };
 
   // === STATUS MESSAGES ===
+  const getCompanyStatusMessage = () => {
+    if (!isEditMode) return "";
+    if (isCompanySearching) return "Searching companies...";
+    if (isCompanyLoading) return "Loading companies...";
+    if (lastCompanySearchTerm) {
+      const count = companies.length > 1 ? companies.length - 1 : 0;
+      return `${count} results for "${lastCompanySearchTerm}"`;
+    }
+    return "";
+  };
+
   const getAgreementStatusMessage = () => {
     if (!isEditMode) return "";
-    if (isAgreementSearching) return "Searching agreements...";
     if (isAgreementLoading) return "Loading agreements...";
-    if (lastAgreementSearchTerm) {
+    if (selectedCompany && selectedCompany.value) {
       const count = agreements.length > 1 ? agreements.length - 1 : 0;
-      return `${count} results for "${lastAgreementSearchTerm}"`;
+      return `${count} agreements for ${selectedCompany.companyName || selectedCompany.label}`;
     }
     return "";
   };
@@ -547,6 +663,9 @@ const CommercialAgreement = forwardRef(({
   useImperativeHandle(ref, () => ({
     save: async () => {
       // Validate required fields
+      if (!formData.company) {
+        return "Please select a Company.";
+      }
       if (!formData.commercialAgreement) {
         return "Please select a Commercial Agreement.";
       }
@@ -565,50 +684,50 @@ const CommercialAgreement = forwardRef(({
 
       <Box marginTop="medium">
         <Flex direction="row" gap="medium" wrap="wrap">
-          {/* COMMERCIAL AGREEMENTS - VIEW/EDIT MODE */}
+          {/* COMPANY SEARCH - VIEW/EDIT MODE */}
           <Box flex={1} minWidth="250px">
             {/* View Mode: Simple Input Display */}
             {!isEditMode && (
               <Input
-                label="Commercial Agreement *"
-                name="commercialAgreement"
-                placeholder="No commercial agreement selected"
+                label="Company *"
+                name="company"
+                placeholder="No company selected"
                 value={
-                  displayLabels.commercialAgreement || 
-                  (formData.commercialAgreement ? `Agreement (${formData.commercialAgreement})` : "")
+                  displayLabels.company || 
+                  (formData.company ? formData.company : "")
                 }
                 readOnly={true}
               />
             )}
 
-            {/* Edit Mode: Simple Search Interface */}
+            {/* Edit Mode: Company Search Interface */}
             {isEditMode && (
               <>
                 <Flex gap="small" direction="row" align="end">
                   <Box flex={1}>
                     <Input
-                      label="Search Commercial Agreements *"
-                      name="searchAgreements"
-                      placeholder="Enter agreement name or ID..."
-                      value={agreementSearchTerm}
-                      onChange={(value) => setAgreementSearchTerm(value)}
-                      disabled={isAgreementLoading || isAgreementSearching}
+                      label="Search Companies *"
+                      name="searchCompanies"
+                      placeholder="Enter company name..."
+                      value={companySearchTerm}
+                      onChange={(value) => setCompanySearchTerm(value)}
+                      disabled={isCompanyLoading || isCompanySearching}
                     />
                   </Box>
                   <Box>
                     <Button 
-                      onClick={performAgreementSearch}
-                      disabled={!agreementSearchTerm.trim() || isAgreementSearching || isAgreementLoading}
+                      onClick={performCompanySearch}
+                      disabled={!companySearchTerm.trim() || isCompanySearching || isCompanyLoading}
                     >
-                      {isAgreementSearching ? <LoadingSpinner size="xs" /> : "🔍 Search"}
+                      {isCompanySearching ? <LoadingSpinner size="xs" /> : "🔍 Search"}
                     </Button>
                   </Box>
-                  {lastAgreementSearchTerm && (
+                  {lastCompanySearchTerm && (
                     <Box>
                       <Button
                         variant="secondary"
                         size="xs"
-                        onClick={clearAgreementSearch}
+                        onClick={clearCompanySearch}
                       >
                         ✕ Clear
                       </Button>
@@ -616,44 +735,44 @@ const CommercialAgreement = forwardRef(({
                   )}
                 </Flex>
 
-                {/* Search Results */}
-                {lastAgreementSearchTerm && agreements.length > 1 && (
+                {/* Company Search Results */}
+                {lastCompanySearchTerm && companies.length > 1 && (
                   <Box marginTop="small">
                     <Select
-                      label="Select from search results"
-                      name="searchResults"
-                      options={agreements}
-                      value={formData.commercialAgreement}
-                      onChange={(value) => handleCommercialAgreementChange(value)}
-                      disabled={isAgreementSearching}
+                      label="Select Company"
+                      name="companyResults"
+                      options={companies}
+                      value={selectedCompany?.value || ""}
+                      onChange={(value) => handleCompanyChange(value)}
+                      disabled={isCompanySearching}
                     />
                   </Box>
                 )}
 
-                {/* Status Messages */}
-                {getAgreementStatusMessage() && (
+                {/* Company Status Messages */}
+                {getCompanyStatusMessage() && (
                   <Text variant="microcopy" format={{ color: 'medium' }}>
-                    {getAgreementStatusMessage()}
+                    {getCompanyStatusMessage()}
                   </Text>
                 )}
 
-                {/* Error Messages */}
-                {agreementErrorMessage && (
+                {/* Company Error Messages */}
+                {companyErrorMessage && (
                   <Box marginTop="extra-small">
                     <Text variant="microcopy" format={{ color: 'error' }}>
-                      {agreementErrorMessage}
+                      {companyErrorMessage}
                     </Text>
                     <Box marginTop="extra-small">
                       <Button
                         variant="secondary"
                         size="xs"
                         onClick={() => {
-                          setAgreementErrorMessage("");
-                          if (lastAgreementSearchTerm) {
-                            performAgreementSearch();
+                          setCompanyErrorMessage("");
+                          if (lastCompanySearchTerm) {
+                            performCompanySearch();
                           }
                         }}
-                        disabled={isAgreementLoading}
+                        disabled={isCompanyLoading}
                       >
                         Retry
                       </Button>
@@ -667,31 +786,87 @@ const CommercialAgreement = forwardRef(({
 
         <Box marginTop="medium">
           <Flex direction="row" gap="medium" wrap="wrap">
-            {/* COMPANY - VIEW/EDIT MODE */}
+            {/* COMMERCIAL AGREEMENTS - VIEW/EDIT MODE */}
             <Box flex={1} minWidth="250px">
-              <Input
-                label="Company"
-                name="company"
-                placeholder={isEditMode ? "Not found" : "No company information"}
-                value={formData.company}
-                readOnly={true}
-              />
+              {/* View Mode: Simple Input Display */}
+              {!isEditMode && (
+                <Input
+                  label="Commercial Agreement *"
+                  name="commercialAgreement"
+                  placeholder="No commercial agreement selected"
+                  value={
+                    displayLabels.commercialAgreement || 
+                    (formData.commercialAgreement ? `Agreement (${formData.commercialAgreement})` : "")
+                  }
+                  readOnly={true}
+                />
+              )}
 
-              {companyStatus && (
-                <Box marginTop="extra-small">
-                  <Text
-                    variant="microcopy"
-                    format={{
-                      color: companyStatus.includes('No company') ? 'error' :
-                             companyStatus.includes('Company:') ? 'success' : 'medium'
-                    }}
-                  >
-                    {companyStatus}
-                  </Text>
-                </Box>
+              {/* Edit Mode: Agreement Selection (only when company is selected) */}
+              {isEditMode && (
+                <>
+                  {selectedCompany && selectedCompany.value ? (
+                    <>
+                      <Select
+                        label="Commercial Agreement *"
+                        name="commercialAgreement"
+                        options={agreements}
+                        value={formData.commercialAgreement}
+                        onChange={(value) => handleCommercialAgreementChange(value)}
+                        disabled={isAgreementLoading}
+                      />
+
+                      {/* Agreement Status Messages */}
+                      {getAgreementStatusMessage() && (
+                        <Text variant="microcopy" format={{ color: 'medium' }}>
+                          {getAgreementStatusMessage()}
+                        </Text>
+                      )}
+
+                      {/* Agreement Error Messages */}
+                      {agreementErrorMessage && (
+                        <Box marginTop="extra-small">
+                          <Text variant="microcopy" format={{ color: 'error' }}>
+                            {agreementErrorMessage}
+                          </Text>
+                          <Box marginTop="extra-small">
+                            <Button
+                              variant="secondary"
+                              size="xs"
+                              onClick={() => {
+                                setAgreementErrorMessage("");
+                                fetchAgreementsByCompany(selectedCompany.value);
+                              }}
+                              disabled={isAgreementLoading}
+                            >
+                              Retry
+                            </Button>
+                          </Box>
+                        </Box>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <Input
+                        label="Commercial Agreement *"
+                        name="commercialAgreement"
+                        placeholder="Please select a company first"
+                        value=""
+                        readOnly={true}
+                      />
+                      <Text variant="microcopy" format={{ color: 'medium' }}>
+                        Select a company above to view associated commercial agreements
+                      </Text>
+                    </>
+                  )}
+                </>
               )}
             </Box>
+          </Flex>
+        </Box>
 
+        <Box marginTop="medium">
+          <Flex direction="row" gap="medium" wrap="wrap">
             {/* CURRENCY - VIEW/EDIT MODE */}
             <Box flex={1} minWidth="250px">
               <Input
@@ -700,11 +875,17 @@ const CommercialAgreement = forwardRef(({
                 value={formData.currency}
                 placeholder={
                   !isEditMode ? "No currency information" :
-                  formData.company === 'No company found' ? 'No currency available' : 
+                  !selectedCompany ? 'Select company and agreement first' : 
+                  !formData.commercialAgreement ? 'Select commercial agreement first' :
                   formData.currency ? 'Currency from agreement' : 'Not found'
                 }
                 readOnly={true}
               />
+              {isEditMode && formData.currency && (
+                <Text variant="microcopy" format={{ color: 'success' }}>
+                  Currency automatically set from selected agreement
+                </Text>
+              )}
             </Box>
           </Flex>
         </Box>
