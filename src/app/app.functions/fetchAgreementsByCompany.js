@@ -20,46 +20,70 @@ exports.main = async (context) => {
 
     console.log('🔍 [fetchAgreementsByCompany] Fetching agreements for company:', companyId);
 
-    // Search for deals (commercial agreements) associated with the company
-    const searchRequest = {
-      filterGroups: [
-        {
-          filters: [
-            {
-              propertyName: 'associations.company',
-              operator: 'EQ',
-              value: companyId
-            },
-            {
-              propertyName: 'dealtype',
-              operator: 'EQ',
-              value: 'commercial_agreement'
-            }
-          ]
-        }
-      ],
-      limit: parseInt(limit),
-      sorts: [
-        {
-          propertyName: 'dealname',
-          direction: 'ASCENDING'
-        }
-      ],
-      properties: [
-        'dealname',
-        'dealstage',
-        'amount',
-        'closedate',
-        'createdate',
-        'hs_object_id',
-        'currency_code',
-        'dealtype'
-      ]
-    };
+    // First, get associated deals using the associations API
+    const associations = await hubspotClient.crm.associations.v4.basicApi.getPage(
+      "companies",
+      companyId,
+      "deals"
+    );
 
-    console.log('🔍 [fetchAgreementsByCompany] Search request:', searchRequest);
+    console.log('🔍 [fetchAgreementsByCompany] Found associations:', {
+      total: associations.results?.length || 0,
+      dealIds: associations.results?.map(a => a.toObjectId) || []
+    });
 
-    const searchResponse = await hubspotClient.crm.deals.searchApi.doSearch(searchRequest);
+    let searchResponse;
+    
+    if (!associations.results || associations.results.length === 0) {
+      console.log('🔍 [fetchAgreementsByCompany] No associated deals found for company');
+      searchResponse = { results: [], total: 0 };
+    } else {
+      // Get the deal IDs
+      const dealIds = associations.results.map(association => association.toObjectId);
+      
+      console.log('🔍 [fetchAgreementsByCompany] Getting deal details for IDs:', dealIds);
+
+      // Now search for deals that are commercial agreements
+      const searchRequest = {
+        filterGroups: [
+          {
+            filters: [
+              {
+                propertyName: 'hs_object_id',
+                operator: 'IN',
+                values: dealIds
+              },
+              {
+                propertyName: 'dealtype',
+                operator: 'EQ',
+                value: 'commercial_agreement'
+              }
+            ]
+          }
+        ],
+        limit: parseInt(limit),
+        sorts: [
+          {
+            propertyName: 'dealname',
+            direction: 'ASCENDING'
+          }
+        ],
+        properties: [
+          'dealname',
+          'dealstage',
+          'amount',
+          'closedate',
+          'createdate',
+          'hs_object_id',
+          'currency_code',
+          'dealtype'
+        ]
+      };
+
+      console.log('🔍 [fetchAgreementsByCompany] Search request:', searchRequest);
+
+      searchResponse = await hubspotClient.crm.deals.searchApi.doSearch(searchRequest);
+    }
     
     console.log('🔍 [fetchAgreementsByCompany] Search response:', {
       total: searchResponse.total,
