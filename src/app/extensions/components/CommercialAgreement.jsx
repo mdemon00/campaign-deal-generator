@@ -62,6 +62,15 @@ const CommercialAgreement = forwardRef(({
 
   // === COMPONENT INITIALIZATION ===
 
+  // Debug: Log formData changes
+  useEffect(() => {
+    console.log('🔍 [DEBUG] CommercialAgreement formData updated:', {
+      company: formData.company,
+      commercialAgreement: formData.commercialAgreement,
+      currency: formData.currency
+    });
+  }, [formData]);
+
   // Load saved data on component mount (only in edit mode)
   useEffect(() => {
     if (context?.crm?.objectId && runServerless && isEditMode) {
@@ -895,6 +904,13 @@ const CommercialAgreement = forwardRef(({
                         onChange={(value) => handleCommercialAgreementChange(value)}
                         disabled={isAgreementLoading}
                       />
+                      
+                      {/* Show saved data hint if no selection but we have agreements */}
+                      {!formData.commercialAgreement && agreements.length > 1 && (
+                        <Text variant="microcopy" format={{ color: 'info' }} marginTop="extra-small">
+                          💡 Previously saved data available - select an agreement above
+                        </Text>
+                      )}
 
                       {/* Agreement Status Messages */}
                       {getAgreementStatusMessage() && (
