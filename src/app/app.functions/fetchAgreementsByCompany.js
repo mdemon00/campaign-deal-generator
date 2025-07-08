@@ -151,6 +151,11 @@ exports.main = async (context) => {
 
     console.log('✅ [fetchAgreementsByCompany] Search completed successfully');
     console.log(`📊 [fetchAgreementsByCompany] Found ${agreements.length} agreements for company ${companyId}`);
+    console.log('📋 [fetchAgreementsByCompany] Agreement details:', agreements.map(a => ({
+      id: a.value,
+      label: a.label,
+      currency: a.currency
+    })));
 
     return {
       status: 'SUCCESS',

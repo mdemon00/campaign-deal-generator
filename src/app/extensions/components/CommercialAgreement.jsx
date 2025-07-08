@@ -123,11 +123,22 @@ const CommercialAgreement = forwardRef(({
       const savedAgreement = agreements.find(a => a.value === formData.commercialAgreement);
       if (savedAgreement) {
         console.log('✅ [LOAD] Found and selected saved agreement:', savedAgreement.label);
-        // The agreement is already set in formData, just ensure it's in the dropdown
+        
+        // Make sure the agreement is properly selected in formData (should already be there)
+        if (formData.commercialAgreement !== savedAgreement.value) {
+          onChange('commercialAgreement', savedAgreement.value);
+        }
+        
+        // Set currency from the saved agreement
         if (savedAgreement.currency) {
           onChange('currency', savedAgreement.currency);
           console.log('💰 [LOAD] Set currency from loaded agreement:', savedAgreement.currency);
         }
+      } else {
+        console.log('⚠️ [LOAD] Saved agreement not found in agreements list:', {
+          savedAgreementId: formData.commercialAgreement,
+          availableAgreements: agreements.map(a => ({id: a.value, label: a.label}))
+        });
       }
     }
   }, [agreements, formData.commercialAgreement, saveState, isEditMode]);
