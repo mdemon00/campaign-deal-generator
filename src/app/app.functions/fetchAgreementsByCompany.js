@@ -1,6 +1,6 @@
 const hubspot = require('@hubspot/api-client');
 
-exports.main = async (context, sendResponse) => {
+exports.main = async (context) => {
   console.log('🔍 [fetchAgreementsByCompany] Function started');
   
   try {
@@ -8,13 +8,10 @@ exports.main = async (context, sendResponse) => {
     
     if (!companyId || companyId.trim() === '') {
       console.log('❌ [fetchAgreementsByCompany] No company ID provided');
-      return sendResponse({
-        statusCode: 400,
-        body: {
-          status: 'ERROR',
-          message: 'Company ID is required'
-        }
-      });
+      return {
+        status: 'ERROR',
+        message: 'Company ID is required'
+      };
     }
 
     const hubspotClient = new hubspot.Client({
@@ -71,32 +68,46 @@ exports.main = async (context, sendResponse) => {
 
     // Format results for UI
     const agreements = searchResponse.results.map(deal => {
-      const properties = deal.properties;
-      const dealName = properties.dealname || 'Unnamed Agreement';
-      const dealStage = properties.dealstage || '';
-      const amount = properties.amount || '';
-      const currency = properties.currency_code || '';
-      const closeDate = properties.closedate || '';
-      
-      // Create display label
-      let label = dealName;
-      if (amount && currency) {
-        label += ` (${amount} ${currency})`;
+      try {
+        const properties = deal.properties || {};
+        const dealName = properties.dealname || 'Unnamed Agreement';
+        const dealStage = properties.dealstage || '';
+        const amount = properties.amount || '';
+        const currency = properties.currency_code || '';
+        const closeDate = properties.closedate || '';
+        
+        // Create display label
+        let label = dealName;
+        if (amount && currency) {
+          label += ` (${amount} ${currency})`;
+        }
+        if (dealStage) {
+          label += ` - ${dealStage}`;
+        }
+        
+        return {
+          value: deal.id || '',
+          label: label,
+          dealName: dealName,
+          dealStage: dealStage,
+          amount: amount,
+          currency: currency,
+          closeDate: closeDate,
+          companyId: companyId
+        };
+      } catch (error) {
+        console.error('❌ [fetchAgreementsByCompany] Error formatting deal:', error, deal);
+        return {
+          value: deal.id || '',
+          label: 'Error formatting agreement',
+          dealName: 'Error',
+          dealStage: '',
+          amount: '',
+          currency: '',
+          closeDate: '',
+          companyId: companyId
+        };
       }
-      if (dealStage) {
-        label += ` - ${dealStage}`;
-      }
-      
-      return {
-        value: deal.id,
-        label: label,
-        dealName: dealName,
-        dealStage: dealStage,
-        amount: amount,
-        currency: currency,
-        closeDate: closeDate,
-        companyId: companyId
-      };
     });
 
     // Add default "Select Agreement" option
@@ -108,29 +119,21 @@ exports.main = async (context, sendResponse) => {
     console.log('✅ [fetchAgreementsByCompany] Search completed successfully');
     console.log(`📊 [fetchAgreementsByCompany] Found ${agreements.length} agreements for company ${companyId}`);
 
-    return sendResponse({
-      statusCode: 200,
-      body: {
-        status: 'SUCCESS',
-        response: {
-          data: {
-            options: options,
-            total: searchResponse.total,
-            companyId: companyId
-          }
-        }
+    return {
+      status: 'SUCCESS',
+      data: {
+        options: options,
+        total: searchResponse.total,
+        companyId: companyId
       }
-    });
+    };
 
   } catch (error) {
     console.error('❌ [fetchAgreementsByCompany] Error:', error);
     
-    return sendResponse({
-      statusCode: 500,
-      body: {
-        status: 'ERROR',
-        message: `Failed to fetch agreements: ${error.message}`
-      }
-    });
+    return {
+      status: 'ERROR',
+      message: `Failed to fetch agreements: ${error.message}`
+    };
   }
 };

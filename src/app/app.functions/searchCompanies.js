@@ -1,6 +1,6 @@
 const hubspot = require('@hubspot/api-client');
 
-exports.main = async (context, sendResponse) => {
+exports.main = async (context) => {
   console.log('🔍 [searchCompanies] Function started');
   
   try {
@@ -8,13 +8,10 @@ exports.main = async (context, sendResponse) => {
     
     if (!searchTerm || searchTerm.trim() === '') {
       console.log('❌ [searchCompanies] No search term provided');
-      return sendResponse({
-        statusCode: 400,
-        body: {
-          status: 'ERROR',
-          message: 'Search term is required'
-        }
-      });
+      return {
+        status: 'ERROR',
+        message: 'Search term is required'
+      };
     }
 
     const hubspotClient = new hubspot.Client({
@@ -52,28 +49,40 @@ exports.main = async (context, sendResponse) => {
 
     // Format results for UI
     const companies = searchResponse.results.map(company => {
-      const properties = company.properties;
-      const companyName = properties.name || 'Unnamed Company';
-      const domain = properties.domain || '';
-      const country = properties.country || '';
-      const city = properties.city || '';
-      
-      // Create display label
-      let label = companyName;
-      if (domain) label += ` (${domain})`;
-      if (city || country) {
-        const location = [city, country].filter(Boolean).join(', ');
-        if (location) label += ` - ${location}`;
+      try {
+        const properties = company.properties || {};
+        const companyName = properties.name || 'Unnamed Company';
+        const domain = properties.domain || '';
+        const country = properties.country || '';
+        const city = properties.city || '';
+        
+        // Create display label
+        let label = companyName;
+        if (domain) label += ` (${domain})`;
+        if (city || country) {
+          const location = [city, country].filter(Boolean).join(', ');
+          if (location) label += ` - ${location}`;
+        }
+        
+        return {
+          value: company.id || '',
+          label: label,
+          companyName: companyName,
+          domain: domain,
+          country: country,
+          city: city
+        };
+      } catch (error) {
+        console.error('❌ [searchCompanies] Error formatting company:', error, company);
+        return {
+          value: company.id || '',
+          label: 'Error formatting company',
+          companyName: 'Error',
+          domain: '',
+          country: '',
+          city: ''
+        };
       }
-      
-      return {
-        value: company.id,
-        label: label,
-        companyName: companyName,
-        domain: domain,
-        country: country,
-        city: city
-      };
     });
 
     // Add default "Select Company" option
@@ -82,35 +91,27 @@ exports.main = async (context, sendResponse) => {
       ...companies
     ];
 
-    const hasMore = searchResponse.paging?.next?.after ? true : false;
+    const hasMore = searchResponse.paging && searchResponse.paging.next && searchResponse.paging.next.after ? true : false;
 
     console.log('✅ [searchCompanies] Search completed successfully');
     console.log(`📊 [searchCompanies] Found ${companies.length} companies`);
 
-    return sendResponse({
-      statusCode: 200,
-      body: {
-        status: 'SUCCESS',
-        response: {
-          data: {
-            options: options,
-            hasMore: hasMore,
-            total: searchResponse.total,
-            searchTerm: searchTerm
-          }
-        }
+    return {
+      status: 'SUCCESS',
+      data: {
+        options: options,
+        hasMore: hasMore,
+        total: searchResponse.total,
+        searchTerm: searchTerm
       }
-    });
+    };
 
   } catch (error) {
     console.error('❌ [searchCompanies] Error:', error);
     
-    return sendResponse({
-      statusCode: 500,
-      body: {
-        status: 'ERROR',
-        message: `Company search failed: ${error.message}`
-      }
-    });
+    return {
+      status: 'ERROR',
+      message: `Company search failed: ${error.message}`
+    };
   }
 };
