@@ -118,8 +118,15 @@ const CommercialAgreement = forwardRef(({
 
   // After agreements are loaded, select the saved agreement
   useEffect(() => {
-    if (isEditMode && agreements.length > 1 && formData.commercialAgreement && 
-        saveState === COMPONENT_SAVE_STATES.SAVED) {
+    console.log('🔍 [LOAD] Auto-selection check:', {
+      isEditMode,
+      agreementsLength: agreements.length,
+      commercialAgreement: formData.commercialAgreement,
+      saveState,
+      condition: isEditMode && agreements.length > 1 && formData.commercialAgreement && saveState === COMPONENT_SAVE_STATES.SAVED
+    });
+    
+    if (isEditMode && agreements.length > 1 && formData.commercialAgreement) {
       const savedAgreement = agreements.find(a => a.value === formData.commercialAgreement);
       if (savedAgreement) {
         console.log('✅ [LOAD] Found and selected saved agreement:', savedAgreement.label);
