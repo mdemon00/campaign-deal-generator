@@ -145,9 +145,19 @@ const CommercialAgreement = forwardRef(({
         onChange('commercialAgreement', savedAgreement.value);
         
         // Set currency from the saved agreement
+        console.log('🔍 [LOAD] Agreement currency check:', {
+          agreementId: savedAgreement.value,
+          agreementLabel: savedAgreement.label,
+          currency: savedAgreement.currency,
+          hasCurrency: !!savedAgreement.currency,
+          fullAgreementData: savedAgreement
+        });
+        
         if (savedAgreement.currency) {
           onChange('currency', savedAgreement.currency);
           console.log('💰 [LOAD] Auto-set currency from agreement:', savedAgreement.currency);
+        } else {
+          console.log('⚠️ [LOAD] No currency in agreement data, will be set later via fetchAgreementDates');
         }
         
         // Trigger the same actions as manual selection
@@ -458,6 +468,16 @@ const CommercialAgreement = forwardRef(({
           });
           console.log(`🔄 Updated LineItems with agreement dates`);
         }
+        
+        // Set currency from agreement data if available (but only if not already set during auto-selection)
+        if (agreementData.moneda && !formData.currency) {
+          console.log(`💰 [LOAD] Setting currency from fetchAgreementDates: ${agreementData.moneda}`);
+          onChange('currency', agreementData.moneda);
+        } else if (agreementData.moneda && formData.currency) {
+          console.log(`💰 [LOAD] Currency already set (${formData.currency}), skipping fetchAgreementDates currency update`);
+        } else {
+          console.log(`⚠️ [LOAD] No moneda field in agreement dates response:`, Object.keys(agreementData));
+        }
       } else {
         console.log(`❌ Failed to fetch agreement dates for Agreement ID ${agreementId}:`, response);
       }
@@ -586,6 +606,9 @@ const CommercialAgreement = forwardRef(({
 
       if (response && response.status === "SUCCESS" && response.response && response.response.data) {
         const data = response.response.data;
+        
+        console.log('🔍 [DEBUG] Raw agreements response:', data.options);
+        
         setAgreements(data.options || [{ label: "Select Commercial Agreement", value: "" }]);
         
         console.log(`✅ Found ${data.options.length - 1} agreements for company ${companyId}`);
