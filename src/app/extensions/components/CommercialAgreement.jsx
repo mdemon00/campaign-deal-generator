@@ -404,7 +404,31 @@ const CommercialAgreement = forwardRef(({
     try {
       console.log(`💰 Fetching currency for Commercial Agreement ID: ${agreementId}`);
       
-      // First try to get currency from agreement products
+      // First try to get currency from agreement dates API (includes moneda property)
+      const response = await runServerless({
+        name: "fetchAgreementDates",
+        parameters: {
+          agreementId: agreementId
+        }
+      });
+
+      if (response?.status === "SUCCESS" && response?.response?.data) {
+        const data = response.response.data;
+        
+        if (data.moneda) {
+          const currency = data.moneda;
+          console.log(`✅ Found currency from agreement moneda: ${currency} for Agreement ID ${agreementId}`);
+          onChange('currency', currency);
+          return;
+        } else if (data.currency_code) {
+          const currency = data.currency_code;
+          console.log(`✅ Found currency from agreement currency_code: ${currency} for Agreement ID ${agreementId}`);
+          onChange('currency', currency);
+          return;
+        }
+      }
+      
+      // Fallback to getting currency from agreement products
       const productsResponse = await runServerless({
         name: "fetchProductsForDeal",
         parameters: {
@@ -424,35 +448,14 @@ const CommercialAgreement = forwardRef(({
         
         if (products.length > 0 && products[0].values?.currency) {
           const currency = products[0].values.currency;
-          console.log(`✅ Found currency from products: ${currency} for Agreement ID ${agreementId}`);
+          console.log(`✅ Found currency from products as fallback: ${currency} for Agreement ID ${agreementId}`);
           onChange('currency', currency);
           return;
         }
       }
-      
-      // Fallback to agreement dates API
-      const response = await runServerless({
-        name: "fetchAgreementDates",
-        parameters: {
-          agreementId: agreementId
-        }
-      });
 
-      if (response?.status === "SUCCESS" && response?.response?.data) {
-        const data = response.response.data;
-        
-        if (data.currency_code || data.moneda) {
-          const currency = data.currency_code || data.moneda;
-          console.log(`✅ Found currency from agreement: ${currency} for Agreement ID ${agreementId}`);
-          onChange('currency', currency);
-        } else {
-          console.log(`⚠️ No currency found for Agreement ID ${agreementId}`);
-          onChange('currency', 'MXN'); // Default fallback
-        }
-      } else {
-        console.log(`❌ Failed to fetch currency for Agreement ID ${agreementId}:`, response);
-        onChange('currency', 'MXN'); // Default fallback
-      }
+      console.log(`⚠️ No currency found for Agreement ID ${agreementId}`);
+      onChange('currency', 'MXN'); // Default fallback
     } catch (error) {
       console.error(`❌ Error fetching currency for Agreement ID ${agreementId}:`, error);
       onChange('currency', 'MXN'); // Default fallback
@@ -593,7 +596,7 @@ const CommercialAgreement = forwardRef(({
         onChange('currency', selectedAgreement.currency);
         console.log(`💰 Currency set from agreement: ${selectedAgreement.currency}`);
       } else {
-        // Fallback to fetching currency from agreement details
+        // Fallback to fetching currency from agreement moneda property
         fetchCurrencyFromAgreement(value);
       }
 
@@ -747,7 +750,7 @@ const CommercialAgreement = forwardRef(({
                       onClick={performCompanySearch}
                       disabled={!companySearchTerm.trim() || isCompanySearching || isCompanyLoading}
                     >
-                      {isCompanySearching ? <LoadingSpinner size="xs" /> : "🔍 Search"}
+                      {isCompanySearching ? "🔄 Searching..." : "🔍 Search"}
                     </Button>
                   </Box>
                   {lastCompanySearchTerm && (

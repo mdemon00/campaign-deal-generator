@@ -52,7 +52,7 @@ exports.main = async (context) => {
             COMMERCIAL_AGREEMENTS_OBJECT_ID,
             agreementId,
             [
-              'nombre',
+              'status',
               'estado',
               'monto',
               'fecha_de_inicio',
@@ -93,7 +93,7 @@ exports.main = async (context) => {
     const agreements = searchResponse.results.map(agreement => {
       try {
         const properties = agreement.properties || {};
-        const agreementName = properties.nombre || 'Unnamed Agreement';
+        const agreementName = properties.status || 'Unnamed Agreement';
         const estado = properties.estado || '';
         const amount = properties.monto || '';
         const currency = properties.moneda || '';
