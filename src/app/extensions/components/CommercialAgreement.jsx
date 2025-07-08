@@ -300,21 +300,11 @@ const CommercialAgreement = forwardRef(({
           
           console.log('🏢 [LOAD] Set company from associations:', companyData);
         } else if (data.formData.company) {
-          // Fallback: try to populate from form data if no association
-          console.log('🔍 [LOAD] No company association, trying to load company:', data.formData.company);
+          // Fallback: try to search for company by name to get the ID
+          console.log('🔍 [LOAD] No company association, searching for company by name:', data.formData.company);
           
-          // Try to fetch company details by name/ID
-          const companyData = {
-            value: data.formData.company,
-            label: data.formData.company,
-            companyName: data.formData.company
-          };
-          setSelectedCompany(companyData);
-          setCompanySearchTerm(data.formData.company);
-          setCompanies([
-            { label: "Select Company", value: "" },
-            companyData
-          ]);
+          // Search for the company to get its ID
+          searchCompanyByName(data.formData.company);
         }
         
         if (data.associations?.commercialAgreement) {
@@ -365,7 +355,8 @@ const CommercialAgreement = forwardRef(({
         name: "saveBasicInformation", // Reuse existing function - will need to be updated
         parameters: {
           campaignDealId: context.crm.objectId,
-          company: formData.company,
+          company: formData.company, // This is the display name
+          companyId: selectedCompany?.value || formData.company, // This is the ID
           commercialAgreement: formData.commercialAgreement,
           currency: formData.currency,
           createdBy: `${context?.user?.firstName || ''} ${context?.user?.lastName || ''}`.trim()
@@ -444,6 +435,65 @@ const CommercialAgreement = forwardRef(({
   // Currency is now included directly in fetchAgreementsByCompany response - no separate API call needed
 
   // === COMPANY SEARCH FUNCTIONS ===
+  const searchCompanyByName = async (companyName) => {
+    if (!runServerless || !companyName) return;
+
+    try {
+      console.log(`🔍 [LOAD] Searching for company by name: "${companyName}"`);
+      
+      const response = await runServerless({
+        name: "searchCompanies",
+        parameters: {
+          searchTerm: companyName,
+          page: 1,
+          limit: 10
+        }
+      });
+
+      if (response && response.status === "SUCCESS" && response.response && response.response.data) {
+        const data = response.response.data;
+        const options = data.options || [];
+        
+        // Find exact match or best match for the company name
+        const exactMatch = options.find(option => 
+          option.companyName === companyName || option.label === companyName
+        );
+        
+        const partialMatch = options.find(option => 
+          option.companyName?.includes(companyName) || option.label?.includes(companyName)
+        );
+        
+        const foundCompany = exactMatch || partialMatch;
+        
+        if (foundCompany && foundCompany.value) {
+          console.log(`✅ [LOAD] Found company by name:`, foundCompany);
+          
+          setSelectedCompany(foundCompany);
+          setCompanySearchTerm(foundCompany.label);
+          setCompanies([
+            { label: "Select Company", value: "" },
+            foundCompany
+          ]);
+          setLastCompanySearchTerm(foundCompany.label);
+        } else {
+          console.log(`⚠️ [LOAD] Company not found by name: "${companyName}"`);
+          // Still set the company data even if we can't find the ID
+          const fallbackCompanyData = {
+            value: companyName,
+            label: companyName,
+            companyName: companyName
+          };
+          setSelectedCompany(fallbackCompanyData);
+          setCompanySearchTerm(companyName);
+        }
+      } else {
+        console.log(`❌ [LOAD] Failed to search for company: "${companyName}"`);
+      }
+    } catch (error) {
+      console.error(`❌ [LOAD] Error searching for company "${companyName}":`, error);
+    }
+  };
+
   const performCompanySearch = async () => {
     if (!runServerless || !isEditMode || !companySearchTerm.trim()) return;
 
