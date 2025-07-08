@@ -397,70 +397,7 @@ const CommercialAgreement = forwardRef(({
     }
   };
 
-  // === CURRENCY FETCH FUNCTION ===
-  const fetchCurrencyFromAgreement = async (agreementId) => {
-    if (!runServerless || !agreementId) return;
-
-    try {
-      console.log(`💰 Fetching currency for Commercial Agreement ID: ${agreementId}`);
-      
-      // First try to get currency from agreement dates API (includes moneda property)
-      const response = await runServerless({
-        name: "fetchAgreementDates",
-        parameters: {
-          agreementId: agreementId
-        }
-      });
-
-      if (response?.status === "SUCCESS" && response?.response?.data) {
-        const data = response.response.data;
-        
-        if (data.moneda) {
-          const currency = data.moneda;
-          console.log(`✅ Found currency from agreement moneda: ${currency} for Agreement ID ${agreementId}`);
-          onChange('currency', currency);
-          return;
-        } else if (data.currency_code) {
-          const currency = data.currency_code;
-          console.log(`✅ Found currency from agreement currency_code: ${currency} for Agreement ID ${agreementId}`);
-          onChange('currency', currency);
-          return;
-        }
-      }
-      
-      // Fallback to getting currency from agreement products
-      const productsResponse = await runServerless({
-        name: "fetchProductsForDeal",
-        parameters: {
-          dealId: agreementId
-        }
-      });
-
-      if (productsResponse?.status === "SUCCESS" && productsResponse?.response) {
-        let products = [];
-        
-        // Handle different response structures
-        if (Array.isArray(productsResponse.response)) {
-          products = productsResponse.response;
-        } else if (productsResponse.response?.response && Array.isArray(productsResponse.response.response)) {
-          products = productsResponse.response.response;
-        }
-        
-        if (products.length > 0 && products[0].values?.currency) {
-          const currency = products[0].values.currency;
-          console.log(`✅ Found currency from products as fallback: ${currency} for Agreement ID ${agreementId}`);
-          onChange('currency', currency);
-          return;
-        }
-      }
-
-      console.log(`⚠️ No currency found for Agreement ID ${agreementId}`);
-      onChange('currency', 'MXN'); // Default fallback
-    } catch (error) {
-      console.error(`❌ Error fetching currency for Agreement ID ${agreementId}:`, error);
-      onChange('currency', 'MXN'); // Default fallback
-    }
-  };
+  // Currency is now included directly in fetchAgreementsByCompany response - no separate API call needed
 
   // === COMPANY SEARCH FUNCTIONS ===
   const performCompanySearch = async () => {
@@ -591,13 +528,13 @@ const CommercialAgreement = forwardRef(({
       // Fetch agreement dates for the selected commercial agreement
       fetchAgreementDates(value);
 
-      // Get currency from the selected agreement (not from company)
+      // Get currency from the selected agreement (included in fetchAgreementsByCompany response)
       if (selectedAgreement.currency) {
         onChange('currency', selectedAgreement.currency);
-        console.log(`💰 Currency set from agreement: ${selectedAgreement.currency}`);
+        console.log(`💰 Currency set from agreement moneda: ${selectedAgreement.currency}`);
       } else {
-        // Fallback to fetching currency from agreement moneda property
-        fetchCurrencyFromAgreement(value);
+        console.log(`⚠️ No currency found in agreement data for: ${selectedAgreement.label}`);
+        onChange('currency', 'MXN'); // Default fallback
       }
 
       // Load agreement products for pricing overrides in LineItems component

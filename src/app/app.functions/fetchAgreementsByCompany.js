@@ -100,6 +100,13 @@ exports.main = async (context) => {
         const startDate = properties.fecha_de_inicio || '';
         const endDate = properties.fecha_de_finalizacion || '';
         
+        console.log(`🔍 [fetchAgreementsByCompany] Agreement ${agreement.id} properties:`, {
+          status: properties.status,
+          moneda: properties.moneda,
+          monto: properties.monto,
+          allProperties: Object.keys(properties)
+        });
+        
         // Create display label
         let label = agreementName;
         if (amount && currency) {
