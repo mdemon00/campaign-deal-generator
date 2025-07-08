@@ -125,39 +125,46 @@ const CommercialAgreement = forwardRef(({
     }
   }, [selectedCompany, isEditMode]);
 
-  // After agreements are loaded, select the saved agreement
+  // After agreements are loaded, auto-select the saved agreement
   useEffect(() => {
-    console.log('🔍 [LOAD] Auto-selection check:', {
-      isEditMode,
-      agreementsLength: agreements.length,
-      commercialAgreement: formData.commercialAgreement,
-      saveState,
-      condition: isEditMode && agreements.length > 1 && formData.commercialAgreement && saveState === COMPONENT_SAVE_STATES.SAVED
-    });
-    
-    if (isEditMode && agreements.length > 1 && formData.commercialAgreement) {
-      const savedAgreement = agreements.find(a => a.value === formData.commercialAgreement);
+    if (isEditMode && agreements.length > 1 && initialFormData?.commercialAgreement) {
+      const savedAgreementId = initialFormData.commercialAgreement;
+      const savedAgreement = agreements.find(a => a.value === savedAgreementId);
+      
+      console.log('🔍 [LOAD] Auto-selection check:', {
+        savedAgreementId,
+        foundAgreement: !!savedAgreement,
+        agreementsCount: agreements.length - 1, // -1 for "Select" option
+        currentFormValue: formData.commercialAgreement
+      });
+      
       if (savedAgreement) {
-        console.log('✅ [LOAD] Found and selected saved agreement:', savedAgreement.label);
+        console.log('✅ [LOAD] Auto-selecting saved agreement:', savedAgreement.label);
         
-        // Make sure the agreement is properly selected in formData (should already be there)
-        if (formData.commercialAgreement !== savedAgreement.value) {
-          onChange('commercialAgreement', savedAgreement.value);
-        }
+        // Select the agreement
+        onChange('commercialAgreement', savedAgreement.value);
         
         // Set currency from the saved agreement
         if (savedAgreement.currency) {
           onChange('currency', savedAgreement.currency);
-          console.log('💰 [LOAD] Set currency from loaded agreement:', savedAgreement.currency);
+          console.log('💰 [LOAD] Auto-set currency from agreement:', savedAgreement.currency);
+        }
+        
+        // Trigger the same actions as manual selection
+        fetchAgreementDates(savedAgreement.value);
+        
+        if (lineItemsRef?.current?.loadAgreementProducts) {
+          console.log('🔄 [LOAD] Auto-loading agreement products');
+          lineItemsRef.current.loadAgreementProducts(savedAgreement.value);
         }
       } else {
-        console.log('⚠️ [LOAD] Saved agreement not found in agreements list:', {
-          savedAgreementId: formData.commercialAgreement,
+        console.log('⚠️ [LOAD] Saved agreement not found in loaded agreements:', {
+          savedAgreementId,
           availableAgreements: agreements.map(a => ({id: a.value, label: a.label}))
         });
       }
     }
-  }, [agreements, formData.commercialAgreement, saveState, isEditMode]);
+  }, [agreements, initialFormData?.commercialAgreement, isEditMode]);
 
   // Fetch agreement dates and products when commercial agreement is initially loaded (edit mode only)
   useEffect(() => {
