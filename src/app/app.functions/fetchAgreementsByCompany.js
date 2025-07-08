@@ -20,69 +20,61 @@ exports.main = async (context) => {
 
     console.log('🔍 [fetchAgreementsByCompany] Fetching agreements for company:', companyId);
 
-    // First, get associated deals using the associations API
+    const COMMERCIAL_AGREEMENTS_OBJECT_ID = "2-39552013";
+
+    // First, get associated commercial agreements using the associations API
     const associations = await hubspotClient.crm.associations.v4.basicApi.getPage(
       "companies",
       companyId,
-      "deals"
+      COMMERCIAL_AGREEMENTS_OBJECT_ID
     );
 
     console.log('🔍 [fetchAgreementsByCompany] Found associations:', {
       total: associations.results?.length || 0,
-      dealIds: associations.results?.map(a => a.toObjectId) || []
+      agreementIds: associations.results?.map(a => a.toObjectId) || []
     });
 
     let searchResponse;
     
     if (!associations.results || associations.results.length === 0) {
-      console.log('🔍 [fetchAgreementsByCompany] No associated deals found for company');
+      console.log('🔍 [fetchAgreementsByCompany] No associated commercial agreements found for company');
       searchResponse = { results: [], total: 0 };
     } else {
-      // Get the deal IDs
-      const dealIds = associations.results.map(association => association.toObjectId);
+      // Get the commercial agreement IDs
+      const agreementIds = associations.results.map(association => association.toObjectId);
       
-      console.log('🔍 [fetchAgreementsByCompany] Getting deal details for IDs:', dealIds);
+      console.log('🔍 [fetchAgreementsByCompany] Getting agreement details for IDs:', agreementIds);
 
-      // Now search for deals that are commercial agreements
-      const searchRequest = {
-        filterGroups: [
-          {
-            filters: [
-              {
-                propertyName: 'hs_object_id',
-                operator: 'IN',
-                values: dealIds
-              },
-              {
-                propertyName: 'dealtype',
-                operator: 'EQ',
-                value: 'commercial_agreement'
-              }
+      // Get all the commercial agreements by their IDs
+      const agreementPromises = agreementIds.map(async (agreementId) => {
+        try {
+          const agreement = await hubspotClient.crm.objects.basicApi.getById(
+            COMMERCIAL_AGREEMENTS_OBJECT_ID,
+            agreementId,
+            [
+              'nombre',
+              'estado',
+              'monto',
+              'fecha_de_inicio',
+              'fecha_de_finalizacion',
+              'moneda',
+              'hs_object_id'
             ]
-          }
-        ],
-        limit: parseInt(limit),
-        sorts: [
-          {
-            propertyName: 'dealname',
-            direction: 'ASCENDING'
-          }
-        ],
-        properties: [
-          'dealname',
-          'dealstage',
-          'amount',
-          'closedate',
-          'createdate',
-          'hs_object_id',
-          'currency_code',
-          'dealtype'
-        ]
+          );
+          return agreement;
+        } catch (error) {
+          console.error(`❌ Error fetching agreement ${agreementId}:`, error);
+          return null;
+        }
+      });
+
+      const agreements = await Promise.all(agreementPromises);
+      const validAgreements = agreements.filter(agreement => agreement !== null);
+
+      searchResponse = { 
+        results: validAgreements, 
+        total: validAgreements.length 
       };
-
-      console.log('🔍 [fetchAgreementsByCompany] Search request:', searchRequest);
-
-      searchResponse = await hubspotClient.crm.deals.searchApi.doSearch(searchRequest);
     }
     
     console.log('🔍 [fetchAgreementsByCompany] Search response:', {
@@ -91,44 +83,47 @@ exports.main = async (context) => {
     });
 
     // Format results for UI
-    const agreements = searchResponse.results.map(deal => {
+    const agreements = searchResponse.results.map(agreement => {
       try {
-        const properties = deal.properties || {};
-        const dealName = properties.dealname || 'Unnamed Agreement';
-        const dealStage = properties.dealstage || '';
-        const amount = properties.amount || '';
-        const currency = properties.currency_code || '';
-        const closeDate = properties.closedate || '';
+        const properties = agreement.properties || {};
+        const agreementName = properties.nombre || 'Unnamed Agreement';
+        const estado = properties.estado || '';
+        const amount = properties.monto || '';
+        const currency = properties.moneda || '';
+        const startDate = properties.fecha_de_inicio || '';
+        const endDate = properties.fecha_de_finalizacion || '';
         
         // Create display label
-        let label = dealName;
+        let label = agreementName;
         if (amount && currency) {
           label += ` (${amount} ${currency})`;
         }
-        if (dealStage) {
-          label += ` - ${dealStage}`;
+        if (estado) {
+          label += ` - ${estado}`;
         }
         
         return {
-          value: deal.id || '',
+          value: agreement.id || '',
           label: label,
-          dealName: dealName,
-          dealStage: dealStage,
+          dealName: agreementName,
+          dealStage: estado,
           amount: amount,
           currency: currency,
-          closeDate: closeDate,
+          startDate: startDate,
+          endDate: endDate,
           companyId: companyId
         };
       } catch (error) {
-        console.error('❌ [fetchAgreementsByCompany] Error formatting deal:', error, deal);
+        console.error('❌ [fetchAgreementsByCompany] Error formatting agreement:', error, agreement);
         return {
-          value: deal.id || '',
+          value: agreement.id || '',
           label: 'Error formatting agreement',
           dealName: 'Error',
           dealStage: '',
           amount: '',
           currency: '',
-          closeDate: '',
+          startDate: '',
+          endDate: '',
           companyId: companyId
         };
       }
