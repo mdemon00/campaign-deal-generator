@@ -106,6 +106,7 @@ const CommercialAgreement = forwardRef(({
   // Load agreements when a company is selected
   useEffect(() => {
     if (isEditMode && selectedCompany && selectedCompany.value) {
+      console.log('🔄 [LOAD] Loading agreements for selected company:', selectedCompany);
       fetchAgreementsByCompany(selectedCompany.value);
     } else if (isEditMode && !selectedCompany) {
       // Clear agreements when no company is selected
@@ -114,6 +115,22 @@ const CommercialAgreement = forwardRef(({
       onChange('currency', '');
     }
   }, [selectedCompany, isEditMode]);
+
+  // After agreements are loaded, select the saved agreement
+  useEffect(() => {
+    if (isEditMode && agreements.length > 1 && formData.commercialAgreement && 
+        saveState === COMPONENT_SAVE_STATES.SAVED) {
+      const savedAgreement = agreements.find(a => a.value === formData.commercialAgreement);
+      if (savedAgreement) {
+        console.log('✅ [LOAD] Found and selected saved agreement:', savedAgreement.label);
+        // The agreement is already set in formData, just ensure it's in the dropdown
+        if (savedAgreement.currency) {
+          onChange('currency', savedAgreement.currency);
+          console.log('💰 [LOAD] Set currency from loaded agreement:', savedAgreement.currency);
+        }
+      }
+    }
+  }, [agreements, formData.commercialAgreement, saveState, isEditMode]);
 
   // Fetch agreement dates and products when commercial agreement is initially loaded (edit mode only)
   useEffect(() => {
@@ -259,18 +276,45 @@ const CommercialAgreement = forwardRef(({
           }
         });
 
-        // Update display labels from association data
+        // Update display labels from association data and set search terms
         const newDisplayLabels = { ...displayLabels };
         
         if (data.associations?.company) {
           newDisplayLabels.company = data.associations.company.label;
           setCompanySearchTerm(data.associations.company.label);
+          
           // Set selected company for agreement loading
-          setSelectedCompany({
-            value: data.formData.company,
+          const companyData = {
+            value: data.associations.company.id || data.formData.company,
             label: data.associations.company.label,
             companyName: data.associations.company.label
-          });
+          };
+          setSelectedCompany(companyData);
+          
+          // Add company to companies list so it appears in dropdown
+          setCompanies([
+            { label: "Select Company", value: "" },
+            companyData
+          ]);
+          setLastCompanySearchTerm(data.associations.company.label);
+          
+          console.log('🏢 [LOAD] Set company from associations:', companyData);
+        } else if (data.formData.company) {
+          // Fallback: try to populate from form data if no association
+          console.log('🔍 [LOAD] No company association, trying to load company:', data.formData.company);
+          
+          // Try to fetch company details by name/ID
+          const companyData = {
+            value: data.formData.company,
+            label: data.formData.company,
+            companyName: data.formData.company
+          };
+          setSelectedCompany(companyData);
+          setCompanySearchTerm(data.formData.company);
+          setCompanies([
+            { label: "Select Company", value: "" },
+            companyData
+          ]);
         }
         
         if (data.associations?.commercialAgreement) {
