@@ -30,7 +30,8 @@ const BasicInformation = forwardRef(({
   runServerless,
   context,
   onSaveStatusChange,
-  isEditMode = false
+  isEditMode = false,
+  updatedByUser = null
 }, ref) => {
 
   // === SAVE/LOAD STATE ===
@@ -1220,7 +1221,7 @@ const BasicInformation = forwardRef(({
         </Box>
 
         {/* ROW 7: Campaign Type */}
-        <Box>
+        <Box marginBottom="extra-large">
           {/* CAMPAIGN TYPE - VIEW/EDIT MODE */}
           {!isEditMode ? (
             <Input
@@ -1244,6 +1245,38 @@ const BasicInformation = forwardRef(({
             />
           )}
         </Box>
+
+        <Divider />
+
+        {/* ROW 8: Updated By Information */}
+        {updatedByUser && (
+          <Box marginBottom="extra-large">
+            <Flex direction="row" gap="medium" wrap="wrap">
+              {updatedByUser.displayName && (
+                <Box flex={1} minWidth="250px">
+                  <Input
+                    label="Last Updated By"
+                    name="lastUpdatedBy"
+                    placeholder="No update information"
+                    value={updatedByUser.displayName}
+                    readOnly
+                  />
+                </Box>
+              )}
+              {updatedByUser.lastModifiedDate && (
+                <Box flex={1} minWidth="250px">
+                  <Input
+                    label="Last Modified Date"
+                    name="lastModifiedDate"
+                    placeholder="No modification date"
+                    value={new Date(updatedByUser.lastModifiedDate).toLocaleString()}
+                    readOnly
+                  />
+                </Box>
+              )}
+            </Flex>
+          </Box>
+        )}
       </Box>
     </Tile>
   );

@@ -27,7 +27,8 @@ exports.main = async (context) => {
         'basic_info_saved',
         'basic_info_saved_date',
         'last_modified_date',
-        'hs_updated_by_user_id'
+        'hs_updated_by_user_id',
+        'hs_lastmodifieddate'
       ]
     );
 
@@ -297,6 +298,13 @@ exports.main = async (context) => {
     // Step 7: Load Updated By User details (if available) - Using HubSpot Owners API
     let updatedByUserInfo = null;
     
+    // Always include lastModifiedDate if available
+    if (properties.hs_lastmodifieddate) {
+      updatedByUserInfo = {
+        lastModifiedDate: properties.hs_lastmodifieddate
+      };
+    }
+    
     if (properties.hs_updated_by_user_id) {
       try {
         // Fetch updated by user details using HubSpot Owners API
@@ -325,6 +333,7 @@ exports.main = async (context) => {
         }
 
         updatedByUserInfo = {
+          ...updatedByUserInfo,
           id: properties.hs_updated_by_user_id,
           displayName: displayName,
           email: email
@@ -333,6 +342,7 @@ exports.main = async (context) => {
       } catch (error) {
         console.warn('⚠️ Could not load Updated By User details:', error.message);
         updatedByUserInfo = {
+          ...updatedByUserInfo,
           id: properties.hs_updated_by_user_id,
           displayName: `User ${properties.hs_updated_by_user_id}`,
           email: ''

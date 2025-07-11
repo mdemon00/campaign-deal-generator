@@ -472,6 +472,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
               context={context}
               onSaveStatusChange={handleBasicInfoSaveStatusChange}
               isEditMode={isEditMode}
+              updatedByUser={updatedByUser}
             />
           </Box>
 
@@ -612,12 +613,6 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
                 </Text>
               )}
               
-              {/* Show updated by user info */}
-              {updatedByUser && (
-                <Text variant="microcopy" format={{ color: 'medium' }} align="center">
-                  Last updated by: {updatedByUser.displayName}
-                </Text>
-              )}
             </Flex>
           </Box>
         </>
