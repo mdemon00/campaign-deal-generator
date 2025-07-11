@@ -773,7 +773,7 @@ const BasicInformation = forwardRef(({
 
   return (
     <Tile>
-      <Heading>Basic Information</Heading>
+      <Heading>Information</Heading>
       <Divider />
 
 
