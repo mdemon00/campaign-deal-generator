@@ -69,10 +69,7 @@ const LineItems = forwardRef(({
     bonus: 0,
 
     // Agreement pricing indicator
-    hasAgreementPricing: false,
-
-    // Agreement dates indicator
-    hasAgreementDates: false
+    hasAgreementPricing: false
   });
 
   const [lineItemCounter, setLineItemCounter] = useState(0);
@@ -122,133 +119,16 @@ const LineItems = forwardRef(({
     }
   }, [lineItems, initialLineItems, saveState, hasUnsavedChanges, isEditMode]);
 
-  // Function to update agreement dates
-  const updateAgreementDates = async (agreementDates) => {
-    console.log(`🔄 Updating agreement dates:`, agreementDates);
-    
-    if (agreementDates && (agreementDates.startDate || agreementDates.endDate)) {
-      // Convert HubSpot property dates to DateInput format
-      let startDateObj = null;
-      let endDateObj = null;
-      
-      if (agreementDates.startDate) {
-        // Parse HubSpot date format (YYYY-MM-DD or timestamp)
-        const startDate = new Date(agreementDates.startDate);
-        if (!isNaN(startDate.getTime())) {
-          startDateObj = {
-            year: startDate.getFullYear(),
-            month: startDate.getMonth(),
-            date: startDate.getDate()
-          };
-        }
-      }
-      
-      if (agreementDates.endDate) {
-        // Parse HubSpot date format (YYYY-MM-DD or timestamp)
-        const endDate = new Date(agreementDates.endDate);
-        if (!isNaN(endDate.getTime())) {
-          endDateObj = {
-            year: endDate.getFullYear(),
-            month: endDate.getMonth(),
-            date: endDate.getDate()
-          };
-        }
-      }
-      
-      console.log('📅 Applying agreement dates:', {
-        startDate: startDateObj,
-        endDate: endDateObj
-      });
 
-      setNewLineItem(prev => ({
-        ...prev,
-        startDate: startDateObj,
-        endDate: endDateObj,
-        hasAgreementDates: !!(startDateObj || endDateObj)
-      }));
-    } else {
-      // Clear agreement dates when no agreement dates
-      setNewLineItem(prev => ({
-        ...prev,
-        startDate: null,
-        endDate: null,
-        hasAgreementDates: false
-      }));
-    }
-  };
-
-  // Function to apply common agreement dates to the form
-  const applyCommonAgreementDates = (products) => {
-    if (!products || products.length === 0) return;
-
-    // Find common start and end dates across all agreement products
-    let commonStartDate = null;
-    let commonEndDate = null;
-    let hasConsistentDates = true;
-
-    for (const product of products) {
-      const values = product.values;
-      
-      if (values.start_date) {
-        const startDate = new Date(parseInt(values.start_date));
-        const startDateObj = {
-          year: startDate.getFullYear(),
-          month: startDate.getMonth(),
-          date: startDate.getDate()
-        };
-
-        if (!commonStartDate) {
-          commonStartDate = startDateObj;
-        } else if (JSON.stringify(commonStartDate) !== JSON.stringify(startDateObj)) {
-          hasConsistentDates = false;
-          break;
-        }
-      }
-
-      if (values.end_date) {
-        const endDate = new Date(parseInt(values.end_date));
-        const endDateObj = {
-          year: endDate.getFullYear(),
-          month: endDate.getMonth(),
-          date: endDate.getDate()
-        };
-
-        if (!commonEndDate) {
-          commonEndDate = endDateObj;
-        } else if (JSON.stringify(commonEndDate) !== JSON.stringify(endDateObj)) {
-          hasConsistentDates = false;
-          break;
-        }
-      }
-    }
-
-    // Apply dates if they are consistent across all products
-    if (hasConsistentDates && (commonStartDate || commonEndDate)) {
-      console.log('📅 Applying common agreement dates:', {
-        startDate: commonStartDate,
-        endDate: commonEndDate
-      });
-
-      setNewLineItem(prev => ({
-        ...prev,
-        startDate: commonStartDate,
-        endDate: commonEndDate,
-        hasAgreementDates: !!(commonStartDate || commonEndDate)
-      }));
-    }
-  };
 
   // Watch for agreement products changes and update current selected product price and dates
   useEffect(() => {
     if (newLineItem.selectedProduct && newLineItem.productId) {
       console.log('🔄 Agreement products changed, recalculating price and dates for selected product');
 
-      // Recalculate price and dates for currently selected product
+      // Recalculate price for currently selected product
       let finalPrice = newLineItem.selectedProduct.price || 0;
-      let finalStartDate = newLineItem.startDate;
-      let finalEndDate = newLineItem.endDate;
       let hasAgreementPricing = false;
-      let hasAgreementDates = false;
 
       if (agreementProducts && agreementProducts.length > 0) {
         // Create matching key for agreement lookup
@@ -268,59 +148,24 @@ const LineItems = forwardRef(({
           finalPrice = values.pircing || 0;
           hasAgreementPricing = true;
 
-          // Override dates if available (convert from timestamp to HubSpot DateInput format)
-          if (values.start_date) {
-            // Convert Unix timestamp (milliseconds) to HubSpot DateInput object format
-            const date = new Date(parseInt(values.start_date));
-            finalStartDate = {
-              year: date.getFullYear(),
-              month: date.getMonth(), // 0-based month (0 = January)
-              date: date.getDate()
-            };
-            hasAgreementDates = true;
-          }
-          if (values.end_date) {
-            // Convert Unix timestamp (milliseconds) to HubSpot DateInput object format
-            const date = new Date(parseInt(values.end_date));
-            finalEndDate = {
-              year: date.getFullYear(),
-              month: date.getMonth(), // 0-based month (0 = January)
-              date: date.getDate()
-            };
-            hasAgreementDates = true;
-          }
-
           console.log(`🎯 Updated agreement data for ${newLineItem.selectedProduct.category}:`);
           console.log(`   💰 Price: ${finalPrice} ${currency} (was: ${newLineItem.selectedProduct.price})`);
-          if (hasAgreementDates) {
-            console.log(`   📅 Start Date: ${finalStartDate ? `${finalStartDate.date}/${finalStartDate.month + 1}/${finalStartDate.year}` : 'None'}`);
-            console.log(`   📅 End Date: ${finalEndDate ? `${finalEndDate.date}/${finalEndDate.month + 1}/${finalEndDate.year}` : 'None'}`);
-          }
         }
       }
 
-      // Update the price and dates if they changed
+      // Update the price if it changed
       const needsUpdate = (
         finalPrice !== newLineItem.price ||
-        hasAgreementPricing !== newLineItem.hasAgreementPricing ||
-        hasAgreementDates !== newLineItem.hasAgreementDates ||
-        finalStartDate !== newLineItem.startDate ||
-        finalEndDate !== newLineItem.endDate
+        hasAgreementPricing !== newLineItem.hasAgreementPricing
       );
 
       if (needsUpdate) {
         setNewLineItem(prev => ({
           ...prev,
           price: finalPrice,
-          startDate: finalStartDate,
-          endDate: finalEndDate,
-          hasAgreementPricing: hasAgreementPricing,
-          hasAgreementDates: hasAgreementDates
+          hasAgreementPricing: hasAgreementPricing
         }));
         console.log(`💰 Price automatically updated to: ${finalPrice} ${currency}`);
-        if (hasAgreementDates) {
-          console.log(`📅 Dates automatically updated - Start: ${finalStartDate}, End: ${finalEndDate}`);
-        }
       }
     }
   }, [agreementProducts, currency]); // Watch for changes to agreement products
@@ -404,7 +249,7 @@ const LineItems = forwardRef(({
     }
   };
 
-  // Expose save method, agreement dates update, and agreement products loading to parent
+  // Expose save method and agreement products loading to parent
   useImperativeHandle(ref, () => ({
     save: async () => {
       if (!lineItems || lineItems.length === 0) {
@@ -415,7 +260,6 @@ const LineItems = forwardRef(({
       if (saveState === COMPONENT_SAVE_STATES.ERROR) return "Failed to save Line Items.";
       return null;
     },
-    updateAgreementDates: updateAgreementDates,
     loadAgreementProducts: loadAgreementProducts
   }));
 
@@ -531,24 +375,18 @@ const LineItems = forwardRef(({
         productId: "",
         selectedProduct: null,
         price: 0,
-        startDate: null,
-        endDate: null,
         buyingModel: "",
         units: "",
         category: "",
         name: "", // Clear name when no product selected
-        hasAgreementPricing: false,
-        hasAgreementDates: false
+        hasAgreementPricing: false
       }));
       return;
     }
 
-    // Check for agreement pricing and dates override
+    // Check for agreement pricing override
     let finalPrice = selectedProduct.price || 0;
-    let finalStartDate = null;
-    let finalEndDate = null;
     let hasAgreementPricing = false;
-    let hasAgreementDates = false;
 
     if (agreementProducts && agreementProducts.length > 0) {
       // Create matching key for agreement lookup
@@ -568,34 +406,8 @@ const LineItems = forwardRef(({
         finalPrice = values.pircing || 0;
         hasAgreementPricing = true;
 
-        // Override dates if available (convert from timestamp to HubSpot DateInput format)
-        if (values.start_date) {
-          // Convert Unix timestamp (milliseconds) to HubSpot DateInput object format
-          const date = new Date(parseInt(values.start_date));
-          finalStartDate = {
-            year: date.getFullYear(),
-            month: date.getMonth(), // 0-based month (0 = January)
-            date: date.getDate()
-          };
-          hasAgreementDates = true;
-        }
-        if (values.end_date) {
-          // Convert Unix timestamp (milliseconds) to HubSpot DateInput object format
-          const date = new Date(parseInt(values.end_date));
-          finalEndDate = {
-            year: date.getFullYear(),
-            month: date.getMonth(), // 0-based month (0 = January)
-            date: date.getDate()
-          };
-          hasAgreementDates = true;
-        }
-
         console.log(`🎯 Using agreement data for ${selectedProduct.category}:`);
         console.log(`   💰 Price: ${finalPrice} ${currency} (was: ${selectedProduct.price})`);
-        if (hasAgreementDates) {
-          console.log(`   📅 Start Date: ${finalStartDate ? `${finalStartDate.date}/${finalStartDate.month + 1}/${finalStartDate.year}` : 'None'}`);
-          console.log(`   📅 End Date: ${finalEndDate ? `${finalEndDate.date}/${finalEndDate.month + 1}/${finalEndDate.year}` : 'None'}`);
-        }
       }
     }
 
@@ -605,14 +417,11 @@ const LineItems = forwardRef(({
       productId: productId,
       selectedProduct: selectedProduct,
       price: finalPrice,
-      startDate: finalStartDate || prev.startDate, // Use agreement date or keep existing
-      endDate: finalEndDate || prev.endDate, // Use agreement date or keep existing
       buyingModel: selectedProduct.buyingModel,
       units: selectedProduct.units,
       category: selectedProduct.category,
       name: selectedProduct.label, // Auto-fill name with product name
-      hasAgreementPricing: hasAgreementPricing,
-      hasAgreementDates: hasAgreementDates
+      hasAgreementPricing: hasAgreementPricing
     }));
 
     // console.log($2
@@ -701,8 +510,7 @@ const LineItems = forwardRef(({
       category: "",
       billable: 0,
       bonus: 0,
-      hasAgreementPricing: false,
-      hasAgreementDates: false
+      hasAgreementPricing: false
     });
 
     onAlert({
@@ -820,8 +628,7 @@ const LineItems = forwardRef(({
       category: itemToEdit.category || "",
       billable: itemToEdit.billable || 0,
       bonus: itemToEdit.bonus || 0,
-      hasAgreementPricing: itemToEdit.hasAgreementPricing || false,
-      hasAgreementDates: itemToEdit.hasAgreementDates || false
+      hasAgreementPricing: itemToEdit.hasAgreementPricing || false
     });
 
     setEditingItemIndex(index);
@@ -863,8 +670,7 @@ const LineItems = forwardRef(({
       category: "",
       billable: 0,
       bonus: 0,
-      hasAgreementPricing: false,
-      hasAgreementDates: false
+      hasAgreementPricing: false
     });
 
     setEditingItemIndex(null);
@@ -1313,15 +1119,6 @@ const LineItems = forwardRef(({
                   value={newLineItem.startDate}
                   onChange={(value) => handleNewLineItemChange("startDate", value)}
                 />
-                {newLineItem.hasAgreementDates && newLineItem.startDate ? (
-                  <Text variant="microcopy" format={{ color: 'success' }} marginTop="extra-small">
-                    Agreement start date applied
-                  </Text>
-                ) : newLineItem.startDate && !newLineItem.hasAgreementDates ? (
-                  <Text variant="microcopy" format={{ color: 'medium' }} marginTop="extra-small">
-                    Custom start date
-                  </Text>
-                ) : null}
               </Box>
               <Box flex={1} minWidth="150px">
                 <DateInput
@@ -1330,15 +1127,6 @@ const LineItems = forwardRef(({
                   value={newLineItem.endDate}
                   onChange={(value) => handleNewLineItemChange("endDate", value)}
                 />
-                {newLineItem.hasAgreementDates && newLineItem.endDate ? (
-                  <Text variant="microcopy" format={{ color: 'success' }} marginTop="extra-small">
-                    Agreement end date applied
-                  </Text>
-                ) : newLineItem.endDate && !newLineItem.hasAgreementDates ? (
-                  <Text variant="microcopy" format={{ color: 'medium' }} marginTop="extra-small">
-                    Custom end date
-                  </Text>
-                ) : null}
               </Box>
               <Box flex={1} minWidth="120px">
                 <Input
