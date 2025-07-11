@@ -1133,9 +1133,9 @@ const LineItems = forwardRef(({
         <TableCell>{renderViewModeCell(item.id)}{isBeingEdited && " ✏️"}</TableCell>
         <TableCell>{renderViewModeCell(item.category || "DSP Display")}</TableCell>
         <TableCell>{renderViewModeCell(item.name)}</TableCell>
-        <TableCell>{renderViewModeCell(item.buyingModel || "CPM")}</TableCell>
         <TableCell>{renderViewModeCell(formatDate(item.startDate))}</TableCell>
         <TableCell>{renderViewModeCell(formatDate(item.endDate))}</TableCell>
+        <TableCell>{renderViewModeCell(item.buyingModel || "CPM")}</TableCell>
         <TableCell>{renderViewModeCell(item.price ? `${item.price} ${currency}` : `0.00 ${currency}`)}</TableCell>
         <TableCell>{renderViewModeCell(item.units || "Units")}</TableCell>
         <TableCell>{renderViewModeCell(item.billable)}</TableCell>
@@ -1341,6 +1341,20 @@ const LineItems = forwardRef(({
                 ) : null}
               </Box>
               <Box flex={1} minWidth="120px">
+                <Input
+                  label="Buying Model"
+                  name="newItemBuyingModel"
+                  placeholder="Enter buying model"
+                  value={newLineItem.buyingModel}
+                  onChange={(value) => handleNewLineItemChange("buyingModel", value)}
+                />
+                {newLineItem.selectedProduct && newLineItem.buyingModel ? (
+                  <Text variant="microcopy" format={{ color: 'medium' }} marginTop="extra-small">
+                    From selected product
+                  </Text>
+                ) : null}
+              </Box>
+              <Box flex={1} minWidth="120px">
                 <NumberInput
                   label={`Price (${currency})`}
                   name="newItemPrice"
@@ -1418,9 +1432,9 @@ const LineItems = forwardRef(({
                 <TableHeader>#</TableHeader>
                 <TableHeader>Category</TableHeader>
                 <TableHeader>Name</TableHeader>
-                <TableHeader>Buying Model</TableHeader>
                 <TableHeader>Start Date</TableHeader>
                 <TableHeader>End Date</TableHeader>
+                <TableHeader>Buying Model</TableHeader>
                 <TableHeader>Price</TableHeader>
                 <TableHeader>Units</TableHeader>
                 <TableHeader>Billable Qty</TableHeader>
