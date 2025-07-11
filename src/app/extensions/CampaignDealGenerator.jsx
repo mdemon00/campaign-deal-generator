@@ -55,6 +55,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
   // === FORM STATE ===
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
   const [lineItems, setLineItems] = useState([]);
+  const [updatedByUser, setUpdatedByUser] = useState(null);
 
   // === SAVE STATUS TRACKING ===
   const [basicInfoSaveStatus, setBasicInfoSaveStatus] = useState({
@@ -187,6 +188,11 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
           lastSaved: data.metadata?.lastSaved,
           hasData: !!(data.formData.campaignName || data.formData.advertiser)
         });
+
+        // Set updated by user information if available
+        if (data.associations?.updatedByUser) {
+          setUpdatedByUser(data.associations.updatedByUser);
+        }
 
         console.log('🔍 [PARENT] Basic info loaded with auto-populated data:', data.formData);
       }
@@ -603,6 +609,13 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
                   {commercialAgreementSaveStatus.lastSaved && ` Commercial Agreement (${commercialAgreementSaveStatus.lastSaved})`}
                   {(commercialAgreementSaveStatus.lastSaved && lineItemsSaveStatus.lastSaved) && `, `}
                   {lineItemsSaveStatus.lastSaved && ` Line Items (${lineItemsSaveStatus.lastSaved})`}
+                </Text>
+              )}
+              
+              {/* Show updated by user info */}
+              {updatedByUser && (
+                <Text variant="microcopy" format={{ color: 'medium' }} align="center">
+                  Last updated by: {updatedByUser.displayName}
                 </Text>
               )}
             </Flex>

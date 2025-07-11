@@ -26,7 +26,8 @@ exports.main = async (context) => {
         'created_by',
         'basic_info_saved',
         'basic_info_saved_date',
-        'last_modified_date'
+        'last_modified_date',
+        'hs_updated_by_user_id'
       ]
     );
 
@@ -293,7 +294,53 @@ exports.main = async (context) => {
       }
     }
 
-    // Step 7: Prepare form data
+    // Step 7: Load Updated By User details (if available) - Using HubSpot Owners API
+    let updatedByUserInfo = null;
+    
+    if (properties.hs_updated_by_user_id) {
+      try {
+        // Fetch updated by user details using HubSpot Owners API
+        const response = await hubspotClient.apiRequest({
+          method: 'GET',
+          path: `/crm/v3/owners/${properties.hs_updated_by_user_id}`
+        });
+
+        const ownerData = await response.json();
+        
+        const firstName = ownerData.firstName || '';
+        const lastName = ownerData.lastName || '';
+        const email = ownerData.email || '';
+        
+        let displayName;
+        if (firstName && lastName) {
+          displayName = `${firstName} ${lastName}`;
+        } else if (firstName) {
+          displayName = firstName;
+        } else if (lastName) {
+          displayName = lastName;
+        } else if (email) {
+          displayName = email;
+        } else {
+          displayName = `User ${properties.hs_updated_by_user_id}`;
+        }
+
+        updatedByUserInfo = {
+          id: properties.hs_updated_by_user_id,
+          displayName: displayName,
+          email: email
+        };
+        
+      } catch (error) {
+        console.warn('⚠️ Could not load Updated By User details:', error.message);
+        updatedByUserInfo = {
+          id: properties.hs_updated_by_user_id,
+          displayName: `User ${properties.hs_updated_by_user_id}`,
+          email: ''
+        };
+      }
+    }
+
+    // Step 8: Prepare form data
     const formData = {
       campaignName: properties.campaign_name || '',
       campaignType: properties.campaign_type || '',
@@ -324,7 +371,8 @@ exports.main = async (context) => {
           advertiser: advertiserInfo,
           dealOwner: dealOwnerInfo,
           assignedCustomerService: customerServiceInfo,
-          contact: contactInfo
+          contact: contactInfo,
+          updatedByUser: updatedByUserInfo
         },
         companyInfo,
         metadata: {
