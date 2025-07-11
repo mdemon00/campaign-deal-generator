@@ -144,18 +144,23 @@ const CommercialAgreement = forwardRef(({
         // Select the agreement
         onChange('commercialAgreement', savedAgreement.value);
         
-        // Set currency from the saved agreement
+        // Set currency from the saved agreement or initial data
         console.log('🔍 [LOAD] Agreement currency check:', {
           agreementId: savedAgreement.value,
           agreementLabel: savedAgreement.label,
           currency: savedAgreement.currency,
           hasCurrency: !!savedAgreement.currency,
+          initialCurrency: initialFormData?.currency,
           fullAgreementData: savedAgreement
         });
         
         if (savedAgreement.currency) {
           onChange('currency', savedAgreement.currency);
           console.log('💰 [LOAD] Auto-set currency from agreement:', savedAgreement.currency);
+        } else if (initialFormData?.currency) {
+          // Use saved currency from initial form data if agreement doesn't have currency
+          onChange('currency', initialFormData.currency);
+          console.log('💰 [LOAD] Auto-set currency from saved data:', initialFormData.currency);
         } else {
           console.log('⚠️ [LOAD] No currency in agreement data, will be set later via fetchAgreementDates');
         }
@@ -469,12 +474,10 @@ const CommercialAgreement = forwardRef(({
           console.log(`🔄 Updated LineItems with agreement dates`);
         }
         
-        // Set currency from agreement data if available (but only if not already set during auto-selection)
-        if (agreementData.moneda && !formData.currency) {
+        // Set currency from agreement data if available
+        if (agreementData.moneda) {
           console.log(`💰 [LOAD] Setting currency from fetchAgreementDates: ${agreementData.moneda}`);
           onChange('currency', agreementData.moneda);
-        } else if (agreementData.moneda && formData.currency) {
-          console.log(`💰 [LOAD] Currency already set (${formData.currency}), skipping fetchAgreementDates currency update`);
         } else {
           console.log(`⚠️ [LOAD] No moneda field in agreement dates response:`, Object.keys(agreementData));
         }
