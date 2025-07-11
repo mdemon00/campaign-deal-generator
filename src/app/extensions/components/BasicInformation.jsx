@@ -778,17 +778,45 @@ const BasicInformation = forwardRef(({
 
 
       <Box marginTop="medium">
-        {/* ROW 1: Campaign Name */}
+        {/* ROW 1: Campaign Name + Campaign Type */}
         <Box marginBottom="extra-large">
-          <Input
-            label="Campaign Name *"
-            name="campaignName"
-            placeholder={isEditMode ? "Enter campaign name" : "No campaign name"}
-            value={formData.campaignName}
-            onChange={isEditMode ? (value) => handleFieldChange("campaignName", value) : undefined}
-            readOnly={!isEditMode}
-            required={isEditMode}
-          />
+          <Flex direction="row" gap="medium" wrap="wrap">
+            <Box flex={2} minWidth="300px">
+              <Input
+                label="Campaign Name *"
+                name="campaignName"
+                placeholder={isEditMode ? "Enter campaign name" : "No campaign name"}
+                value={formData.campaignName}
+                onChange={isEditMode ? (value) => handleFieldChange("campaignName", value) : undefined}
+                readOnly={!isEditMode}
+                required={isEditMode}
+              />
+            </Box>
+            <Box flex={1} minWidth="250px">
+              {/* CAMPAIGN TYPE - VIEW/EDIT MODE */}
+              {!isEditMode ? (
+                <Input
+                  label="Campaign Type *"
+                  name="campaignType"
+                  placeholder="No campaign type selected"
+                  value={
+                    displayLabels.campaignType ||
+                    (formData.campaignType ? `Campaign Type (${formData.campaignType})` : "")
+                  }
+                  readOnly
+                />
+              ) : (
+                <Select
+                  label="Campaign Type *"
+                  name="campaignType"
+                  options={CAMPAIGN_TYPE_OPTIONS}
+                  value={formData.campaignType}
+                  onChange={(value) => handleFieldChange("campaignType", value)}
+                  required
+                />
+              )}
+            </Box>
+          </Flex>
         </Box>
 
         <Divider></ Divider>
@@ -1217,32 +1245,6 @@ const BasicInformation = forwardRef(({
                 </Box>
               )}
             </>
-          )}
-        </Box>
-
-        {/* ROW 7: Campaign Type */}
-        <Box marginBottom="extra-large">
-          {/* CAMPAIGN TYPE - VIEW/EDIT MODE */}
-          {!isEditMode ? (
-            <Input
-              label="Campaign Type *"
-              name="campaignType"
-              placeholder="No campaign type selected"
-              value={
-                displayLabels.campaignType ||
-                (formData.campaignType ? `Campaign Type (${formData.campaignType})` : "")
-              }
-              readOnly
-            />
-          ) : (
-            <Select
-              label="Campaign Type *"
-              name="campaignType"
-              options={CAMPAIGN_TYPE_OPTIONS}
-              value={formData.campaignType}
-              onChange={(value) => handleFieldChange("campaignType", value)}
-              required
-            />
           )}
         </Box>
 
