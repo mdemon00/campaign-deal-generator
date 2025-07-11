@@ -1162,6 +1162,20 @@ const LineItems = forwardRef(({
                 ) : null}
               </Box>
               <Box flex={1} minWidth="120px">
+                <Input
+                  label="Units"
+                  name="newItemUnits"
+                  placeholder="Enter units"
+                  value={newLineItem.units}
+                  onChange={(value) => handleNewLineItemChange("units", value)}
+                />
+                {newLineItem.selectedProduct && newLineItem.units ? (
+                  <Text variant="microcopy" format={{ color: 'medium' }} marginTop="extra-small">
+                    From selected product
+                  </Text>
+                ) : null}
+              </Box>
+              <Box flex={1} minWidth="120px">
                 <NumberInput
                   label={`Billable ${newLineItem.units || 'Quantity'}`}
                   name="newItemBillable"
