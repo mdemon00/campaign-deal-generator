@@ -1110,6 +1110,7 @@ const LineItems = forwardRef(({
 
           <Divider></ Divider>
 
+          {/* Date and Buying Model Row */}
           <Box marginTop="medium">
             <Flex direction="row" gap="medium" wrap="wrap">
               <Box flex={1} minWidth="150px">
@@ -1142,6 +1143,12 @@ const LineItems = forwardRef(({
                   </Text>
                 ) : null}
               </Box>
+            </Flex>
+          </Box>
+
+          {/* Price and Quantity Row */}
+          <Box marginTop="medium">
+            <Flex direction="row" gap="medium" wrap="wrap">
               <Box flex={1} minWidth="120px">
                 <NumberInput
                   label={`Price (${currency})`}
