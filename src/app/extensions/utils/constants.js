@@ -72,7 +72,7 @@ export const HUBSPOT_OBJECT_IDS = {
 export const VALIDATION_RULES = {
   REQUIRED_BASIC_FIELDS: ['campaignName', 'advertiser', 'dealOwner', 'assignedCustomerService', 'contact', 'campaignType'], // ✅ Updated
   REQUIRED_LINE_ITEM_FIELDS: ['name', 'startDate', 'endDate'],
-  REQUIRED_CAMPAIGN_DETAILS_FIELDS: ['taxId', 'businessName'], // ✅ Updated - removed moved fields
+  REQUIRED_CAMPAIGN_DETAILS_FIELDS: ['businessName'], // ✅ Updated - removed moved fields
   REQUIRED_COMMERCIAL_AGREEMENT_FIELDS: ['commercialAgreement'], // ✅ New section
   MIN_LINE_ITEMS: 1
 };
@@ -87,18 +87,15 @@ export const INITIAL_FORM_STATE = {
   assignedCustomerService: "", // ✅ Moved from Campaign Details (was dealCS)
   contact: "", // ✅ New field
   campaignType: "", // ✅ Moved from Campaign Details
-  linkToGoogleDrive: "", // ✅ New field
   commercialAgreement: "", // ✅ Moved to Commercial Agreement section
   company: "", // ✅ Moved to Commercial Agreement section
   currency: "", // ✅ Moved to Commercial Agreement section
-  taxId: "", // ✅ Remains in Campaign Details
   businessName: "" // ✅ Remains in Campaign Details
 };
 
 // Initial campaign details state
 export const INITIAL_CAMPAIGN_DETAILS_STATE = {
   campaignType: "",
-  taxId: "",
   businessName: "",
   dealCS: ""
 };

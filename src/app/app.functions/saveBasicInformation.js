@@ -8,14 +8,12 @@ exports.main = async (context) => {
     const {
       campaignDealId,
       campaignName,
-      taxId,
       campaignType,
       commercialAgreement,
       advertiser,
       dealOwner,
       assignedCustomerService,
       contact,
-      linkToGoogleDrive,
       createdBy
     } = context.parameters;
 
@@ -32,14 +30,12 @@ exports.main = async (context) => {
     // Step 1: Update Campaign Deal properties
     const updateProperties = {
       campaign_name: campaignName || '',
-      tax_id: taxId || '',
       campaign_type: campaignType || '',
       commercial_agreement_id: commercialAgreement || '',
       advertiser_id: advertiser || '',
       deal_owner_id: dealOwner || '', // This is a HubSpot User property
       deal_cs_id: assignedCustomerService || '', // Customer service representative
       contact_id: contact || '', // Contact association
-      link_to_google_drive: linkToGoogleDrive || '', // Google Drive link - Fixed property name
       created_by: createdBy || '',
       basic_info_saved: 'Saved', // ✅ Fixed: Use 'Saved' with capital S
       basic_info_saved_date: new Date().toISOString().split('T')[0], // YYYY-MM-DD format

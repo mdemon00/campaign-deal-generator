@@ -143,7 +143,6 @@ const getFieldLabel = (fieldName) => {
     startDate: 'Start Date',
     endDate: 'End Date',
     campaignType: 'Campaign Type',
-    taxId: 'Tax ID',
     businessName: 'Business Name',
     dealCS: 'Deal CS'
   };

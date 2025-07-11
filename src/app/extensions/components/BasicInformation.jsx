@@ -124,7 +124,7 @@ const BasicInformation = forwardRef(({
   // Track form changes (only in edit mode)
   useEffect(() => {
     if (initialFormData && saveState === COMPONENT_SAVE_STATES.SAVED && isEditMode) {
-      const basicFields = ['campaignName', 'taxId', 'advertiser', 'advertiserCountry', 'advertiserCompany', 'dealOwner', 'assignedCustomerService', 'contact', 'campaignType', 'linkToGoogleDrive'];
+      const basicFields = ['campaignName', 'advertiser', 'advertiserCountry', 'advertiserCompany', 'dealOwner', 'assignedCustomerService', 'contact', 'campaignType'];
       const hasChanges = basicFields.some(key =>
         formData[key] !== initialFormData[key]
       );
@@ -273,7 +273,7 @@ const BasicInformation = forwardRef(({
         const data = response.response.data;
 
         // Populate form with loaded data
-        const basicFields = ['campaignName', 'taxId', 'advertiser', 'advertiserCountry', 'advertiserCompany', 'dealOwner', 'assignedCustomerService', 'contact', 'campaignType', 'linkToGoogleDrive'];
+        const basicFields = ['campaignName', 'advertiser', 'advertiserCountry', 'advertiserCompany', 'dealOwner', 'assignedCustomerService', 'contact', 'campaignType'];
         basicFields.forEach(key => {
           if (data.formData[key] !== formData[key]) {
             onChange(key, data.formData[key]);
@@ -323,7 +323,7 @@ const BasicInformation = forwardRef(({
           onSaveStatusChange({
             status: data.saveStatus,
             lastSaved: data.metadata?.lastSaved,
-            hasData: !!(data.formData.campaignName || data.formData.taxId || data.formData.advertiser),
+            hasData: !!(data.formData.campaignName || data.formData.advertiser),
             isUserSave: false // This is loading existing data, not a save action
           });
         }
@@ -350,7 +350,6 @@ const BasicInformation = forwardRef(({
         parameters: {
           campaignDealId: context.crm.objectId,
           campaignName: formData.campaignName,
-          taxId: formData.taxId,
           advertiser: formData.advertiser,
           advertiserCountry: formData.advertiserCountry,
           advertiserCompany: formData.advertiserCompany,
@@ -358,7 +357,6 @@ const BasicInformation = forwardRef(({
           assignedCustomerService: formData.assignedCustomerService,
           contact: formData.contact,
           campaignType: formData.campaignType,
-          linkToGoogleDrive: formData.linkToGoogleDrive,
           createdBy: `${context?.user?.firstName || ''} ${context?.user?.lastName || ''}`.trim()
         }
       });
@@ -367,7 +365,7 @@ const BasicInformation = forwardRef(({
         const data = response.response.data;
 
         // Update tracking state
-        const basicFields = ['campaignName', 'taxId', 'advertiser', 'advertiserCountry', 'advertiserCompany', 'dealOwner', 'assignedCustomerService', 'contact', 'campaignType', 'linkToGoogleDrive'];
+        const basicFields = ['campaignName', 'advertiser', 'advertiserCountry', 'advertiserCompany', 'dealOwner', 'assignedCustomerService', 'contact', 'campaignType'];
         const basicFormData = {};
         basicFields.forEach(key => {
           basicFormData[key] = formData[key];
@@ -700,7 +698,6 @@ const BasicInformation = forwardRef(({
     return saveState === COMPONENT_SAVE_STATES.SAVING ||
       saveState === COMPONENT_SAVE_STATES.LOADING ||
       !formData.campaignName ||
-      !formData.taxId ||
       !formData.advertiser ||
       !formData.dealOwner ||
       !formData.assignedCustomerService ||
@@ -759,7 +756,7 @@ const BasicInformation = forwardRef(({
   useImperativeHandle(ref, () => ({
     save: async () => {
       // Validate required fields
-      const requiredFields = ['campaignName', 'taxId', 'advertiser', 'dealOwner', 'assignedCustomerService', 'contact', 'campaignType'];
+      const requiredFields = ['campaignName', 'advertiser', 'dealOwner', 'assignedCustomerService', 'contact', 'campaignType'];
       const missingFields = requiredFields.filter(field => !formData[field]);
 
       if (missingFields.length > 0) {
@@ -780,33 +777,17 @@ const BasicInformation = forwardRef(({
 
 
       <Box marginTop="medium">
-        {/* ROW 1: Campaign Name + Tax ID */}
+        {/* ROW 1: Campaign Name */}
         <Box marginBottom="extra-large">
-          <Flex direction="row" gap="medium" wrap="wrap">
-            <Box flex={1} minWidth="250px">
-              <Input
-                label="Campaign Name *"
-                name="campaignName"
-                placeholder={isEditMode ? "Enter campaign name" : "No campaign name"}
-                value={formData.campaignName}
-                onChange={isEditMode ? (value) => handleFieldChange("campaignName", value) : undefined}
-                readOnly={!isEditMode}
-                required={isEditMode}
-              />
-            </Box>
-
-            <Box flex={1} minWidth="250px">
-              <Input
-                label="Tax ID *"
-                name="taxId"
-                placeholder={isEditMode ? "Enter or create new Tax ID" : "No tax ID"}
-                value={formData.taxId}
-                onChange={isEditMode ? (value) => handleFieldChange("taxId", value) : undefined}
-                readOnly={!isEditMode}
-                required={isEditMode}
-              />
-            </Box>
-          </Flex>
+          <Input
+            label="Campaign Name *"
+            name="campaignName"
+            placeholder={isEditMode ? "Enter campaign name" : "No campaign name"}
+            value={formData.campaignName}
+            onChange={isEditMode ? (value) => handleFieldChange("campaignName", value) : undefined}
+            readOnly={!isEditMode}
+            required={isEditMode}
+          />
         </Box>
 
         <Divider></ Divider>
@@ -1238,46 +1219,30 @@ const BasicInformation = forwardRef(({
           )}
         </Box>
 
-        {/* ROW 7: Campaign Type + Link to Google Drive */}
+        {/* ROW 7: Campaign Type */}
         <Box>
-          <Flex direction="row" gap="medium" wrap="wrap">
-            {/* CAMPAIGN TYPE - VIEW/EDIT MODE */}
-            <Box flex={1} minWidth="250px">
-              {!isEditMode ? (
-                <Input
-                  label="Campaign Type *"
-                  name="campaignType"
-                  placeholder="No campaign type selected"
-                  value={
-                    displayLabels.campaignType ||
-                    (formData.campaignType ? `Campaign Type (${formData.campaignType})` : "")
-                  }
-                  readOnly
-                />
-              ) : (
-                <Select
-                  label="Campaign Type *"
-                  name="campaignType"
-                  options={CAMPAIGN_TYPE_OPTIONS}
-                  value={formData.campaignType}
-                  onChange={(value) => handleFieldChange("campaignType", value)}
-                  required
-                />
-              )}
-            </Box>
-
-            {/* LINK TO GOOGLE DRIVE */}
-            <Box flex={1} minWidth="250px">
-              <Input
-                label="Link to Google Drive"
-                name="linkToGoogleDrive"
-                placeholder={isEditMode ? "Enter Google Drive link" : "No Google Drive link"}
-                value={formData.linkToGoogleDrive}
-                onChange={isEditMode ? (value) => handleFieldChange("linkToGoogleDrive", value) : undefined}
-                readOnly={!isEditMode}
-              />
-            </Box>
-          </Flex>
+          {/* CAMPAIGN TYPE - VIEW/EDIT MODE */}
+          {!isEditMode ? (
+            <Input
+              label="Campaign Type *"
+              name="campaignType"
+              placeholder="No campaign type selected"
+              value={
+                displayLabels.campaignType ||
+                (formData.campaignType ? `Campaign Type (${formData.campaignType})` : "")
+              }
+              readOnly
+            />
+          ) : (
+            <Select
+              label="Campaign Type *"
+              name="campaignType"
+              options={CAMPAIGN_TYPE_OPTIONS}
+              value={formData.campaignType}
+              onChange={(value) => handleFieldChange("campaignType", value)}
+              required
+            />
+          )}
         </Box>
       </Box>
     </Tile>

@@ -175,7 +175,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
         }
 
         // Update form data with auto-populated data
-        const basicFields = ['campaignName', 'taxId', 'advertiser', 'advertiserCountry', 'advertiserCompany', 'dealOwner', 'assignedCustomerService', 'contact', 'campaignType', 'linkToGoogleDrive'];
+        const basicFields = ['campaignName', 'advertiser', 'advertiserCountry', 'advertiserCompany', 'dealOwner', 'assignedCustomerService', 'contact', 'campaignType'];
         basicFields.forEach(key => {
           if (data.formData[key] !== formData[key]) {
             setFormData(prev => ({ ...prev, [key]: data.formData[key] }));
@@ -185,7 +185,7 @@ const CampaignDealExtension = ({ context, runServerless, sendAlert }) => {
         setBasicInfoSaveStatus({
           status: data.saveStatus || 'not_saved',
           lastSaved: data.metadata?.lastSaved,
-          hasData: !!(data.formData.campaignName || data.formData.taxId || data.formData.advertiser)
+          hasData: !!(data.formData.campaignName || data.formData.advertiser)
         });
 
         console.log('🔍 [PARENT] Basic info loaded with auto-populated data:', data.formData);
